@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grocery &amp; Pantry — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html" class="here">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 05 &middot; /grocery and /pantry</p>
+  <h1>The only screen used<br>standing up, one-handed.</h1>
+  <p class="lede">
+    Everything else in VioMacro is used sitting down. The grocery list is used in a supermarket,
+    holding a trolley, in bad light. That single fact should drive every decision here — and it is
+    the screen where reviewers of other apps are most emotional about the details.
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">AnyList</span><span class="take">People reorder categories to <b>match their own walk through the store</b>, then finish the shop far faster. The order is personal, not universal.</span></li>
+  <li><span class="src">The Kitchn</span><span class="take">The beloved micro-interaction: a checked item <b>fades for a second</b> — long enough to undo a mis-tap — then disappears, leaving only what is left.</span></li>
+  <li><span class="src">Plan to Eat</span><span class="take">The list must arrive from the plan <b>without being asked twice</b>. The handoff is the feature.</span></li>
+  <li><span class="src">Flipp</span><span class="take">Simple navigation beats feature depth on this screen. People praise it for removing clutter, not adding power.</span></li>
+  <li><span class="src">Your blueprint</span><span class="take">The list should be <b>inventory-aware</b> — subtract what is already in the pantry. Nobody studied here does this.</span></li>
+</ul>
+
+<h2>Concept A — the aisle walk</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/grocery</span>
+    <span class="concept-name">Big targets, one thumb, nothing above the fold but the list</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Design bet:</b> in the shop, the sidebar full of plan metadata is worthless. Move
+      everything contextual into a collapsed header and give the whole screen to items. Rows are
+      tall, targets are wide, and the counter tells you how much is left rather than how much
+      there was.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box"><b>14 left</b> <span class="hint">of 23 &middot; from your week plan</span></div>
+        <div class="box narrow ghost"><span>&#8942;</span></div>
+      </div>
+      <div class="meter m-cal"><i style="width:39%"></i></div>
+
+      <div class="box"><b>Quick add</b> <span class="hint">"2 kg flour" &rarr; parsed, Enter to add</span></div>
+
+      <div class="stack-label">Produce &mdash; 4 left</div>
+      <div class="wire-row"><div class="box"><span>&#9633;&nbsp;&nbsp;Spinach &middot; 200 g</span></div></div>
+      <div class="wire-row"><div class="box"><span>&#9633;&nbsp;&nbsp;Avocado &times; 3</span></div></div>
+      <div class="wire-row"><div class="box ghost"><span>&#9745;&nbsp;&nbsp;<s>Lemons &times; 2</s> <span class="hint">fading &middot; tap to undo</span></span></div></div>
+
+      <div class="stack-label">Proteins &mdash; 2 left</div>
+      <div class="wire-row"><div class="box"><span>&#9633;&nbsp;&nbsp;Chicken breast &middot; 800 g <span class="hint">batch &times;4</span></span></div></div>
+      <div class="wire-row"><div class="box"><span>&#9633;&nbsp;&nbsp;Salmon fillet &times; 2</span></div></div>
+
+      <div class="stack-label">Already at home &mdash; skipped</div>
+      <div class="wire-row"><div class="box ghost"><span>Rice &middot; 500 g <span class="hint">in your pantry</span></span></div></div>
+    </div>
+
+    <h4>The three interactions that matter</h4>
+    <ul>
+      <li><strong>Tap anywhere on the row</strong> to check it. Not a small checkbox — the entire row, minimum 56&nbsp;px tall.</li>
+      <li><strong>The undo window.</strong> A checked item strikes through and dims but <em>stays in place</em> for about 1.2 seconds, then slides out to a collapsed "done" group. This is the specific behaviour people describe as satisfying, and the reason it works is that a mis-tap in a supermarket is common.</li>
+      <li><strong>The counter counts down.</strong> "14 left" is motivating in a way "9 of 23 complete" is not.</li>
+    </ul>
+
+    <div class="note warn">
+      <h4>Reorder the aisles</h4>
+      <p>
+        The five categories are currently fixed in source order. AnyList's most-praised feature is
+        letting people drag them into <b>their own store's layout</b>. That single setting turns a
+        list into a route. It also fixes a latent bug: an item whose aisle is not one of the five
+        hardcoded names would render nowhere at all.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>Concept B — fixing the handoff</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">broken today</span>
+    <span class="concept-name">Plan &rarr; list, with a visible arrival</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>What happens now:</b> you press "Add to List" on the planner, a browser alert says
+      "Added 12 items", you walk to the grocery page — and <b>they are not there</b>. The generator
+      writes straight to the database and the grocery page never asks for fresh data. Only a full
+      browser reload reveals them.
+    </p>
+
+    <div class="wire">
+      <div class="stack-label">On the planner</div>
+      <div class="box solid"><span>Add 12 items to my list</span></div>
+      <div class="box lit"><span><b>12 items added</b> &middot; 4 already in your pantry &middot; <b>View list &rarr;</b></span></div>
+
+      <div class="stack-label">Arriving at the list</div>
+      <div class="box"><span><b>12 new items</b> from your week plan <span class="hint">highlighted for a moment, then settle in</span></span></div>
+    </div>
+
+    <ul>
+      <li><strong>The confirmation is inline and carries a link</strong>, not a blocking alert the user must dismiss before they can act on it.</li>
+      <li><strong>It reports what it skipped</strong> — items already in the pantry, and any meal whose recipe could not be resolved. Today a failed generation shows <em>nothing at all</em>, because the code only handles the success branch.</li>
+      <li><strong>Newly added items pulse once</strong> on arrival so the user can see the handoff actually happened.</li>
+      <li><strong>Manual items are never touched</strong> by a regeneration, and they carry a small marker so that promise is visible.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Concept C — the pantry finally does something</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/pantry</span>
+    <span class="concept-name">An inventory that changes what you buy and cook</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Your blueprint calls this "a critical, underserved user need" and "a powerful retention
+      driver".</b> Today nothing outside the Pantry page reads the pantry at all. It is an honest
+      prototype with a Coming Soon banner — but it is the single highest-value unbuilt connection
+      in the product, and no competitor studied here has it.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box"><b>Quick add</b> <span class="hint">one per line &middot; "500 g rice"</span></div>
+        <div class="box narrow ghost"><span>Scan</span></div>
+      </div>
+
+      <div class="stack-label">Use soon &mdash; only shows when a real date exists</div>
+      <div class="wire-row"><div class="box lit"><span>Spinach &middot; 200 g <span class="hint">expires in 2 days</span></span></div></div>
+
+      <div class="stack-label">In stock</div>
+      <div class="wire-row">
+        <div class="box"><span>Rice &middot; 500 g</span></div>
+        <div class="box"><span>Olive oil &middot; 1 L</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box"><span>Chicken &middot; 400 g <span class="hint">running low</span></span></div>
+        <div class="box ghost"><span>+ add</span></div>
+      </div>
+
+      <div class="stack-label">What this unlocks</div>
+      <div class="box ghost"><span><b>3 recipes</b> you can cook right now with what you have &rarr;</span></div>
+      <div class="box ghost"><span>Grocery list <b>skips 4 items</b> you already own</span></div>
+    </div>
+
+    <div class="note bad">
+      <h4>Delete the fake expiry first</h4>
+      <p>
+        Every pantry item is currently stamped as expiring in exactly <b>seven days</b> — rice, milk,
+        tinned beans, all of them. Of every invented value in the app this is the most dangerous,
+        because an expiry date is something a person <em>acts</em> on: they throw food away, or they
+        trust something spoiled. Leave it empty unless the user sets it, and only show the
+        "Use soon" group when there is a real date to show.
+      </p>
+    </div>
+
+    <h4>The two connections that make the pantry real</h4>
+    <ol>
+      <li><strong>Into the planner.</strong> Generation prefers recipes whose ingredients are already in stock. This is the anti-food-waste, anti-decision-fatigue feature your blueprint describes.</li>
+      <li><strong>Into the grocery list.</strong> Generation subtracts what you own. "Skipped 4 &mdash; already at home" is a line that makes people trust the app immediately.</li>
+    </ol>
+    <p>
+      Until both exist, the Coming Soon banner is the right call. But this board is what it should
+      become, and the quick-add prototype already collects the right data for it.
+    </p>
+  </div>
+</div>
+
+<h2>Small things that people notice</h2>
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>Detail</th><th>Why it matters in a shop</th></tr></thead>
+  <tbody>
+    <tr><td><b>Stable sort order</b></td><td>The list currently has no ordering, so items can reshuffle between reloads. Nothing destroys trust faster than a list that moves while you are reading it.</td></tr>
+    <tr><td><b>Fraction-aware quick add</b></td><td>"1/2 cup rice" is currently read as <b>1 cup</b>. A correct parser already exists elsewhere in the codebase — it is simply not the one this field uses.</td></tr>
+    <tr><td><b>Units survive</b></td><td>"2 kg flour" currently drops the kg. Quantities without units are useless at a shelf.</td></tr>
+    <tr><td><b>Offline-tolerant ticking</b></td><td>Supermarket signal is bad. Ticks queue locally and sync when signal returns, rather than failing.</td></tr>
+    <tr><td><b>Sharing, when it exists</b></td><td>Real collaborator avatars are one of the most valuable elements this screen could carry. Which is exactly why the current decorative fake ones should go — they spend the credibility before the feature earns it.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<footer>
+  <p>Board 05 &middot; <a href="index.html">start</a> &middot; prev: <a href="04-planner.html">Planner</a> &middot; next: <a href="06-progress.html">Progress &amp; Settings</a></p>
+</footer>
+</div>
+</body>
+</html>

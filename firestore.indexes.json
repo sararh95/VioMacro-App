@@ -1,0 +1,19 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "groceryItems",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "source",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "mealPlanId",
+                    "order": "ASCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

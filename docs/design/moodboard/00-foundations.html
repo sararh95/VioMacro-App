@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foundations — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html" class="here">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 00 &middot; Foundations</p>
+  <h1>The system underneath every screen.</h1>
+  <p class="lede">
+    Keep the violet — it is already your identity and it is genuinely distinctive in a category
+    full of green and orange. Everything else here is new: a data palette that stops the brand
+    colour doing two jobs, a type pairing with more character, and six laws drawn straight from
+    what reviewers complain about.
+  </p>
+</header>
+
+<h2>Six laws</h2>
+<p>Each one exists because reviewers of the studied apps complained about its absence.</p>
+
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>Law</th><th>What it means on screen</th><th>Where it came from</th></tr></thead>
+  <tbody>
+    <tr><td><b>1. Count the taps</b></td><td>Every daily job carries a target action count. A prettier layout that costs two more taps loses.</td><td>MacroFactor's measured logging study</td></tr>
+    <tr><td><b>2. Never move under a finger</b></td><td>Reserve space before content loads. Skeletons match the exact height of the real thing. Nothing reflows after paint.</td><td>The single loudest MyFitnessPal complaint</td></tr>
+    <tr><td><b>3. Empty is a state, not a gap</b></td><td>Every list, chart and card has a designed empty state that names the next action. No zeros pretending to be data.</td><td>Your audit: 17 places currently invent a value</td></tr>
+    <tr><td><b>4. Two questions to value</b></td><td>Ask at most two things before the user sees something useful. Everything else is asked in context, later.</td><td>Onboarding drop-off benchmarks</td></tr>
+    <tr><td><b>5. One tap to undo</b></td><td>Any destructive or reversible action fades for a beat before it commits. No confirmation dialogs for things that can simply be undone.</td><td>The grocery check-off pattern reviewers love</td></tr>
+    <tr><td><b>6. Say the unit</b></td><td>Every number carries its unit, and the unit follows the user's setting. Never a hardcoded suffix.</td><td>Your audit: metric is default and broken in four places</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Colour</h2>
+
+<h4>Ground &amp; structure</h4>
+<div class="swatches">
+  <div class="sw"><div class="chipfill" style="background:#0E1116"></div><div class="meta"><b>Ink</b><span>#0E1116<br>page ground</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#151A21"></div><div class="meta"><b>Surface</b><span>#151A21<br>cards</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#1C222B"></div><div class="meta"><b>Raised</b><span>#1C222B<br>inputs, chips</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#262E39"></div><div class="meta"><b>Rule</b><span>#262E39<br>borders</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#E6E9ED"></div><div class="meta"><b>Text</b><span>#E6E9ED<br>primary</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#9BA5B1"></div><div class="meta"><b>Text 2</b><span>#9BA5B1<br>secondary</span></div></div>
+</div>
+<p>
+  The neutrals carry a slight blue bias so they sit under the violet rather than fighting it.
+  A pure grey next to violet reads as a mistake; these read as chosen.
+</p>
+
+<h4>Brand</h4>
+<div class="swatches">
+  <div class="sw"><div class="chipfill" style="background:#A78BFA"></div><div class="meta"><b>Violet</b><span>#A78BFA<br>brand, primary action</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#7C5CE0"></div><div class="meta"><b>Violet dim</b><span>#7C5CE0<br>borders, pressed</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#1E1830"></div><div class="meta"><b>Violet wash</b><span>#1E1830<br>tinted surfaces</span></div></div>
+</div>
+
+<h4>Data — the important change</h4>
+<div class="swatches">
+  <div class="sw"><div class="chipfill" style="background:#6BA5F7"></div><div class="meta"><b>Protein</b><span>#6BA5F7</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#F0B429"></div><div class="meta"><b>Carbs</b><span>#F0B429</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#E0719C"></div><div class="meta"><b>Fat</b><span>#E0719C</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#4FC3E8"></div><div class="meta"><b>Hydration</b><span>#4FC3E8</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#9B8CF0"></div><div class="meta"><b>Sleep</b><span>#9B8CF0</span></div></div>
+</div>
+
+<div class="note">
+  <h4>Why this matters more than it looks</h4>
+  <p>
+    Today <code>Dashboard.tsx</code> paints protein in the brand violet. So violet means both
+    <b>"this is VioMacro"</b> and <b>"this is protein"</b> — and the eye cannot tell a primary
+    button from a macro bar at a glance. Giving each macro its own hue frees violet to mean
+    one thing: <b>the thing you should tap</b>.
+  </p>
+</div>
+
+<h4>Semantic — never used as decoration</h4>
+<div class="swatches">
+  <div class="sw"><div class="chipfill" style="background:#5CC98E"></div><div class="meta"><b>Good</b><span>#5CC98E<br>saved, on track</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#E8B24A"></div><div class="meta"><b>Warn</b><span>#E8B24A<br>needs attention</span></div></div>
+  <div class="sw"><div class="chipfill" style="background:#E8705C"></div><div class="meta"><b>Bad</b><span>#E8705C<br>failed, over budget</span></div></div>
+</div>
+
+<h2>Type</h2>
+<p>
+  Two faces, three roles. <strong>Sora</strong> for display gives the numbers a slightly geometric,
+  instrument-panel quality that suits a metabolic tool without tipping into sci-fi.
+  <strong>Inter</strong> carries body text because it disappears, which is what body text should do.
+  <strong>IBM Plex Mono</strong> handles anything that lines up in a column.
+</p>
+
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>Role</th><th>Face</th><th>Used for</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><b>Display</b></td><td>Sora 600/700</td><td>Page titles, big numbers, card headings</td><td>Tight tracking at large sizes (<code>-0.025em</code>)</td></tr>
+    <tr><td><b>Body</b></td><td>Inter 400/500</td><td>Everything a person reads in sentences</td><td>Cap running text near 65 characters</td></tr>
+    <tr><td><b>Data</b></td><td>IBM Plex Mono 400/500</td><td>Grams, calories, dates, IDs, units</td><td>Always <code>font-variant-numeric: tabular-nums</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <h4>The tabular-numerals rule</h4>
+  <p>
+    Any number that can change while the user watches — a calorie counter ticking up, a water
+    total, a weight — must use tabular figures. Without them the digits are different widths, so
+    the number <b>jiggles</b> as it updates. That is Law 2 breaking in miniature, and it is the
+    kind of thing people feel without being able to name.
+  </p>
+</div>
+
+<h2>Spacing &amp; shape</h2>
+<ul>
+  <li><strong>4px base scale:</strong> 4, 8, 12, 16, 24, 32, 48, 64. Nothing between.</li>
+  <li><strong>Radius means depth:</strong> 4px for inputs and chips, 8px for cards, 16px for sheets and modals. A consistent radius ladder does more for perceived quality than any single flourish.</li>
+  <li><strong>Layout owns spacing:</strong> flex/grid with <code>gap</code>. No per-element margins that collapse or double.</li>
+  <li><strong>Thumb zone:</strong> on mobile the primary action of every screen sits in the bottom third. Nothing important lives in the top corners.</li>
+</ul>
+
+<h2>Motion</h2>
+<p>
+  The research is blunt about this: motion that <em>confirms</em> is loved, motion that
+  <em>decorates</em> is noise. Three uses only.
+</p>
+<ul>
+  <li><strong>Confirm (120ms):</strong> a tick lands, a chip fills, a button depresses. Fast enough to feel like cause and effect.</li>
+  <li><strong>Undo window (1200ms):</strong> a checked item fades but stays put, so a mis-tap is recoverable, then leaves. This is the interaction reviewers single out by name.</li>
+  <li><strong>Reveal (200ms, ease-out):</strong> a sheet rising, a section expanding. Never on first paint — the page should arrive already there.</li>
+</ul>
+<p>
+  Everything respects <code>prefers-reduced-motion</code>. And there is a fourth rule:
+  <strong>never animate a number's container.</strong> Animate the fill, not the box.
+</p>
+
+<h2>Two things to delete everywhere</h2>
+<div class="note bad">
+  <h4>Pulsing "Live" badges</h4>
+  <p>
+    A pulse is a promise that something is happening right now. Nothing is. Remove them until
+    the adaptive engine exists, then use the pulse only while it is genuinely recalculating.
+  </p>
+</div>
+<div class="note bad">
+  <h4>Decorative avatar stacks</h4>
+  <p>
+    The grocery header currently shows two faces and a <b>+2</b> badge. That is the universal
+    symbol for "other people are here". Nobody is. Delete it until sharing ships — then it becomes
+    one of the most valuable elements on the screen.
+  </p>
+</div>
+
+<footer>
+  <p>Board 00 &middot; <a href="index.html">back to start</a> &middot; next: <a href="01-entry.html">Auth &amp; Onboarding</a></p>
+</footer>
+</div>
+</body>
+</html>

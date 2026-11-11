@@ -1,0 +1,348 @@
+<html class="dark" lang="en"><head><meta charset="utf-8"/>
+
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "sidebar-dark": "#0c1a11", 
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-white h-screen flex overflow-hidden">
+<aside class="w-72 h-full bg-sidebar-dark border-r border-white/5 flex flex-col justify-between shrink-0 transition-all duration-300">
+<div class="px-6 py-8 flex items-center gap-3">
+<div class="relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-primary/80 to-primary/40 shadow-[0_0_15px_rgba(19,236,91,0.3)]">
+<span class="material-symbols-outlined text-sidebar-dark" style="font-size: 24px; font-weight: 700;">eco</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-white text-lg font-bold tracking-wide leading-none">VioMacro</h1>
+<span class="text-primary/80 text-xs font-medium tracking-wider mt-0.5">Metabolic Coach</span>
+</div>
+</div>
+<nav class="flex-1 px-4 overflow-y-auto space-y-8">
+<div class="flex flex-col gap-1.5">
+<button class="w-full bg-primary hover:bg-primary/90 text-sidebar-dark font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 mb-4 group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" style="font-size: 20px;">add</span>
+<span>Log Food</span>
+</button>
+</div>
+<div class="flex flex-col gap-1">
+<p class="px-3 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Menu</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary border-l-2 border-primary group transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group border-l-2 border-transparent hover:border-white/10" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">calendar_month</span>
+<span class="text-sm font-medium">Meal Planning</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group border-l-2 border-transparent hover:border-white/10" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">menu_book</span>
+<span class="text-sm font-medium">Recipe Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group border-l-2 border-transparent hover:border-white/10" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">history</span>
+<span class="text-sm font-medium">History</span>
+</a>
+</div>
+<div class="flex flex-col gap-1">
+<p class="px-3 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Inventory</p>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group border-l-2 border-transparent hover:border-white/10" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">shopping_cart</span>
+<span class="text-sm font-medium">Grocery List</span>
+<span class="ml-auto bg-primary text-sidebar-dark text-[10px] font-bold px-1.5 py-0.5 rounded-md">4</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group border-l-2 border-transparent hover:border-white/10" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">inventory_2</span>
+<span class="text-sm font-medium">Pantry Inventory</span>
+</a>
+</div>
+</nav>
+<div class="p-4 border-t border-white/5 flex flex-col gap-2 bg-sidebar-dark">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<div class="mt-2 pt-4 border-t border-white/5 flex items-center gap-3 px-2 cursor-pointer hover:bg-white/5 p-2 rounded-lg transition-colors group">
+<div class="size-9 rounded-full bg-cover bg-center ring-2 ring-white/10 group-hover:ring-primary/50 transition-all" data-alt="User profile avatar of a smiling woman" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA7ukmXKkZIAkKXFNzOG-2O6w1cEhpwYuenw3RDvdBROKxZlrdJ4Pyve_JHnZ42MIpR9T_2AmxletTARp4i-tGQ0lUdq3mG3JQNgYco0QsYjaJl2nrkMBG1FLruMnmFvWy78HHjTJFIovyoMDyaqMIhyS5RbogEcBfqzh-93rGOtfhA3McXmXXWdVzEfhExYYBoBRV3EdkQNT_n6IkkfSvM7_7pBtPMsG9Bl68o7C80pMxE5nGg7RURosvx9NkxemZTVOclwWxeDXKZ');"></div>
+<div class="flex flex-col overflow-hidden">
+<span class="text-sm font-semibold text-white truncate group-hover:text-primary transition-colors">Sarah Jenkins</span>
+<span class="text-xs text-gray-500 truncate">Pro Member</span>
+</div>
+<span class="material-symbols-outlined text-gray-500 ml-auto" style="font-size: 18px;">more_vert</span>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
+<header class="h-16 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-8 bg-white/50 dark:bg-[#102216]/50 backdrop-blur-sm sticky top-0 z-10">
+<h2 class="text-xl font-semibold text-gray-800 dark:text-white">Dashboard</h2>
+<div class="flex items-center gap-4">
+<button class="relative p-2 text-gray-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-[#102216]"></span>
+</button>
+<div class="h-8 w-px bg-gray-200 dark:bg-white/10"></div>
+<span class="text-sm text-gray-500 dark:text-gray-400">Week 12 • Hypertrophy Phase</span>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8">
+<div class="max-w-6xl mx-auto flex flex-col gap-8">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl font-bold text-gray-900 dark:text-white">Good Morning, Sarah!</h1>
+<p class="text-gray-500 dark:text-gray-400">You're on a 14-day streak. Here are your Adaptive Coaching Insights for today.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white dark:bg-[#152a1d] p-5 rounded-xl border border-gray-100 dark:border-white/5 shadow-sm hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">local_fire_department</span>
+</div>
+<span class="text-xs font-medium text-gray-400">Daily Goal</span>
+</div>
+<h3 class="text-2xl font-bold text-gray-900 dark:text-white">1,850</h3>
+<p class="text-sm text-gray-500 mt-1">Calories Consumed</p>
+<div class="w-full bg-gray-200 dark:bg-black/20 h-1.5 rounded-full mt-3 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 75%"></div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#152a1d] p-5 rounded-xl border border-gray-100 dark:border-white/5 shadow-sm hover:border-blue-400/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+<span class="material-symbols-outlined">egg_alt</span>
+</div>
+<span class="text-xs font-medium text-gray-400">Protein</span>
+</div>
+<h3 class="text-2xl font-bold text-gray-900 dark:text-white">142g</h3>
+<p class="text-sm text-gray-500 mt-1">of 160g Goal</p>
+<div class="w-full bg-gray-200 dark:bg-black/20 h-1.5 rounded-full mt-3 overflow-hidden">
+<div class="bg-blue-400 h-full rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#152a1d] p-5 rounded-xl border border-gray-100 dark:border-white/5 shadow-sm hover:border-orange-400/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-orange-500/10 rounded-lg text-orange-400">
+<span class="material-symbols-outlined">donut_large</span>
+</div>
+<span class="text-xs font-medium text-gray-400">Macros Split</span>
+</div>
+<div class="flex gap-2 items-end">
+<h3 class="text-xl font-bold text-gray-900 dark:text-white">On Track</h3>
+</div>
+<p class="text-sm text-gray-500 mt-1">High compliance today</p>
+</div>
+<div class="bg-white dark:bg-[#152a1d] p-5 rounded-xl border border-gray-100 dark:border-white/5 shadow-sm hover:border-purple-400/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+<span class="material-symbols-outlined">water_drop</span>
+</div>
+<span class="text-xs font-medium text-gray-400">Hydration</span>
+</div>
+<h3 class="text-2xl font-bold text-gray-900 dark:text-white">1.2L</h3>
+<p class="text-sm text-gray-500 mt-1">Goal: 3.0L</p>
+<div class="w-full bg-gray-200 dark:bg-black/20 h-1.5 rounded-full mt-3 overflow-hidden">
+<div class="bg-purple-400 h-full rounded-full" style="width: 40%"></div>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+                            Weekly Planner
+                        </h3>
+<div class="flex items-center gap-2">
+<div class="flex items-center bg-white dark:bg-[#152a1d] rounded-lg p-0.5 border border-gray-100 dark:border-white/5">
+<button class="p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 rounded-md text-gray-500 transition-colors"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<span class="text-xs font-bold px-3 text-gray-700 dark:text-gray-300">Aug 12 — Aug 18</span>
+<button class="p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 rounded-md text-gray-500 transition-colors"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+<button class="hidden sm:flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+                                Edit Plan
+                            </button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+<div class="bg-white/50 dark:bg-[#152a1d]/50 p-3 rounded-xl border border-gray-100 dark:border-white/5 opacity-70 hover:opacity-100 transition-opacity">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Mon</span>
+<span class="text-lg font-bold text-gray-600 dark:text-gray-400">12</span>
+</div>
+<div class="flex justify-center mb-2">
+<div class="size-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
+<span class="material-symbols-outlined" style="font-size: 16px;">check</span>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="h-1 w-full bg-gray-200 dark:bg-black/20 rounded-full overflow-hidden"><div class="h-full bg-green-500 w-full"></div></div>
+<p class="text-[10px] text-center text-gray-400">Met Targets</p>
+</div>
+</div>
+<div class="bg-white/50 dark:bg-[#152a1d]/50 p-3 rounded-xl border border-gray-100 dark:border-white/5 opacity-70 hover:opacity-100 transition-opacity">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Tue</span>
+<span class="text-lg font-bold text-gray-600 dark:text-gray-400">13</span>
+</div>
+<div class="flex justify-center mb-2">
+<div class="size-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
+<span class="material-symbols-outlined" style="font-size: 16px;">check</span>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="h-1 w-full bg-gray-200 dark:bg-black/20 rounded-full overflow-hidden"><div class="h-full bg-green-500 w-[95%]"></div></div>
+<p class="text-[10px] text-center text-gray-400">Met Targets</p>
+</div>
+</div>
+<div class="relative bg-white dark:bg-[#152a1d] p-3 rounded-xl border-2 border-primary shadow-[0_0_20px_rgba(19,236,91,0.1)] overflow-hidden group">
+<div class="absolute top-0 right-0 bg-primary text-sidebar-dark text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg">TODAY</div>
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-primary tracking-wider">Wed</span>
+<span class="text-xl font-bold text-gray-900 dark:text-white">14</span>
+</div>
+<div class="flex flex-col gap-1.5 mb-3">
+<div class="flex items-center gap-2 p-1 bg-background-light dark:bg-black/20 rounded">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<span class="text-[10px] text-gray-600 dark:text-gray-300 truncate">Avocado Tst</span>
+</div>
+<div class="flex items-center gap-2 p-1 bg-background-light dark:bg-black/20 rounded">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<span class="text-[10px] text-gray-600 dark:text-gray-300 truncate">Quinoa Bowl</span>
+</div>
+<div class="flex items-center gap-2 p-1 bg-background-light dark:bg-black/20 rounded opacity-50">
+<div class="size-1.5 rounded-full bg-gray-400"></div>
+<span class="text-[10px] text-gray-500 truncate">Salmon</span>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[9px] text-gray-500">
+<span>Cal</span>
+<span class="text-primary font-bold">75%</span>
+</div>
+<div class="h-1.5 w-full bg-gray-200 dark:bg-black/20 rounded-full overflow-hidden"><div class="h-full bg-primary w-3/4"></div></div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#152a1d] p-3 rounded-xl border border-gray-100 dark:border-white/5 group hover:border-white/20 transition-all">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Thu</span>
+<span class="text-lg font-bold text-gray-900 dark:text-white">15</span>
+</div>
+<div class="flex justify-center gap-1 mb-4 opacity-40 group-hover:opacity-80 transition-opacity">
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+</div>
+<div class="mt-auto text-center">
+<span class="text-[10px] bg-gray-100 dark:bg-white/5 text-gray-500 px-2 py-1 rounded-md">Planned</span>
+</div>
+</div>
+<div class="bg-white dark:bg-[#152a1d] p-3 rounded-xl border border-gray-100 dark:border-white/5 group hover:border-white/20 transition-all">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Fri</span>
+<span class="text-lg font-bold text-gray-900 dark:text-white">16</span>
+</div>
+<div class="flex justify-center gap-1 mb-4 opacity-40 group-hover:opacity-80 transition-opacity">
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+<span class="size-1.5 rounded-full bg-gray-400"></span>
+</div>
+<div class="mt-auto text-center">
+<span class="text-[10px] bg-gray-100 dark:bg-white/5 text-gray-500 px-2 py-1 rounded-md">Planned</span>
+</div>
+</div>
+<div class="bg-white/50 dark:bg-[#152a1d]/30 p-3 rounded-xl border border-dashed border-gray-200 dark:border-white/10 group hover:border-white/20 transition-all">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-blue-400 tracking-wider">Sat</span>
+<span class="text-lg font-bold text-gray-900 dark:text-white">17</span>
+</div>
+<div class="flex flex-col items-center justify-center gap-2 h-16">
+<span class="material-symbols-outlined text-gray-600" style="font-size: 20px;">restaurant_menu</span>
+<span class="text-[10px] text-gray-500">Cheat Meal</span>
+</div>
+</div>
+<div class="bg-white/50 dark:bg-[#152a1d]/30 p-3 rounded-xl border border-dashed border-gray-200 dark:border-white/10 group hover:border-white/20 transition-all">
+<div class="flex flex-col items-center mb-3">
+<span class="text-[10px] uppercase font-bold text-blue-400 tracking-wider">Sun</span>
+<span class="text-lg font-bold text-gray-900 dark:text-white">18</span>
+</div>
+<div class="flex flex-col items-center justify-center gap-2 h-16">
+<span class="material-symbols-outlined text-gray-600" style="font-size: 20px;">edit_calendar</span>
+<span class="text-[10px] text-gray-500">Review</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-[#152a1d] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+<div class="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
+<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Today's Meals</h3>
+<button class="text-sm text-primary font-medium hover:underline">View Full Log</button>
+</div>
+<div class="p-6">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-4 p-3 hover:bg-black/20 rounded-lg transition-colors cursor-pointer group">
+<div class="size-12 rounded-lg bg-cover bg-center" data-alt="Avocado toast on a plate top view" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBsYEoVUqcPw5Qt4XFAcfoj0JlHlPnoELLYGTwlIdUDQAFIy3Z_mNs4hl_Qj4zBQcDmNdleaVMyXAvVhRnpRX1vUJ1xeM1YdM7Vo8GBak5pdJ2KOJeu5YR8MUA1lsdPc5FWsCWAfc5UfGHBo3dIT_-nnPwtUMD0fkiVXSruWgIhhCI06tcUim7ZWFrswKRsv29GNtutSbgy8hypvw-1Yru2Qsx7js17SDJfIoQaORNXHNAWqf3zBXEFjSERs195h5MP55bNgb4AA6rA');"></div>
+<div class="flex-1">
+<h4 class="text-sm font-medium text-white group-hover:text-primary transition-colors">Avocado Toast &amp; Poached Egg</h4>
+<p class="text-xs text-gray-500">Breakfast • 8:30 AM</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-white">420 kcal</span>
+<span class="text-xs text-gray-500">22g Protein</span>
+</div>
+<span class="material-symbols-outlined text-gray-600">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 p-3 hover:bg-black/20 rounded-lg transition-colors cursor-pointer group">
+<div class="size-12 rounded-lg bg-cover bg-center" data-alt="Healthy salad bowl with quinoa and vegetables" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDJ8De-FBWOhInwKKy-UwSUo3ZIKNT_JmQFFit-jSphYmCaicrCX3CBBh2oNL6nOvgKNpw58EdR8Hjw_wruXs5qGTysPpmqnPgPhtakLhBS0R3iwgC7qYBLL3Ln55M--7xu5-5tTJE59hFO5KK6MlErOsv6t_p_3jk4c_iMXadRVLkP3F-InyhkdDnXjFwKuCe_76K3pq8pFtJlalVbBx7CmL1juzzfVMugK93prN1hJXDwa6vjnUIoPqh5s0ZUtkWaGtCakEZ0HoTY');"></div>
+<div class="flex-1">
+<h4 class="text-sm font-medium text-white group-hover:text-primary transition-colors">Quinoa Power Bowl</h4>
+<p class="text-xs text-gray-500">Lunch • 1:15 PM</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-bold text-white">580 kcal</span>
+<span class="text-xs text-gray-500">35g Protein</span>
+</div>
+<span class="material-symbols-outlined text-gray-600">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>

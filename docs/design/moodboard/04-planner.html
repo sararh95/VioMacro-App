@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meal Planner — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html" class="here">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 04 &middot; /plan</p>
+  <h1>The week as a real object<br>you can pick things up and move.</h1>
+  <p class="lede">
+    This is the screen your blueprint bets the company on — the modular "building blocks" idea
+    that fights food monotony by mixing a small set of prepped components into many meals.
+    It is also your largest file at 1,690 lines, and the place where a save can silently
+    duplicate a week.
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">Plan to Eat</span><span class="take">4.8 / 4.7 stars for one thing: the <b>drag from library into a day</b> gesture, and a grocery list that follows automatically.</span></li>
+  <li><span class="src">Eat This Much</span><span class="take">Generate a full week, then let people <b>lock what they like and re-roll the rest</b>. Regeneration that respects prior choices.</span></li>
+  <li><span class="src">Mealime</span><span class="take">A short, opinionated set-up before generating beats a long form. Three questions, then a plan.</span></li>
+  <li><span class="src">Category trend</span><span class="take">2026 planners win by helping people <b>decide</b>, not by logging. The plan is the product.</span></li>
+  <li><span class="src">Your blueprint</span><span class="take">Batch cooking is the differentiator. Nobody studied here treats a batch as a first-class object.</span></li>
+</ul>
+
+<h2>Concept A — the week grid</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/plan &middot; week view</span>
+    <span class="concept-name">Seven columns, macro truth in every one</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The core job:</b> see whether the week actually hits the targets, and fix the days that
+      do not. So every day column carries its own macro signature, and days that miss are visibly
+      marked — not with an alarming red, but with a quiet amber and a one-tap way to fix it.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box"><b>Week of 24 Aug</b> <span class="hint">&larr; &rarr;</span></div>
+        <div class="box narrow ghost"><span>Day</span></div>
+        <div class="box narrow lit"><span>Week</span></div>
+        <div class="box"><span>Generate</span></div>
+      </div>
+
+      <div class="wire-row">
+        <div class="wire-col"><div class="stack-label">Mon</div>
+          <div class="box"><span class="hint">Oats</span></div>
+          <div class="box"><span class="hint">Chicken bowl</span></div>
+          <div class="box"><span class="hint">Salmon</span></div>
+          <div class="meter m-cal"><i style="width:96%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Tue</div>
+          <div class="box"><span class="hint">Oats</span></div>
+          <div class="box lit"><span class="hint">Batch &times;4</span></div>
+          <div class="box"><span class="hint">Stir fry</span></div>
+          <div class="meter m-cal"><i style="width:99%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Wed</div>
+          <div class="box"><span class="hint">Oats</span></div>
+          <div class="box lit"><span class="hint">Batch &times;4</span></div>
+          <div class="box ghost"><span class="hint">empty</span></div>
+          <div class="meter m-cal"><i style="width:61%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Thu</div>
+          <div class="box"><span class="hint">Oats</span></div>
+          <div class="box lit"><span class="hint">Batch &times;4</span></div>
+          <div class="box"><span class="hint">Pasta</span></div>
+          <div class="meter m-cal"><i style="width:92%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Fri</div>
+          <div class="box"><span class="hint">Oats</span></div>
+          <div class="box lit"><span class="hint">Batch &times;4</span></div>
+          <div class="box"><span class="hint">Curry</span></div>
+          <div class="meter m-cal"><i style="width:88%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Sat</div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="meter m-cal"><i style="width:0%"></i></div>
+        </div>
+        <div class="wire-col"><div class="stack-label">Sun</div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="box ghost"><span class="hint">&mdash;</span></div>
+          <div class="meter m-cal"><i style="width:0%"></i></div>
+        </div>
+      </div>
+
+      <div class="box ghost"><span>Wednesday is <b>760 kcal short</b> &rarr; <b>Fill the gap</b></span></div>
+
+      <div class="wire-row">
+        <div class="box"><span>Add to shopping list</span></div>
+        <div class="box solid"><span>Save week</span></div>
+      </div>
+    </div>
+
+    <h4>The details that make it work</h4>
+    <ul>
+      <li><strong>Batched meals share one tint</strong> across the days they cover, so the batch reads as a single object spanning the week rather than four identical entries.</li>
+      <li><strong>Each day's calorie meter</strong> sits under its column. Short days are visible without reading a number.</li>
+      <li><strong>The gap-filler is one tap</strong> and suggests recipes that fit the remaining macros — this already exists as <code>GapSolverModal</code>.</li>
+      <li><strong>Empty slots are inviting, not alarming</strong> — a dashed outline that means "drop something here", not an error.</li>
+      <li><strong>Save is a single explicit action.</strong> It must be idempotent: double-clicking it currently creates two plans for the same week.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Concept B — batch cooking as a first-class object</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">differentiator</span>
+    <span class="concept-name">Prep once, eat four times</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Nobody studied here does this.</b> Every competitor treats "the same lunch on four days"
+      as four separate entries. Your blueprint calls batch cooking a direct intervention against
+      food monotony — which means the batch should be an <b>object with its own card</b>, not a
+      repetition.
+    </p>
+
+    <div class="wire">
+      <div class="box tall lit">
+        <span><b>Sunday prep &middot; Chicken &amp; rice &times;4</b><br>
+        <span class="hint">covers Tue, Wed, Thu, Fri lunch &middot; 1 cook session &middot; 45 min</span></span>
+      </div>
+      <div class="wire-row">
+        <div class="box"><span>Cook it &rarr;</span></div>
+        <div class="box"><span>Change days</span></div>
+        <div class="box ghost"><span>Break into singles</span></div>
+      </div>
+      <div class="box ghost"><span>Shopping list groups these into <b>one</b> line: 800 g chicken, not 4 &times; 200 g</span></div>
+    </div>
+
+    <ul>
+      <li><strong>One cook session, scheduled.</strong> The batch has a prep day, and that prep day can carry a reminder.</li>
+      <li><strong>Ingredients aggregate.</strong> A batch of four contributes one grocery line, which is exactly what a person needs at the shop.</li>
+      <li><strong>Breaking a batch is reversible</strong> and does not lose the individual days' macros.</li>
+      <li><strong>Cook mode knows it is a batch</strong> and scales the quantities in each step.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Concept C — generation that respects choices</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">re-roll</span>
+    <span class="concept-name">Lock what you like, regenerate the rest</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The failure mode to avoid:</b> generate a week, love two meals, hate five, and have no
+      option except regenerating everything and losing the two good ones. Eat This Much solved this
+      with locking, and it is the difference between a toy and a tool.
+    </p>
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box lit"><span>&#128274; Tue lunch &mdash; kept</span></div>
+        <div class="box lit"><span>&#128274; Thu dinner &mdash; kept</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box ghost"><span>5 meals will be replaced</span></div>
+        <div class="box solid"><span>Re-roll the rest</span></div>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>The precondition nobody can skip</h4>
+      <p>
+        Generation needs recipes. Today an empty library silently generates a week from <b>demo
+        recipes the user does not own</b>, producing meals whose recipe IDs point at nothing. The
+        honest design blocks generation and sends the user to the library — annoying for one
+        screen, correct forever after.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>Two views that should not exist yet</h2>
+<div class="note">
+  <p>
+    Day and Month both render a "Coming Soon" construction screen. That is honest, and honest is
+    better than fake — but a view switcher offering two dead options costs a tap and teaches people
+    the app is unfinished. <strong>Suggestion:</strong> hide Day and Month until they exist. When
+    Day ships, make it the mobile default, because a seven-column grid on a phone is a compromise
+    and a single day is not.
+  </p>
+</div>
+
+<h2>Mobile: the week becomes a spine</h2>
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">responsive</span>
+    <span class="concept-name">Vertical days, horizontal meals</span>
+  </div>
+  <div class="concept-body">
+    <div class="wire">
+      <div class="wire-row"><div class="box"><b>Tue 26</b> <span class="hint">1,980 / 2,180</span></div></div>
+      <div class="wire-row">
+        <div class="box narrow ghost"><span>B</span></div>
+        <div class="box"><span>Oats &amp; berries</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box narrow lit"><span>L</span></div>
+        <div class="box lit"><span>Batch &mdash; chicken bowl</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box narrow ghost"><span>D</span></div>
+        <div class="box ghost"><span>Tap to add</span></div>
+      </div>
+    </div>
+    <p>
+      One day per card, scrolling vertically. The meal-type letter on the left gives a scannable
+      spine so a thumb can find dinner without reading. The current grid squeezes seven columns
+      onto a phone, which is where most weekly planning actually happens.
+    </p>
+  </div>
+</div>
+
+<footer>
+  <p>Board 04 &middot; <a href="index.html">start</a> &middot; prev: <a href="03-recipes.html">Recipes</a> &middot; next: <a href="05-grocery.html">Grocery &amp; Pantry</a></p>
+</footer>
+</div>
+</body>
+</html>

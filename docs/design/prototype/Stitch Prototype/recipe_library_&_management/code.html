@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Recipe Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "surface-dark": "#112217", 
+                        "border-dark": "#23482f",
+                        "text-secondary": "#92c9a4"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for dark theme matching */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #112217; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #23482f; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2f5e3e; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-border-dark bg-surface-dark px-6 py-3 shrink-0 z-20">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 4H42V17.3333V30.6667H24V44H6V30.6667V17.3333H24V4Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-white text-xl font-bold leading-tight tracking-[-0.015em]">VioMacro</h2>
+</div>
+<!-- Global Search (Top Nav) -->
+<label class="hidden md:flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="text-text-secondary flex border-none bg-border-dark items-center justify-center pl-4 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-border-dark focus:border-none h-full placeholder:text-text-secondary px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal" placeholder="Search..." value=""/>
+</div>
+</label>
+</div>
+<div class="flex flex-1 justify-end gap-6 md:gap-8 items-center">
+<div class="hidden lg:flex items-center gap-6">
+<a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">Dashboard</a>
+<a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">Meal Planner</a>
+<a class="text-white text-sm font-bold leading-normal" href="#">Recipe Library</a>
+<a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">Analytics</a>
+</div>
+<button class="hidden sm:flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-primary text-[#112217] text-sm font-bold leading-normal tracking-[0.015em] hover:bg-opacity-90 transition-opacity">
+<span class="truncate">Quick Add</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 ring-2 ring-border-dark" data-alt="User profile avatar showing a smiling person" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA56jD4r2zY1V1MAfG0L8PgrRmDl90ORY-JZsPGXXSFX1yVuZe8vKLTl1gAP01_jZv4VI64w53qfgYPBM8ASZwLD6voz7JRUnPXVNPhv2N2AVxAGjhwmJB5HJvs2z_IGlnIVedGtAanR9dbNta-HT5-lCbB4zp2OQMpLxxZ1cvG8G1NR0lJr335KRwCb0EyjKyNaxOcOEDMS10uPbrtRfSOrIFTlF68V9XyJR-i0CfWtdnJOloxQdXjIr1GdIZfSaosNNU0khu6H51b");'></div>
+</div>
+</header>
+<!-- Main Layout Container -->
+<div class="flex flex-1 overflow-hidden relative">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex w-64 flex-col justify-between border-r border-border-dark bg-surface-dark p-4 overflow-y-auto shrink-0">
+<div class="flex flex-col gap-6">
+<!-- Main Filters -->
+<div class="flex flex-col gap-2">
+<h3 class="text-text-secondary text-xs font-bold uppercase tracking-wider px-3 mb-1">Library</h3>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-border-dark cursor-pointer group transition-colors">
+<span class="material-symbols-outlined text-primary group-hover:text-white transition-colors">restaurant_menu</span>
+<p class="text-white text-sm font-medium leading-normal">All Recipes</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white transition-colors">favorite</span>
+<p class="text-text-secondary group-hover:text-white transition-colors text-sm font-medium leading-normal">Favorites</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white transition-colors">edit</span>
+<p class="text-text-secondary group-hover:text-white transition-colors text-sm font-medium leading-normal">My Creations</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-white transition-colors">download</span>
+<p class="text-text-secondary group-hover:text-white transition-colors text-sm font-medium leading-normal">Imported</p>
+</div>
+</div>
+<!-- Filters Section -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col px-3">
+<h1 class="text-white text-sm font-medium leading-normal">Filters</h1>
+<p class="text-text-secondary text-xs font-normal leading-normal">Refine by macros &amp; tags</p>
+</div>
+<!-- Macro Sliders Mockup -->
+<div class="px-3 space-y-3">
+<div class="space-y-1">
+<div class="flex justify-between text-xs text-text-secondary">
+<span>Protein</span>
+<span class="text-white">20g+</span>
+</div>
+<div class="h-1 w-full bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-primary w-3/4 rounded-full"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs text-text-secondary">
+<span>Carbs</span>
+<span class="text-white">&lt; 50g</span>
+</div>
+<div class="h-1 w-full bg-border-dark rounded-full overflow-hidden">
+<div class="h-full bg-[#EAB308] w-1/3 rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Actions -->
+<div class="flex flex-col gap-1 border-t border-border-dark pt-4">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-text-secondary">settings</span>
+<p class="text-text-secondary hover:text-white text-sm font-medium leading-normal">Settings</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-text-secondary">help</span>
+<p class="text-text-secondary hover:text-white text-sm font-medium leading-normal">Help &amp; Support</p>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark scroll-smooth">
+<div class="max-w-[1280px] mx-auto p-4 md:p-8 lg:p-12 flex flex-col gap-8">
+<!-- Page Header -->
+<div class="flex flex-wrap justify-between items-end gap-6 pb-2 border-b border-border-dark/50">
+<div class="flex min-w-72 flex-col gap-2">
+<h1 class="text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">My Kitchen</h1>
+<p class="text-text-secondary text-base font-normal leading-normal max-w-lg">Manage your database. Create, import, and organize recipes to meet your metabolic goals.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-border-dark hover:bg-border-dark/80 text-white text-sm font-bold transition-colors">
+<span class="material-symbols-outlined text-[20px]">link</span>
+<span class="hidden sm:inline">Import URL</span>
+</button>
+<button class="flex items-center justify-center gap-2 rounded-lg h-10 px-5 bg-primary hover:bg-primary/90 text-[#112217] text-sm font-bold shadow-lg shadow-primary/20 transition-all transform hover:scale-105">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>New Recipe</span>
+</button>
+</div>
+</div>
+<!-- Search & Filters Toolbar -->
+<div class="flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
+<!-- Search Bar -->
+<div class="w-full lg:max-w-md">
+<label class="flex flex-col h-12 w-full group">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full ring-1 ring-border-dark group-focus-within:ring-primary transition-all">
+<div class="text-text-secondary flex border-none bg-surface-dark items-center justify-center pl-4 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-surface-dark focus:border-none h-full placeholder:text-text-secondary px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="Search recipes, ingredients..." value=""/>
+</div>
+</label>
+</div>
+<!-- Chips -->
+<div class="flex gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary/20 border border-primary/30 pl-3 pr-3 hover:bg-primary/30 transition-colors">
+<span class="text-primary text-sm font-bold">High Protein</span>
+<span class="material-symbols-outlined text-primary text-[16px]">close</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark pl-3 pr-3 hover:border-text-secondary transition-colors">
+<span class="text-white text-sm font-medium">Low Carb</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark pl-3 pr-3 hover:border-text-secondary transition-colors">
+<span class="text-white text-sm font-medium">Under 30m</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark pl-3 pr-3 hover:border-text-secondary transition-colors">
+<span class="text-white text-sm font-medium">Meal Prep</span>
+</button>
+<button class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark pl-3 pr-3 hover:border-text-secondary transition-colors">
+<span class="text-white text-sm font-medium">Breakfast</span>
+</button>
+</div>
+</div>
+<!-- Recipe Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Recipe Card 1 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer relative">
+<!-- Image Container -->
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    25m
+                                </div>
+</div>
+<div class="absolute left-3 top-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="rounded-full p-2 bg-surface-dark text-white hover:text-primary transition-colors shadow-lg">
+<span class="material-symbols-outlined text-[20px] block">favorite</span>
+</div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Grilled chicken breast with herbs and lemon slices on a dark plate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEx1jUeaX5AAV_n2daRsIZ2rGG0wrgLJe0k15ExVKIpLFagzga9eEYa_sbfqeYAJVt0SkgHX5buFpwCPz7nUf9AssoaXSo5ydBrJZZFMHNZ13fz4ZtmZuAnCxXw3GF-VLv5uwuhgPWdvbYHqrYK6ckAbFkcNWpxkLkGEKuEiiXTNqROCY_uSJfK-VUMk--uLwdmOeSzkP2GveZBDqFUustYutMqM27aXMmWUbcEjyB-uwmEhS4WZvG83nIVmp7tLv1kPqDum90eW4b"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<!-- Content -->
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Grilled Lemon Herb Chicken</h3>
+<p class="text-xs text-text-secondary mt-1">Dinner • High Protein</p>
+</div>
+<!-- Macros -->
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">450</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-primary">45g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">10g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">20g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recipe Card 2 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer">
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    10m
+                                </div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Avocado toast topped with poached egg and seasonings" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJ7_EROuKpchO23AbFxK8lbf2_VPbakFRUzuxtTeukr_sb2LcQyVg8tGPLiD_LpTsYdluEvG4Qnxr5qvKlBIJXOqASMz9ZjENMdxZFSgnfpVkVjgUszdkOwrJYufYV5j305DXeCH9rJ1Rl5r35y9TEyZ40EUTQxJ3lfJ3fg4HDRQEWBu6JUXGK2IuSiqvV3SGyILRryQoKgBsaLEc6KE7aLkmTkm5ekn3PSF1RDnN3reGF_8WzOMtqYoOehy26n9oRblwztA3LE1yH"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Avocado Toast &amp; Egg</h3>
+<p class="text-xs text-text-secondary mt-1">Breakfast • Quick</p>
+</div>
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">320</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">18g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">24g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">16g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recipe Card 3 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer">
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    40m
+                                </div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Healthy bowl with quinoa, avocado, vegetables, and dressing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABAM2C_DPfYwe7_9HgfnVEZFCF5qG1xS5Y83sPCbxVA1ynuc6VQTQ60uhK1Kwx15bT72Y95rJMAzEXtOqEmduJcgss4sSojluauFJnmOAhtRVKn-tnOdAHTxx152Jtpj1fqcq4BE7VaQDOsX3u_xo1vULpzKN21_cZf_sNvsRyFSfpPKtlLeiC9tbx4OS51Q3qjKQwKoGJPI6c0xwlyB4wdNZ-SOdprJokvI2-GbgD17hJE2I7DcGg-Irjvac06yow3QBfsM5j5bc3"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Quinoa Power Bowl</h3>
+<p class="text-xs text-text-secondary mt-1">Lunch • Vegan</p>
+</div>
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">380</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">12g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-primary">55g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">14g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recipe Card 4 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer">
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    15m
+                                </div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Overnight oats in a glass jar with berries and seeds" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmipC1FTqYqEfh2ShYpTIHJRZgl10Mb9imSJ3rL3JboN4pFaMKtyzV2FEMdJX1IL16yJAGVavgP8HBT4AWKWqmnOqCJ1N7Hv6FQut5DjyJ3EyLphtvRm8MUs9Yt8KghiUU90OBWJX9_AA2JqILVnLW0uZoIBpb5FXTH_hOrDuOdreWpTLUqR5eYMbCO1wTXSC-9OeN_UCMKuNT8N90-K4GotXj7z2LnEOrZ6erDEQpOHAyKB8R1KjjywLO-6lY1nEBD0h2v56ouo1s"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Berry Overnight Oats</h3>
+<p class="text-xs text-text-secondary mt-1">Breakfast • Meal Prep</p>
+</div>
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">290</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">10g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-primary">48g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">6g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recipe Card 5 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer">
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    35m
+                                </div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Fresh salad with mixed greens, tomatoes, cucumber, and dressing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqN3NPbIVOUsfSlC3KT1N6dnZCopZIcadhnmAJcYR4RWbDrM0sPez_NdpLvFEuwJp8EQiyCKW-vz5QWxHzWbsZ2QNXMCHYRqdTRIdP9mK70R6-g2H2LRTG4A2OHWXRYoJs4G16Fy40ikUS2qjVkZcxsUS43gYD5ZwN54Smdigy5THs-Ec2Grn9Msz460b2MdgRwB-c8eV_gEGwFpALcr-KbD9VsCOA_5LgQVT8Lt_6P6olByRFqVm3b4vePxzbldfnxQjlbOzj8_JK"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Garden Fresh Salad</h3>
+<p class="text-xs text-text-secondary mt-1">Lunch • Low Calorie</p>
+</div>
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">180</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">5g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">12g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">10g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recipe Card 6 -->
+<div class="group flex flex-col rounded-xl bg-surface-dark border border-border-dark overflow-hidden hover:border-primary/50 hover:shadow-[0_0_20px_rgba(19,236,91,0.05)] transition-all duration-300 cursor-pointer">
+<div class="relative aspect-[4/3] w-full overflow-hidden bg-gray-800">
+<div class="absolute right-3 top-3 z-10 flex gap-2">
+<div class="rounded-md bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">timer</span>
+                                    20m
+                                </div>
+</div>
+<img class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Grilled salmon fillet with asparagus spears on a plate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBStjM34rsGuWEmBRnbPz7uVAvBuSee203MIZIxlvsGx-WyrY5eN7BM-uLMg1ekcI1pAP6kyv5es25Z8OdYRl38TVhmOPyL6eJ7l27eERMpVoXTH3J_diC5SFU2ml6JAzfUk_fmrynvkk1Ox8m6DoDQdo0pZes4GE7PUVxGxrbH2gu27Lqf9I8_jxJbRJyGpp2vpeYIT6_qUIX7zcCVtdogNdd0aaw_SBc0jZITC5wclXrVKve-DC1CqvQ01WKgokQAeZlvWjzaeVeR"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-60"></div>
+</div>
+<div class="flex flex-col gap-3 p-4 flex-1">
+<div>
+<h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1">Salmon &amp; Asparagus</h3>
+<p class="text-xs text-text-secondary mt-1">Dinner • Keto</p>
+</div>
+<div class="mt-auto pt-3 border-t border-border-dark">
+<div class="grid grid-cols-4 divide-x divide-border-dark text-center">
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">420</span>
+<span class="text-[10px] text-text-secondary uppercase">kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-primary">38g</span>
+<span class="text-[10px] text-text-secondary uppercase">P</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">4g</span>
+<span class="text-[10px] text-text-secondary uppercase">C</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">28g</span>
+<span class="text-[10px] text-text-secondary uppercase">F</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Add New Card (Empty State) -->
+<div class="group flex flex-col items-center justify-center rounded-xl bg-surface-dark/30 border-2 border-dashed border-border-dark min-h-[300px] hover:border-primary hover:bg-surface-dark/50 transition-all cursor-pointer">
+<div class="flex flex-col items-center gap-4 text-center p-6">
+<div class="h-14 w-14 rounded-full bg-border-dark flex items-center justify-center group-hover:bg-primary group-hover:text-background-dark transition-colors">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</div>
+<div>
+<h3 class="text-lg font-bold text-white">Add New Recipe</h3>
+<p class="text-sm text-text-secondary mt-1">Create manually or import</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

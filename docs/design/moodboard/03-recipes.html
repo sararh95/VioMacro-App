@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recipes — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html" class="here">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 03 &middot; /recipes, /recipes/import, detail, cook mode</p>
+  <h1>The library is the fuel.<br>Everything else runs on it.</h1>
+  <p class="lede">
+    Nothing in VioMacro works without recipes — the planner cannot generate, the grocery list
+    cannot resolve, the pantry has nothing to match. Which is exactly why the current fallback to
+    eleven demo recipes is so damaging: it lets the whole app <em>appear</em> to work on an empty
+    library.
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">Paprika</span><span class="take">4.9 stars across ~52,000 reviews for one reason: <b>it does not tell you what to eat</b>. People own their library. Never overwrite, never seed, never suggest deletion.</span></li>
+  <li><span class="src">Crouton</span><span class="take">An Apple Design Award for its cook mode. <b>One step at a time, large type, timers detected inline</b> from the text of the step itself.</span></li>
+  <li><span class="src">Samsung Food</span><span class="take">Import from anywhere is the acquisition feature. The strongest free cross-platform option, and import is why.</span></li>
+  <li><span class="src">Category trend</span><span class="take">2026 apps favour <b>data over glossy magazine photography</b>. Macros on the card beat a bigger photo.</span></li>
+  <li><span class="src">Paprika (warning)</span><span class="take">Reviewers say the interface feels dated. Ownership without craft only holds people so long.</span></li>
+</ul>
+
+<h2>Concept A — the library grid</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/recipes</span>
+    <span class="concept-name">Macro-forward cards, photo optional</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Design bet:</b> most recipes a real person adds have <em>no good photo</em> — they come from
+      a phone snap of a cookbook page or a PDF. A layout that assumes beautiful photography will
+      look broken on a real library. So the card leads with the <b>title and macros</b>, and treats
+      the image as a background wash when one exists.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box"><b>Search</b> <span class="hint">search-as-you-type, no submit</span></div>
+        <div class="box narrow lit"><span>AI</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box ghost"><span>All</span></div>
+        <div class="box ghost"><span>Favourites</span></div>
+        <div class="box ghost"><span>Mine</span></div>
+        <div class="box ghost"><span>Imported</span></div>
+        <div class="box ghost"><span>High protein</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="wire-col">
+          <div class="box xtall"><span><b>Chicken &amp; rice bowl</b><br><span class="hint">610 kcal &middot; 48P / 62C / 18F<br>25 min &middot; 4 servings</span></span></div>
+          <div class="wire-row">
+            <div class="meter m-pro"><i style="width:80%"></i></div>
+            <div class="meter m-car"><i style="width:55%"></i></div>
+            <div class="meter m-fat"><i style="width:30%"></i></div>
+          </div>
+        </div>
+        <div class="wire-col">
+          <div class="box xtall"><span><b>Overnight oats</b><br><span class="hint">420 kcal &middot; 18P / 58C / 12F<br>5 min &middot; 1 serving</span></span></div>
+          <div class="wire-row">
+            <div class="meter m-pro"><i style="width:35%"></i></div>
+            <div class="meter m-car"><i style="width:75%"></i></div>
+            <div class="meter m-fat"><i style="width:25%"></i></div>
+          </div>
+        </div>
+        <div class="wire-col">
+          <div class="box xtall ghost"><span><b>+ Add a recipe</b><br><span class="hint">Write one, or drop a photo / PDF</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <h4>Card anatomy</h4>
+    <ul>
+      <li><strong>Title first, always readable</strong> — never overlaid on an unpredictable photo without a scrim.</li>
+      <li><strong>A three-bar macro signature</strong> under each card. At a glance you can spot the high-protein recipes across the whole grid without reading a single number.</li>
+      <li><strong>No photo? No problem.</strong> The card falls back to a tinted panel derived from the recipe's dominant macro. It looks intentional rather than broken.</li>
+      <li><strong>Favourite is a corner tap</strong> with an optimistic fill that reverses visibly if the save fails.</li>
+    </ul>
+
+    <div class="note bad">
+      <h4>Delete on sight</h4>
+      <p>
+        The fallback to demo recipes when the library is empty <b>or when the read fails</b>. An empty
+        library should say it is empty. A failed read should say it failed and offer Retry. Right now
+        both render as a stocked library of food the user does not own — and they can add it to a real plan.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>Concept B — import as one gesture</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/recipes/import</span>
+    <span class="concept-name">Drop &rarr; parse &rarr; check &rarr; save</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The promise in your blueprint:</b> a multi-minute manual task becomes one click. The
+      mechanic that matters is the <b>review step</b> — the AI proposes, the human confirms. Never
+      save silently, and never fill blanks with invented numbers.
+    </p>
+
+    <div class="wire">
+      <div class="stack-label">1 — one target, three sources</div>
+      <div class="box xtall ghost"><span><b>Drop a photo, PDF or paste a link</b><br><span class="hint">the whole panel is the drop zone, not a small button</span></span></div>
+
+      <div class="stack-label">2 — parsing, with honest stages</div>
+      <div class="wire-row">
+        <div class="box lit"><b>Reading the page</b> <span class="hint">step 2 of 3</span></div>
+      </div>
+      <div class="meter m-cal"><i style="width:62%"></i></div>
+
+      <div class="stack-label">3 — review, with confidence made visible</div>
+      <div class="wire-row">
+        <div class="box"><b>Title</b> <span class="hint">read from source</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box"><b>610 kcal</b></div>
+        <div class="box"><b>48 g protein</b></div>
+        <div class="box ghost"><b>Cook time</b> <span class="hint">not found &mdash; add it</span></div>
+      </div>
+      <div class="box"><span>Ingredients &middot; 9 read &middot; tap any to edit</span></div>
+      <div class="box solid"><span>Save to my library</span></div>
+    </div>
+
+    <div class="note warn">
+      <h4>Two fixes baked into this concept</h4>
+      <p>
+        <b>Fields the parser could not find stay empty and say so</b> — the current code hardcodes
+        30 minutes and 4 servings on every import, which also means every imported recipe
+        permanently matches the "Under 30m" filter. And <b>every PDF import currently shares one
+        stock photo</b> pulled from an external site; here a missing image is simply a tinted panel.
+      </p>
+    </div>
+
+    <h4>Add the missing source</h4>
+    <p>
+      Your blueprint's headline import feature is <strong>paste a URL</strong>. The build has image
+      and PDF but not links — and a link is the single most common way a person meets a recipe.
+      The drop zone above accepts all three, so adding it later is a parser change, not a redesign.
+    </p>
+  </div>
+</div>
+
+<h2>Concept C — cook mode</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">award-winning pattern</span>
+    <span class="concept-name">One step, big type, timer where the time is mentioned</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Why this pattern won:</b> in a kitchen the phone is on a counter, hands are wet, and the
+      screen is a metre away. Every design decision follows from those three facts.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row"><div class="box"><span>Step 3 of 7</span></div><div class="box narrow"><span>Exit</span></div></div>
+      <div class="meter m-cal"><i style="width:43%"></i></div>
+      <div class="box xtall"><span style="font-size:15px"><b>Simmer the rice for 12 minutes, covered.</b></span></div>
+      <div class="wire-row">
+        <div class="box lit"><b>Start 12:00 timer</b> <span class="hint">detected from the step text</span></div>
+      </div>
+      <div class="box ghost"><span>Ingredients for this step &mdash; 1 cup rice, 2 cups stock</span></div>
+      <div class="wire-row">
+        <div class="box"><span>&larr; Back</span></div>
+        <div class="box solid"><span>Next step &rarr;</span></div>
+      </div>
+    </div>
+
+    <ul>
+      <li><strong>Screen stays awake</strong> for the whole session. This is the single most requested cook-mode behaviour.</li>
+      <li><strong>Timers are detected from the words.</strong> "Simmer for 12 minutes" grows a 12:00 button inline. The user never types a duration.</li>
+      <li><strong>Huge tap targets</strong> — Back and Next span half the screen each. Wet hands, no precision.</li>
+      <li><strong>Only this step's ingredients</strong> are shown, so there is no scrolling back to the top mid-cook.</li>
+      <li><strong>Finishing offers to tick the meal</strong> as eaten, closing the loop into the Dashboard.</li>
+    </ul>
+
+    <div class="note good">
+      <h4>You already have most of this</h4>
+      <p>
+        <code>GuidedCooking.tsx</code> exists and works. The upgrades are wake-lock, inline timer
+        detection, per-step ingredients, and the hand-off back to the plan on completion.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>The missing link</h2>
+<div class="note bad">
+  <p>
+    From a recipe you <b>cannot</b> reach a meal plan — the button is disabled and reads
+    "Add to Meal Plan Coming Soon". The connection only runs the other way. Every concept on this
+    board assumes that button works, because "I am looking at this recipe and I want to eat it on
+    Thursday" is the most natural thought a person has in a recipe library.
+  </p>
+</div>
+
+<footer>
+  <p>Board 03 &middot; <a href="index.html">start</a> &middot; prev: <a href="02-dashboard.html">Dashboard</a> &middot; next: <a href="04-planner.html">Planner</a></p>
+</footer>
+</div>
+</body>
+</html>

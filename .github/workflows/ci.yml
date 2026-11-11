@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      VITE_FIREBASE_API_KEY: demo-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: demo-viomacro.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: viomacro
+      VITE_FIREBASE_STORAGE_BUCKET: viomacro.appspot.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '1234567890'
+      VITE_FIREBASE_APP_ID: '1:1234567890:web:0000000000000000000000'
+      VITE_RECAPTCHA_SITE_KEY: demo-recaptcha-site-key
+      VITE_USE_FIREBASE_EMULATORS: 'false'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - run: npm ci
+      - run: npm --prefix functions ci
+      - run: npm run check
+
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm run test:rules
+      - run: npm run test:concurrency
+
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      VITE_FIREBASE_API_KEY: demo-key
+      VITE_FIREBASE_AUTH_DOMAIN: demo-viomacro.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: viomacro
+      VITE_FIREBASE_STORAGE_BUCKET: viomacro.appspot.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '1234567890'
+      VITE_FIREBASE_APP_ID: '1:1234567890:web:0000000000000000000000'
+      VITE_RECAPTCHA_SITE_KEY: demo-recaptcha-site-key
+      VITE_USE_FIREBASE_EMULATORS: 'false'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run test:e2e:emulator
+      - run: npm run test:e2e:prod-emulator

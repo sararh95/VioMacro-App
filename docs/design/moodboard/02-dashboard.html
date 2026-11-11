@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html" class="here">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 02 &middot; /</p>
+  <h1>Today, in one glance.<br>Honest when there is nothing to say.</h1>
+  <p class="lede">
+    This is the screen people open most, and it is currently the least honest one you have — a
+    check-in banner that never turns off, a fabricated sentence about the user's own adherence,
+    and a pulsing <em>Live</em> badge on an engine that does not exist. The concepts below keep
+    the density and delete the fiction.
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">YAZIO</span><span class="take">Card-based layout with real breathing room. Reviewers single out the calm as the reason it feels considered rather than busy.</span></li>
+  <li><span class="src">Lifesum</span><span class="take">One <b>summary number</b> that stands for overall quality, plus habit tracking for water. People understand one score faster than four bars.</span></li>
+  <li><span class="src">Research</span><span class="take">Users prefer <b>goals and progress bars</b> over other gamification. Bars beat badges, streaks beat points.</span></li>
+  <li><span class="src">MacroFactor</span><span class="take">Show the <b>trend</b>, not today's scale reading. Daily weight is noise; the smoothed line is the signal.</span></li>
+  <li><span class="src">Cronometer</span><span class="take">The warning: depth without hierarchy reads as utilitarian. Detail must be earned by tapping, never dumped on arrival.</span></li>
+</ul>
+
+<h2>Concept A — the today column</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">recommended</span>
+    <span class="concept-name">One priority per row, in descending urgency</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The idea:</b> the top of the screen answers <em>"am I on track today?"</em> and nothing else.
+      Everything below it is optional. The current layout puts a permanent check-in banner above the
+      macros, so the first thing you see is a demand rather than an answer.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box"><b>Good evening, Sara</b> <span class="hint">phase &middot; week 4</span></div>
+      </div>
+
+      <div class="stack-label">Priority row — only appears when a real condition is true</div>
+      <div class="box ghost"><span>No weigh-in for 4 days &rarr; <b>Log weight</b></span></div>
+
+      <div class="stack-label">The answer</div>
+      <div class="wire-row">
+        <div class="wire-col" style="flex:1.6">
+          <div class="box tall lit"><b>1,420 / 2,180 kcal</b> <span class="hint">760 left</span></div>
+          <div class="meter m-cal"><i style="width:65%"></i></div>
+        </div>
+        <div class="wire-col">
+          <div class="stack-label">Protein</div><div class="meter m-pro"><i style="width:78%"></i></div>
+          <div class="stack-label">Carbs</div><div class="meter m-car"><i style="width:52%"></i></div>
+          <div class="stack-label">Fat</div><div class="meter m-fat"><i style="width:61%"></i></div>
+        </div>
+      </div>
+
+      <div class="stack-label">Today's plan — tap a meal to tick it off</div>
+      <div class="wire-row"><div class="box"><b>Breakfast</b> &middot; Oats &amp; berries <span class="hint">420 kcal &middot; done</span></div></div>
+      <div class="wire-row"><div class="box lit"><b>Lunch</b> &middot; Chicken bowl <span class="hint">next &middot; 610 kcal</span></div></div>
+      <div class="wire-row"><div class="box ghost"><b>Dinner</b> &middot; not planned <span class="hint">add one</span></div></div>
+
+      <div class="stack-label">Habits — small, secondary, never shouting</div>
+      <div class="wire-row">
+        <div class="box"><b>Water</b> 1,750 / 2,500 ml <span class="hint">+250 &middot; +bottle</span></div>
+        <div class="box"><b>Sleep</b> 7h 20m <span class="hint">log last night</span></div>
+      </div>
+    </div>
+
+    <h4>Why this order</h4>
+    <ul>
+      <li><strong>Question before demand.</strong> The macro answer sits above every prompt.</li>
+      <li><strong>The priority row is conditional.</strong> It renders only when something is genuinely true — no weigh-in in N days, no plan for today, a save that failed. When nothing is true, the row does not exist.</li>
+      <li><strong>Today's meals are the primary interaction.</strong> Ticking one is the single most common daily action and it should be reachable without scrolling.</li>
+      <li><strong>Habits go last</strong> and stay visually quiet. They are supporting evidence, not the headline.</li>
+    </ul>
+    <p><strong>Target: 1 action to tick a meal. 1 action to add water.</strong></p>
+  </div>
+</div>
+
+<h2>Concept B — the honest engine card</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">honesty</span>
+    <span class="concept-name">Three states for a feature that is still being built</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The problem:</b> the sidebar says <em>Engine Insights</em> with a pulsing <em>Live</em>
+      badge, and the banner asserts <em>"Adherence was high last week!"</em> — text typed into the
+      source, not measured from anything. The fix is not to hide the ambition. It is to show
+      <b>honest progress toward it</b>.
+    </p>
+
+    <div class="wire">
+      <div class="stack-label">State 1 — not enough data yet (the truthful default today)</div>
+      <div class="box tall">
+        <span><b>Your targets</b><br><span class="hint">Set from your profile. Log weight for 14 days and VioMacro will start adjusting them for you.</span></span>
+      </div>
+      <div class="meter m-cal"><i style="width:21%"></i></div>
+      <div class="box ghost"><span>3 of 14 weigh-ins &middot; honest progress bar, real count</span></div>
+
+      <div class="stack-label">State 2 — engine active (once it is actually built)</div>
+      <div class="box tall lit">
+        <span><b>Adjusted +90 kcal this week</b><br><span class="hint">Your weight trend fell faster than target. Based on 11 weigh-ins and 6 days of logging.</span></span>
+      </div>
+
+      <div class="stack-label">State 3 — engine needs input</div>
+      <div class="box tall">
+        <span><b>Waiting on this week's weigh-ins</b><br><span class="hint">2 more days of data and targets update on Sunday.</span></span>
+      </div>
+    </div>
+
+    <div class="note good">
+      <h4>Why this is better than hiding it</h4>
+      <p>
+        State 1 tells the user the engine is real and coming, gives them a <b>reason to log</b>, and
+        shows honest progress toward the thing they were promised. That is more motivating than a
+        fake badge — and unlike the fake badge, it survives contact with a sceptical user.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>Concept C — the empty dashboard</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">day one</span>
+    <span class="concept-name">What a brand-new account sees</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Currently:</b> zeros in every macro card, a hardcoded 2,000 kcal target if a plan has no
+      targets of its own, and a permanent "Weekly Check-In Required" banner on an account with
+      nothing to check in about. Three separate lies on an empty account.
+    </p>
+    <div class="wire">
+      <div class="box"><b>Welcome, Sara</b></div>
+      <div class="box tall lit"><span><b>2,180 kcal</b> &middot; your target<br><span class="hint">Nothing logged yet today</span></span></div>
+      <div class="wire-row">
+        <div class="box ghost tall"><span><b>1. Add a few recipes</b><br><span class="hint">Import a photo or PDF, or write one</span></span></div>
+        <div class="box ghost tall"><span><b>2. Plan your week</b><br><span class="hint">Needs at least one recipe</span></span></div>
+        <div class="box ghost tall"><span><b>3. Shop the list</b><br><span class="hint">Built from your plan</span></span></div>
+      </div>
+    </div>
+    <p>
+      Three numbered steps, in dependency order, each disabled until the one before it is done.
+      This is the only place in the app where numbering is appropriate — because it genuinely
+      <em>is</em> a sequence, and step 2 really does need step 1.
+    </p>
+  </div>
+</div>
+
+<h2>Interaction details worth getting right</h2>
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>Element</th><th>Behaviour</th><th>Fixes</th></tr></thead>
+  <tbody>
+    <tr><td><b>Water quick-add</b></td><td>Optimistic tick with a live-counting number in tabular figures. Clamps at the daily maximum and says so rather than blaming the network.</td><td>The read-modify-write race and the missing validation</td></tr>
+    <tr><td><b>Bottle size</b></td><td>Inline stepper inside the card. Never a browser <code>prompt()</code>.</td><td>The one native dialog doing real data entry</td></tr>
+    <tr><td><b>Meal tick</b></td><td>120ms fill, then the calorie total counts up. If the save fails the tick reverses with an inline message.</td><td>Silent failures that survive until reload</td></tr>
+    <tr><td><b>Weight card</b></td><td>Shows the <b>trend line</b> prominently and the last raw reading small. Daily fluctuation is explicitly labelled as noise.</td><td>Aligns the UI with the blueprint's trend-weight promise</td></tr>
+    <tr><td><b>Streak</b></td><td>Stays, but computed from a lookup set rather than a 365&times;n scan.</td><td>A visible jank source on every render</td></tr>
+  </tbody>
+</table>
+</div>
+
+<footer>
+  <p>Board 02 &middot; <a href="index.html">start</a> &middot; prev: <a href="01-entry.html">Entry</a> &middot; next: <a href="03-recipes.html">Recipes</a></p>
+</footer>
+</div>
+</body>
+</html>

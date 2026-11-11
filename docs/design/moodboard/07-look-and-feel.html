@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Look &amp; Feel — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+<style>
+/* ============================================================
+   High-fidelity mockups.
+   Original work — no third-party screenshots are used anywhere.
+   This is "how it could look", not a spec. Steal what you like.
+   ============================================================ */
+
+.frame {
+  background: #0B0E12;
+  border: 1px solid #232B34;
+  border-radius: 18px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -30px rgba(0,0,0,.9), 0 2px 0 rgba(255,255,255,.03) inset;
+  margin: 18px 0 8px;
+}
+.frame-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 11px 15px; border-bottom: 1px solid #1B222A; background: #0E1218;
+}
+.frame-bar i { width: 9px; height: 9px; border-radius: 99px; background: #2A333D; display: block; }
+.frame-bar span {
+  margin-left: 10px; font-family: var(--mono); font-size: 10.5px; color: #59636E;
+  letter-spacing: .03em;
+}
+.app { padding: 20px; font-family: var(--body); }
+
+.caption {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-3);
+  letter-spacing: .06em; margin: 0 0 26px; text-align: center;
+}
+
+/* --- app primitives --- */
+.a-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+.a-hello { font-family: var(--display); font-weight: 700; font-size: 22px; color: #F0F2F5; letter-spacing: -.02em; margin: 0 0 3px; }
+.a-sub { font-size: 12px; color: #6E7883; margin: 0; }
+
+.a-card {
+  background: #141920; border: 1px solid #212932; border-radius: 12px; padding: 16px;
+}
+.a-card.tint { background: linear-gradient(150deg, #1B1630 0%, #141920 68%); border-color: #2E2648; }
+.a-grid { display: grid; gap: 10px; }
+
+.a-label {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .13em;
+  text-transform: uppercase; color: #5F6975; margin: 0 0 7px;
+}
+
+.big-num {
+  font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1;
+  color: #F2F4F7; letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+.big-num small { font-size: 14px; font-weight: 500; color: #6E7883; letter-spacing: 0; margin-left: 5px; }
+.mid-num { font-family: var(--display); font-weight: 600; font-size: 17px; color: #E4E8ED; font-variant-numeric: tabular-nums; }
+
+.track { height: 6px; border-radius: 99px; background: #1D242D; overflow: hidden; margin-top: 9px; }
+.track > i { display: block; height: 100%; border-radius: 99px; }
+.f-cal > i { background: linear-gradient(90deg,#8B6BF0,#A78BFA); }
+.f-pro > i { background: #6BA5F7; }
+.f-car > i { background: #F0B429; }
+.f-fat > i { background: #E0719C; }
+.f-wat > i { background: #4FC3E8; }
+
+.macro-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+.macro { }
+.macro .k { display: flex; justify-content: space-between; align-items: baseline; }
+.macro .k b { font-family: var(--mono); font-size: 11px; color: #99A3AE; font-weight: 500; }
+.macro .k s { font-family: var(--mono); font-size: 10px; color: #5F6975; text-decoration: none; }
+
+/* meals */
+.meal {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 13px; border-radius: 10px; background: #141920;
+  border: 1px solid #212932; margin-bottom: 7px;
+}
+.meal.next { border-color: #3D2F63; background: linear-gradient(90deg,#1A1530,#141920 60%); }
+.meal.empty { border-style: dashed; background: transparent; }
+.tick {
+  width: 19px; height: 19px; border-radius: 6px; border: 1.5px solid #2E3844;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #0B0E12;
+}
+.tick.on { background: #A78BFA; border-color: #A78BFA; }
+.meal .mn { flex: 1; min-width: 0; }
+.meal .mt { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #5F6975; }
+.meal .mm { font-size: 13.5px; color: #DDE2E8; font-weight: 500; }
+.meal.done .mm { color: #6E7883; }
+.meal .kc { font-family: var(--mono); font-size: 11.5px; color: #808A96; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* recipe cards */
+.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 11px; }
+.rcard { background: #141920; border: 1px solid #212932; border-radius: 12px; overflow: hidden; }
+.rcard .art { height: 78px; position: relative; }
+.rcard .art.p { background: linear-gradient(145deg, #23405F, #16202C); }
+.rcard .art.c { background: linear-gradient(145deg, #5A4419, #221D12); }
+.rcard .art.f { background: linear-gradient(145deg, #542C3E, #241820); }
+.rcard .art.v { background: linear-gradient(145deg, #33265C, #1A1626); }
+.rcard .fav {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 99px;
+  background: rgba(11,14,18,.65); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #A78BFA;
+}
+.rcard .rb { padding: 11px 12px 12px; }
+.rcard .rt { font-size: 13.5px; font-weight: 600; color: #E4E8ED; margin: 0 0 4px; line-height: 1.3; }
+.rcard .rm { font-family: var(--mono); font-size: 10px; color: #6E7883; margin: 0 0 9px; font-variant-numeric: tabular-nums; }
+.sig { display: flex; gap: 3px; }
+.sig i { height: 3px; border-radius: 99px; display: block; }
+
+/* planner */
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { background: #141920; border: 1px solid #212932; border-radius: 9px; padding: 8px 7px; }
+.day.today { border-color: #3D2F63; }
+.day .dn { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #5F6975; margin-bottom: 7px; }
+.slot {
+  font-size: 10px; color: #A6AFBA; background: #1A2128; border-radius: 5px;
+  padding: 5px 6px; margin-bottom: 4px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.slot.batch { background: #241D3D; color: #B69CFF; }
+.slot.none { background: transparent; border: 1px dashed #262E38; color: #4C5661; }
+.daybar { height: 3px; border-radius: 99px; background: #1D242D; margin-top: 6px; overflow: hidden; }
+.daybar > i { display: block; height: 100%; background: #A78BFA; }
+.daybar.short > i { background: #E8B24A; }
+
+/* grocery */
+.gsec { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: #5F6975; margin: 15px 0 7px; }
+.gitem {
+  display: flex; align-items: center; gap: 12px; padding: 13px 13px;
+  background: #141920; border: 1px solid #212932; border-radius: 10px; margin-bottom: 6px;
+}
+.gitem.checked { opacity: .42; }
+.gitem.checked .gn { text-decoration: line-through; }
+.gitem.home { background: transparent; border-style: dashed; opacity: .6; }
+.gn { flex: 1; font-size: 13.5px; color: #DDE2E8; }
+.gq { font-family: var(--mono); font-size: 11.5px; color: #808A96; font-variant-numeric: tabular-nums; }
+.gtag { font-family: var(--mono); font-size: 9px; color: #B69CFF; background: #241D3D; padding: 2px 6px; border-radius: 4px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+  padding: 5px 10px; border-radius: 99px; border: 1px solid #262E38; color: #808A96;
+}
+.pill.on { background: #A78BFA; border-color: #A78BFA; color: #16102A; font-weight: 600; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #A78BFA; color: #16102A; font-weight: 600; font-size: 13px;
+  padding: 11px 18px; border-radius: 10px; font-family: var(--body);
+}
+.btn.ghost { background: transparent; border: 1px solid #2A333D; color: #A6AFBA; font-weight: 500; }
+
+.two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.phone { max-width: 300px; margin: 0 auto; }
+
+@media (max-width: 640px) {
+  .two-up { grid-template-columns: 1fr; }
+  .week { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+  <a href="07-look-and-feel.html" class="here">Look &amp; Feel</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 07 &middot; the pretty one</p>
+  <h1>How it could actually look.</h1>
+  <p class="lede">
+    The other boards are schematics. This one is the feeling. Everything below is drawn from
+    scratch using the palette and type from <a href="00-foundations.html">Foundations</a> — no
+    screenshots, nothing borrowed. Treat it as a direction to react to, not a spec to match.
+    If one detail here makes you go <em>"yes, that"</em>, it did its job.
+  </p>
+</header>
+
+<h2>Dashboard</h2>
+
+<div class="frame">
+  <div class="frame-bar"><i></i><i></i><i></i><span>viomacro.web.app</span></div>
+  <div class="app">
+    <div class="a-head">
+      <div>
+        <p class="a-hello">Good evening, Sara</p>
+        <p class="a-sub">Fat loss &middot; week 4 &middot; day 26</p>
+      </div>
+      <span class="pill">&#9210; 12 day streak</span>
+    </div>
+
+    <div class="a-card tint" style="margin-bottom:12px">
+      <p class="a-label">Today</p>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px">
+        <div class="big-num">1,420<small>/ 2,180 kcal</small></div>
+        <div style="font-family:var(--mono);font-size:12px;color:#B69CFF;white-space:nowrap">760 left</div>
+      </div>
+      <div class="track f-cal"><i style="width:65%"></i></div>
+
+      <div class="macro-row">
+        <div class="macro">
+          <div class="k"><b>Protein</b><s>128 / 164</s></div>
+          <div class="track f-pro"><i style="width:78%"></i></div>
+        </div>
+        <div class="macro">
+          <div class="k"><b>Carbs</b><s>113 / 218</s></div>
+          <div class="track f-car"><i style="width:52%"></i></div>
+        </div>
+        <div class="macro">
+          <div class="k"><b>Fat</b><s>45 / 73</s></div>
+          <div class="track f-fat"><i style="width:61%"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="a-label">Today&rsquo;s plan</p>
+    <div class="meal done">
+      <span class="tick on">&#10003;</span>
+      <span class="mn"><span class="mt">Breakfast</span><div class="mm">Overnight oats &amp; berries</div></span>
+      <span class="kc">420 kcal</span>
+    </div>
+    <div class="meal done">
+      <span class="tick on">&#10003;</span>
+      <span class="mn"><span class="mt">Lunch</span><div class="mm">Chicken &amp; rice bowl</div></span>
+      <span class="kc">610 kcal</span>
+    </div>
+    <div class="meal next">
+      <span class="tick"></span>
+      <span class="mn"><span class="mt">Dinner &middot; next</span><div class="mm">Salmon, greens &amp; potatoes</div></span>
+      <span class="kc">640 kcal</span>
+    </div>
+    <div class="meal empty">
+      <span class="tick"></span>
+      <span class="mn"><span class="mt">Snack</span><div class="mm" style="color:#6E7883">Nothing planned &mdash; add one</div></span>
+      <span class="kc">&mdash;</span>
+    </div>
+
+    <div class="two-up" style="margin-top:14px">
+      <div class="a-card">
+        <p class="a-label">Hydration</p>
+        <div class="mid-num">1,750 <span style="font-size:11px;color:#6E7883">/ 2,500 ml</span></div>
+        <div class="track f-wat"><i style="width:70%"></i></div>
+        <div style="display:flex;gap:6px;margin-top:11px">
+          <span class="pill">+250</span><span class="pill">+750 bottle</span>
+        </div>
+      </div>
+      <div class="a-card">
+        <p class="a-label">Your targets</p>
+        <div style="font-size:12.5px;color:#98A2AD;line-height:1.5">
+          Log weight for <b style="color:#DDE2E8">11 more days</b> and VioMacro starts adjusting these for you.
+        </div>
+        <div class="track f-cal"><i style="width:21%"></i></div>
+        <div style="font-family:var(--mono);font-size:10px;color:#5F6975;margin-top:7px">3 of 14 weigh-ins</div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">
+  The macro card is the only tinted surface on the page — it is the answer to &ldquo;am I on track?&rdquo; and
+  everything else is quieter. Note the targets card: honest progress toward the engine, not a fake Live badge.
+</p>
+
+<h2>Recipe library</h2>
+
+<div class="frame">
+  <div class="frame-bar"><i></i><i></i><i></i><span>viomacro.web.app/recipes</span></div>
+  <div class="app">
+    <div class="a-head">
+      <div>
+        <p class="a-hello">Recipes</p>
+        <p class="a-sub">34 in your library</p>
+      </div>
+      <span class="btn">+ Add</span>
+    </div>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="pill on">All</span>
+      <span class="pill">Favourites</span>
+      <span class="pill">Mine</span>
+      <span class="pill">Imported</span>
+      <span class="pill">High protein</span>
+      <span class="pill">Under 30m</span>
+    </div>
+
+    <div class="rgrid">
+      <div class="rcard">
+        <div class="art p"><span class="fav">&#9829;</span></div>
+        <div class="rb">
+          <p class="rt">Chicken &amp; rice bowl</p>
+          <p class="rm">610 kcal &middot; 25 min &middot; 4 servings</p>
+          <div class="sig">
+            <i style="background:#6BA5F7;flex:48"></i>
+            <i style="background:#F0B429;flex:62"></i>
+            <i style="background:#E0719C;flex:18"></i>
+          </div>
+        </div>
+      </div>
+      <div class="rcard">
+        <div class="art c"></div>
+        <div class="rb">
+          <p class="rt">Overnight oats &amp; berries</p>
+          <p class="rm">420 kcal &middot; 5 min &middot; 1 serving</p>
+          <div class="sig">
+            <i style="background:#6BA5F7;flex:18"></i>
+            <i style="background:#F0B429;flex:58"></i>
+            <i style="background:#E0719C;flex:12"></i>
+          </div>
+        </div>
+      </div>
+      <div class="rcard">
+        <div class="art f"><span class="fav">&#9829;</span></div>
+        <div class="rb">
+          <p class="rt">Salmon, greens &amp; potatoes</p>
+          <p class="rm">640 kcal &middot; 30 min &middot; 2 servings</p>
+          <div class="sig">
+            <i style="background:#6BA5F7;flex:42"></i>
+            <i style="background:#F0B429;flex:34"></i>
+            <i style="background:#E0719C;flex:31"></i>
+          </div>
+        </div>
+      </div>
+      <div class="rcard">
+        <div class="art v"></div>
+        <div class="rb">
+          <p class="rt">Tofu stir fry</p>
+          <p class="rm">520 kcal &middot; 20 min &middot; 3 servings</p>
+          <div class="sig">
+            <i style="background:#6BA5F7;flex:31"></i>
+            <i style="background:#F0B429;flex:48"></i>
+            <i style="background:#E0719C;flex:22"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">
+  No photography needed. The tinted panel is derived from the recipe&rsquo;s dominant macro, and the three-bar
+  signature under each card lets you spot the high-protein ones across the whole grid without reading a number.
+</p>
+
+<h2>Meal planner &mdash; the week</h2>
+
+<div class="frame">
+  <div class="frame-bar"><i></i><i></i><i></i><span>viomacro.web.app/plan</span></div>
+  <div class="app">
+    <div class="a-head">
+      <div>
+        <p class="a-hello">Week of 24 Aug</p>
+        <p class="a-sub">18 of 21 meals planned &middot; 1 batch session</p>
+      </div>
+      <span class="btn ghost">Generate</span>
+    </div>
+
+    <div class="week">
+      <div class="day"><div class="dn">Mon</div>
+        <div class="slot">Oats</div><div class="slot">Chicken bowl</div><div class="slot">Salmon</div>
+        <div class="daybar"><i style="width:96%"></i></div>
+      </div>
+      <div class="day today"><div class="dn">Tue</div>
+        <div class="slot">Oats</div><div class="slot batch">Batch &times;4</div><div class="slot">Stir fry</div>
+        <div class="daybar"><i style="width:99%"></i></div>
+      </div>
+      <div class="day"><div class="dn">Wed</div>
+        <div class="slot">Oats</div><div class="slot batch">Batch &times;4</div><div class="slot none">+ add</div>
+        <div class="daybar short"><i style="width:61%"></i></div>
+      </div>
+      <div class="day"><div class="dn">Thu</div>
+        <div class="slot">Oats</div><div class="slot batch">Batch &times;4</div><div class="slot">Pasta</div>
+        <div class="daybar"><i style="width:92%"></i></div>
+      </div>
+      <div class="day"><div class="dn">Fri</div>
+        <div class="slot">Oats</div><div class="slot batch">Batch &times;4</div><div class="slot">Curry</div>
+        <div class="daybar"><i style="width:88%"></i></div>
+      </div>
+      <div class="day"><div class="dn">Sat</div>
+        <div class="slot none">+ add</div><div class="slot none">+ add</div><div class="slot none">+ add</div>
+        <div class="daybar"><i style="width:0%"></i></div>
+      </div>
+      <div class="day"><div class="dn">Sun</div>
+        <div class="slot none">+ add</div><div class="slot none">+ add</div><div class="slot none">+ add</div>
+        <div class="daybar"><i style="width:0%"></i></div>
+      </div>
+    </div>
+
+    <div class="a-card tint" style="margin-top:14px">
+      <p class="a-label">Sunday prep</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <div>
+          <div class="mid-num">Chicken &amp; rice &times;4</div>
+          <div style="font-size:12px;color:#8A94A0;margin-top:3px">Covers Tue&ndash;Fri lunch &middot; one 45 min session</div>
+        </div>
+        <span class="btn">Cook it</span>
+      </div>
+    </div>
+
+    <div class="a-card" style="margin-top:10px;border-color:#4A3D1F;background:#1A1712">
+      <div style="font-size:12.5px;color:#E8B24A">
+        Wednesday is <b>760 kcal short</b>
+        <span style="float:right;color:#C9A65C;font-family:var(--mono);font-size:11px">Fill the gap &rarr;</span>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">
+  The batch shares one violet tint across the four days it covers, so it reads as a single object spanning the
+  week. Short days get an amber bar and one tap to fix &mdash; not a red alarm.
+</p>
+
+<h2>Grocery &mdash; used standing up</h2>
+
+<div class="two-up">
+  <div>
+    <div class="frame phone">
+      <div class="frame-bar"><i></i><i></i><i></i><span>in the shop</span></div>
+      <div class="app">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <div class="big-num" style="font-size:26px">14<small>left</small></div>
+          <span style="font-family:var(--mono);font-size:10px;color:#5F6975">of 23</span>
+        </div>
+        <div class="track f-cal"><i style="width:39%"></i></div>
+
+        <p class="gsec">Produce &mdash; 3 left</p>
+        <div class="gitem"><span class="tick"></span><span class="gn">Spinach</span><span class="gq">200 g</span></div>
+        <div class="gitem"><span class="tick"></span><span class="gn">Avocado</span><span class="gq">&times;3</span></div>
+        <div class="gitem checked"><span class="tick on">&#10003;</span><span class="gn">Lemons</span><span class="gq">&times;2</span></div>
+
+        <p class="gsec">Proteins &mdash; 2 left</p>
+        <div class="gitem"><span class="tick"></span><span class="gn">Chicken breast <span class="gtag">batch &times;4</span></span><span class="gq">800 g</span></div>
+        <div class="gitem"><span class="tick"></span><span class="gn">Salmon fillet</span><span class="gq">&times;2</span></div>
+
+        <p class="gsec">Already at home</p>
+        <div class="gitem home"><span class="gn" style="color:#7A848F">Rice</span><span class="gq">500 g</span></div>
+      </div>
+    </div>
+    <p class="caption">Tall rows, whole-row tap targets, and a counter that counts <em>down</em>.</p>
+  </div>
+
+  <div>
+    <div class="frame phone">
+      <div class="frame-bar"><i></i><i></i><i></i><span>cook mode</span></div>
+      <div class="app">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-family:var(--mono);font-size:11px;color:#6E7883">Step 3 of 7</span>
+          <span class="pill">Exit</span>
+        </div>
+        <div class="track f-cal" style="margin-bottom:20px"><i style="width:43%"></i></div>
+
+        <div style="font-family:var(--display);font-weight:600;font-size:21px;line-height:1.35;color:#EFF2F5;letter-spacing:-.015em;margin-bottom:20px">
+          Simmer the rice for 12&nbsp;minutes, covered.
+        </div>
+
+        <div class="a-card tint" style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--mono);font-size:22px;color:#B69CFF;font-variant-numeric:tabular-nums">12:00</span>
+            <span class="btn">Start timer</span>
+          </div>
+        </div>
+
+        <p class="a-label">For this step</p>
+        <div style="font-size:13px;color:#98A2AD;line-height:1.7">1 cup rice<br>2 cups stock</div>
+
+        <div style="display:flex;gap:8px;margin-top:22px">
+          <span class="btn ghost" style="flex:1">&larr; Back</span>
+          <span class="btn" style="flex:1.6">Next step &rarr;</span>
+        </div>
+      </div>
+    </div>
+    <p class="caption">Phone on a counter, wet hands. Big type, half-screen buttons, timer read from the words.</p>
+  </div>
+</div>
+
+<h2>Go look at the real ones</h2>
+<p>
+  These are not in your repo &mdash; they belong to the people who made them. But their own store
+  pages carry official screenshots, and flipping through those is worth twenty minutes.
+</p>
+
+<ul class="borrow">
+  <li><span class="src">MacroFactor</span><span class="take"><a href="https://apps.apple.com/us/app/macrofactor-macro-tracker/id1553503471">App Store</a> &mdash; look at how quiet the logging screen is, and how the trend chart demotes today&rsquo;s reading.</span></li>
+  <li><span class="src">YAZIO</span><span class="take"><a href="https://apps.apple.com/us/app/yazio-food-calorie-counter/id946099227">App Store</a> &mdash; the polish reference. Watch the spacing and the card edges.</span></li>
+  <li><span class="src">Lifesum</span><span class="take"><a href="https://apps.apple.com/us/app/lifesum-healthy-eating/id286906691">App Store</a> &mdash; how a single summary score replaces four competing numbers.</span></li>
+  <li><span class="src">Paprika</span><span class="take"><a href="https://www.paprikaapp.com/">paprikaapp.com</a> &mdash; recipe ownership done right. Also a lesson in how a dated interface ages.</span></li>
+  <li><span class="src">AnyList</span><span class="take"><a href="https://www.anylist.com/">anylist.com</a> &mdash; the grocery list everyone else copies. Note the category ordering.</span></li>
+  <li><span class="src">Plan to Eat</span><span class="take"><a href="https://www.plantoeat.com/">plantoeat.com</a> &mdash; the drag-from-library-into-a-day gesture.</span></li>
+  <li><span class="src">Mealime</span><span class="take"><a href="https://www.mealime.com/">mealime.com</a> &mdash; how little you can ask before producing a plan.</span></li>
+  <li><span class="src">Cronometer</span><span class="take"><a href="https://cronometer.com/">cronometer.com</a> &mdash; the cautionary one. All the data, none of the hierarchy.</span></li>
+</ul>
+
+<div class="note">
+  <h4>How to use them</h4>
+  <p>
+    Open a few, screenshot anything that makes you stop, and drop the images into
+    <code>docs/design/moodboard/refs/</code> as your own private reference folder. That stays
+    personal &mdash; it just should not ship inside the product or its public docs. Then tell me
+    which details you want and I will draw them properly into this board.
+  </p>
+</div>
+
+<footer>
+  <p>Board 07 &middot; <a href="index.html">start</a> &middot; all mockups drawn from scratch &middot; no third-party assets</p>
+</footer>
+</div>
+</body>
+</html>

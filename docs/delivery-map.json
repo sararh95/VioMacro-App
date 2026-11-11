@@ -1,0 +1,271 @@
+{
+  "_why": "Actual delivery IDs identify GitHub pull request numbers; upcoming IDs are provisional until creation. PR1 is pull request #1 and PR2 is #2. Before 2026-09-10 the plan used its own sequence (PR-1..PR-18), unrelated to GitHub numbers. Everything delivered in pull request #1 is a step inside PR1 -- PR1.1 through PR1.16 -- so the historical units remain addressable. previous_plan_ids preserves later planning renumberings.",
+  "_history": "The 36 commits in pull request #1 say the OLD ids: '(PR-1)', '(PR-8a)', '(PR-11d)'. Git history cannot be rewritten without breaking the pull request, so the 'was' field below is the only way back from a commit message to a plan row. Keep it forever. Finding status lines also keep their original '(PR-11d, 2026-09-09)' wording for the same reason.",
+  "_convention": "Delivered IDs match verified GitHub PR numbers. Preserve historical step/was mappings. The upcoming array retains historical provisional plan labels; select actual new PR numbers only after GitHub creates them.",
+  "_branches": "Verified 2026-10-22: [#2](https://github.com/sararh95/VioMacro/pull/2) closed; [#3](https://github.com/sararh95/VioMacro/pull/3) merged; [#4](https://github.com/sararh95/VioMacro/pull/4) merged; [#5](https://github.com/sararh95/VioMacro/pull/5) merged. The restoration/core/CSP checkpoint is `87915b969c59210b79ed47703a2b9794f362d078`. Cleanup PRs #6, #7 and #8 are merged; their verified delivery records follow. Current repository organization is at the app root. PR #2 was closed as superseded by #3. Original recorded commits/step IDs remain historical; current mergeCommit/headCommit fields come from verified metadata. No deployment is implied.",
+  "repo": "https://github.com/sararh95/VioMacro",
+  "deliveries": [
+    {
+      "number": 1,
+      "id": "PR1",
+      "title": "Audit repair: waves 1-5, all 19 P1s closed",
+      "state": "merged",
+      "mergeCommit": "5d583cd",
+      "mergedAt": "2026-09-15T04:18:10Z",
+      "branch": "fix/pr7-schema-truth",
+      "base": "codex/webapp-folder-structure-v1",
+      "note": "Sixteen steps in one pull request, because nobody opened pull requests as the work went. Splitting into stacked branches was assessed and rejected: two thirds of the commits edit the ledger, there is no CI to gate them, and there is one collaborator.",
+      "steps": [
+        {
+          "id": "PR1.1",
+          "was": "PR-1"
+        },
+        {
+          "id": "PR1.2",
+          "was": "PR-2"
+        },
+        {
+          "id": "PR1.3",
+          "was": "PR-3"
+        },
+        {
+          "id": "PR1.4",
+          "was": "PR-4"
+        },
+        {
+          "id": "PR1.5",
+          "was": "PR-5"
+        },
+        {
+          "id": "PR1.6",
+          "was": "PR-6"
+        },
+        {
+          "id": "PR1.7",
+          "was": "PR-7"
+        },
+        {
+          "id": "PR1.8",
+          "was": "PR-8a"
+        },
+        {
+          "id": "PR1.9",
+          "was": "PR-8b"
+        },
+        {
+          "id": "PR1.10",
+          "was": "PR-8c"
+        },
+        {
+          "id": "PR1.11",
+          "was": "PR-9"
+        },
+        {
+          "id": "PR1.12",
+          "was": "PR-10"
+        },
+        {
+          "id": "PR1.13",
+          "was": "PR-11a"
+        },
+        {
+          "id": "PR1.14",
+          "was": "PR-11b"
+        },
+        {
+          "id": "PR1.15",
+          "was": "PR-11c"
+        },
+        {
+          "id": "PR1.16",
+          "was": "PR-11d"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "id": "PR2",
+      "title": "Stop showing saves that never happened",
+      "state": "closed",
+      "branch": "pr2-settings-save-aud-131",
+      "base": "codex/webapp-folder-structure-v1",
+      "note": "AUD-131 turned out to be a test bug, not an app bug: the specs waited for the save button's NAME to change and reloaded mid-write. AUD-132 was the real data loss: a meal ticked on any week except the current one was never written at all.",
+      "steps": [
+        {
+          "id": "PR2",
+          "was": "—"
+        }
+      ],
+      "merged": false,
+      "draft": false,
+      "url": "https://github.com/sararh95/VioMacro/pull/2",
+      "headCommit": "dbdefb521d84e4c0e0cb99c92188fa541dc68a74",
+      "closedAt": "2026-10-22T16:21:59Z",
+      "supersededBy": 3,
+      "closureReason": "Superseded by #3, which carries the same app code onto main."
+    },
+    {
+      "number": 3,
+      "id": "PR3",
+      "title": "Restore audited Web App baseline onto main",
+      "state": "merged",
+      "draft": false,
+      "branch": "restore/webapp-audited-baseline-20261002",
+      "base": "main",
+      "sourceCommit": "1412441",
+      "commit": "466d267",
+      "steps": [],
+      "merged": true,
+      "url": "https://github.com/sararh95/VioMacro/pull/3",
+      "headCommit": "cb1e00124514c1b76c02d4f635fbe55415b659e3",
+      "closedAt": "2026-10-22T16:20:55Z",
+      "mergeCommit": "eb5d7a8b6d4f3770bde8780cdf79850e9d5f8554",
+      "mergedAt": "2026-10-22T16:20:55Z"
+    },
+    {
+      "number": 4,
+      "id": "PR4",
+      "title": "Recover onboarding and save weight check-ins consistently",
+      "state": "merged",
+      "draft": false,
+      "branch": "fix/webapp-core-flows-20261002",
+      "base": "main",
+      "commit": "fcd1904",
+      "bug_ids": [
+        "BUG-032",
+        "BUG-033",
+        "BUG-034",
+        "BUG-035",
+        "BUG-036"
+      ],
+      "steps": [],
+      "previousBases": [
+        "restore/webapp-audited-baseline-20261002"
+      ],
+      "merged": true,
+      "url": "https://github.com/sararh95/VioMacro/pull/4",
+      "headCommit": "91e4080b66357006f5bad1f4096c14d5814a6636",
+      "closedAt": "2026-10-22T16:21:40Z",
+      "mergeCommit": "87915b969c59210b79ed47703a2b9794f362d078",
+      "mergedAt": "2026-10-22T16:21:40Z"
+    },
+    {
+      "number": 5,
+      "id": "PR5",
+      "title": "Allow Firebase Auth's apis.google.com script in the CSP",
+      "steps": [],
+      "state": "merged",
+      "merged": true,
+      "draft": false,
+      "base": "restore/webapp-audited-baseline-20261002",
+      "branch": "codex/firebase-auth-gapi-csp",
+      "url": "https://github.com/sararh95/VioMacro/pull/5",
+      "headCommit": "41d13335b99c5bb7b58a1f058ffeadbc835c388e",
+      "closedAt": "2026-10-22T16:20:36Z",
+      "mergeCommit": "cb1e00124514c1b76c02d4f635fbe55415b659e3",
+      "mergedAt": "2026-10-22T16:20:36Z"
+    },
+    {
+      "number": 6,
+      "id": "PR6",
+      "title": "Remove retired and agent-only files",
+      "state": "merged",
+      "merged": true,
+      "draft": false,
+      "base": "main",
+      "branch": "codex/remove-retired-files",
+      "url": "https://github.com/sararh95/VioMacro/pull/6",
+      "headCommit": "a32cbf0b96a7058667d711e37de71111068bae73",
+      "mergeCommit": "719b33348b116760cca5a9fed6973e360b36d4f2"
+    },
+    {
+      "number": 7,
+      "id": "PR7",
+      "title": "Move the app to the repo root",
+      "state": "merged",
+      "merged": true,
+      "draft": false,
+      "base": "main",
+      "branch": "codex/app-at-root",
+      "url": "https://github.com/sararh95/VioMacro/pull/7",
+      "headCommit": "e92e6dea339e427149a6cc4c5dec85a151a1d610",
+      "mergeCommit": "6ce2b0e31a837468d088732bf0ecbee2df9ce8f3"
+    },
+    {
+      "number": 8,
+      "id": "PR8",
+      "title": "Group code by feature",
+      "state": "merged",
+      "merged": true,
+      "draft": false,
+      "base": "main",
+      "branch": "codex/group-code-by-feature",
+      "url": "https://github.com/sararh95/VioMacro/pull/8",
+      "headCommit": "bd7a959987419bb4e2a46ac4ca928dc77450d79b",
+      "mergeCommit": "be4bdc45108f02f44814930fc1ff95d420730179"
+    }
+  ],
+  "upcoming": [
+    {
+      "id": "PR5",
+      "was": "PR-12",
+      "previous_plan_ids": [
+        "PR3"
+      ]
+    },
+    {
+      "id": "PR6",
+      "was": "PR-13",
+      "previous_plan_ids": [
+        "PR4"
+      ]
+    },
+    {
+      "id": "PR7",
+      "was": "PR-14",
+      "previous_plan_ids": [
+        "PR5"
+      ]
+    },
+    {
+      "id": "PR8",
+      "was": "PR-15",
+      "previous_plan_ids": [
+        "PR6"
+      ]
+    },
+    {
+      "id": "PR9",
+      "was": "PR-16",
+      "previous_plan_ids": [
+        "PR7"
+      ]
+    },
+    {
+      "id": "PR10",
+      "was": "PR-17",
+      "previous_plan_ids": [
+        "PR8"
+      ]
+    },
+    {
+      "id": "PR11",
+      "was": "PR-18",
+      "previous_plan_ids": [
+        "PR9"
+      ]
+    },
+    {
+      "id": "PR12",
+      "was": "—",
+      "note": "AUD-133. Logged 2026-09-15; no old id. Last because it is a hosting and privacy decision, not a bug fix.",
+      "previous_plan_ids": [
+        "PR10"
+      ]
+    }
+  ],
+  "previousBranchNotes": [
+    "Verified 2026-10-02: remote main remained at 428a523; the previously recorded fast-forward did not occur. PR1 merged into codex/webapp-folder-structure-v1, and PR2 remains open against that branch. PR3 restores only the audited Web App tree from 1412441 onto main through 466d267. PR4 stacks core settings recovery fixes on PR3. No merge or deployment is implied."
+  ],
+  "previousConvention": "One pull request per plan row from PR2 onward, titled with the plan id, e.g. 'PR2 - Stop showing saves that never happened'. A row that has to be split ships as PR2.1, PR2.2 ... inside the one pull request, exactly as PR1 did. PR3 and PR4 were inserted for baseline restoration and core recovery on 2026-10-02. The remaining planned rows moved to PR5-PR12; previous_plan_ids preserves their earlier labels. Planned numbers remain provisional until a PR is created."
+}

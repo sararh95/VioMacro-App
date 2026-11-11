@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auth &amp; Onboarding — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html" class="here">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 01 &middot; /auth and first run</p>
+  <h1>Two questions, then something useful.</h1>
+  <p class="lede">
+    Your current wizard asks across four steps before the app does anything. The benchmark says
+    drop-off spikes after two. This board reshapes entry around a single idea: <strong>show a real
+    calorie target before asking for anything optional.</strong>
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">MyFitnessPal</span><span class="take">Ask goal, weight and activity, then <b>compute a personalised target immediately</b>. The payoff arrives before the user has done anything else. This is the one thing their onboarding does better than everyone.</span></li>
+  <li><span class="src">Mealime</span><span class="take">Let people choose <b>guidance over configuration</b>. A "just pick sensible defaults for me" path that is not framed as skipping.</span></li>
+  <li><span class="src">Benchmarks</span><span class="take">Two questions maximum before value. Permissions asked <b>at the moment of use</b>, never up front.</span></li>
+  <li><span class="src">MacroFactor</span><span class="take">Its steep learning curve is the warning, not the model. Depth is opt-in and lives behind the first success.</span></li>
+</ul>
+
+<h2>Concept A — the split screen, fixed</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/auth</span>
+    <span class="concept-name">Keep the layout, fix the form</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Why keep it:</b> the two-panel split already looks premium and the honest
+      "Coming Soon" labels on Google and password reset are exactly right. The problems are all
+      mechanical — the audit confirmed Enter does nothing and screen readers announce the password
+      field as a row of bullets.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="wire-col" style="flex:1.05">
+          <div class="box tall"><span>Brand mark &middot; one line of promise</span></div>
+          <div class="box xtall"><span>Ambient gradient field &middot; no stock photography</span></div>
+          <div class="box"><span>Private alpha &middot; plain sentence, no fake avatars</span></div>
+        </div>
+        <div class="wire-col">
+          <div class="box lit"><b>&lt;form&gt;</b> <span class="hint">Enter submits</span></div>
+          <div class="box"><b>Log in</b> / Create account <span class="hint">segmented</span></div>
+          <div class="box ghost"><span>Google &mdash; disabled, reason on hover</span></div>
+          <div class="box"><b>&lt;label for="email"&gt;</b> <span class="hint">autocomplete=email</span></div>
+          <div class="box"><b>&lt;label for="password"&gt;</b> <span class="hint">current-password</span></div>
+          <div class="box solid"><span>Log in</span></div>
+          <div class="box ghost"><span>role="alert" &mdash; errors announced</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h4>The five mechanical fixes</h4>
+    <ul>
+      <li>Wrap the fields in a real <code>&lt;form&gt;</code> so <strong>Enter submits</strong>.</li>
+      <li>Pair every <code>&lt;label for&gt;</code> with a matching <code>id</code> — the correct pattern already exists in your water-correction form.</li>
+      <li>Add <code>autocomplete</code>, switched between <code>current-password</code> and <code>new-password</code> by mode, so password managers behave.</li>
+      <li>Give the error box <code>role="alert"</code>.</li>
+      <li>Disable both inputs while the request is in flight, not just the button.</li>
+    </ul>
+    <p><strong>Target: 3 actions to sign in</strong> — focus email, type, Enter.</p>
+  </div>
+</div>
+
+<h2>Concept B — onboarding as two questions</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">first run</span>
+    <span class="concept-name">Target first, preferences later</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The move:</b> collapse four steps into <b>one screen that computes</b>, then a second
+      screen that shows the answer. Allergies, diet type and macro split move out of onboarding
+      entirely — they get asked the first time they would actually change something.
+    </p>
+
+    <div class="wire">
+      <div class="stack-label">Step 1 of 2 — everything the maths needs, on one screen</div>
+      <div class="wire-row">
+        <div class="box narrow lit"><b>kg</b></div>
+        <div class="box"><b>Weight</b> <span class="hint">unit follows the toggle</span></div>
+        <div class="box"><b>Height</b> <span class="hint">cm &harr; ft/in</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box"><b>Age</b></div>
+        <div class="box"><b>Sex</b></div>
+        <div class="box"><b>Activity</b> <span class="hint">4 plain-language options</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box"><span>Goal &mdash; lose &middot; hold &middot; gain</span></div>
+      </div>
+      <div class="box solid"><span>Show my targets &rarr;</span></div>
+
+      <div class="stack-label" style="margin-top:10px">Step 2 of 2 — the payoff, before anything optional</div>
+      <div class="wire-row">
+        <div class="box tall lit"><b>2,180 kcal</b> <span class="hint">your daily target</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="wire-col"><div class="stack-label">Protein</div><div class="meter m-pro"><i style="width:70%"></i></div><div class="box"><b>164 g</b></div></div>
+        <div class="wire-col"><div class="stack-label">Carbs</div><div class="meter m-car"><i style="width:55%"></i></div><div class="box"><b>218 g</b></div></div>
+        <div class="wire-col"><div class="stack-label">Fat</div><div class="meter m-fat"><i style="width:40%"></i></div><div class="box"><b>73 g</b></div></div>
+      </div>
+      <div class="box ghost"><span>"We will adjust these as you log. Change them any time in Settings."</span></div>
+      <div class="box solid"><span>Start using VioMacro</span></div>
+    </div>
+
+    <h4>What leaves onboarding</h4>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Currently asked at step</th><th>Moves to</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Allergies (step 3)</td><td>First recipe import or plan generation</td><td>Meaningless until there is food to filter</td></tr>
+        <tr><td>Diet type (step 3)</td><td>Same</td><td>Same</td></tr>
+        <tr><td>Macro split (step 2)</td><td>Settings, shown as an editable result</td><td>It is an output of the target, not an input</td></tr>
+        <tr><td>Goal weight</td><td>Step 1, optional field</td><td>Nice to have; not required for the calculation</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p><strong>Target: 8 actions from account created to first real target on screen.</strong></p>
+  </div>
+</div>
+
+<h2>The unit question, solved once</h2>
+
+<div class="note bad">
+  <h4>What is broken today</h4>
+  <p>
+    Metric is your default, but the calculator always converts from pounds, the weight box always
+    prints <b>lbs</b>, height only accepts feet and inches, and the rate slider says
+    <b>lbs / week</b>. A 75&nbsp;kg user is costed as 34&nbsp;kg and under-fed by roughly
+    <b>635 kcal a day</b>.
+  </p>
+</div>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">pattern</span>
+    <span class="concept-name">The unit is part of the input, not a label beside it</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>Design answer:</b> make the unit a <b>segmented control welded to the field</b>, not
+      static text floating at the right edge. If the unit is tappable and visibly stateful, it
+      cannot silently disagree with the value — and the ambiguity that hides the bug disappears.
+    </p>
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box narrow lit"><b>kg</b></div>
+        <div class="box narrow ghost"><span>lb</span></div>
+        <div class="box"><b>75</b> <span class="hint">converts live when toggled</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box narrow lit"><b>cm</b></div>
+        <div class="box narrow ghost"><span>ft/in</span></div>
+        <div class="box"><b>178</b> <span class="hint">field shape changes with the unit</span></div>
+      </div>
+    </div>
+    <ul>
+      <li>Toggling the unit <strong>converts the number</strong> rather than reinterpreting it.</li>
+      <li>The height field <strong>changes shape</strong> — one box for cm, two for ft/in.</li>
+      <li>One helper, <code>formatWeight(value, unit)</code>, owns every weight string in the app. Four files currently decide this on their own.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>The escape hatch</h2>
+<div class="note warn">
+  <p>
+    The wizard is currently a full-screen overlay whose only exit is a successful save, and
+    <b>Skip Setup only appears on step 0</b>. Its own error message says "please retry before
+    leaving this screen" — but there is no way to leave. In the new shape:
+  </p>
+  <ul>
+    <li><strong>Use sensible defaults</strong> is visible on every step, framed as a real choice rather than as skipping.</li>
+    <li>If a save fails, an inline banner offers <strong>Retry</strong> and <strong>Continue without saving</strong>.</li>
+    <li>The overlay is dismissible with Escape, and a persistent card on the Dashboard offers to finish setup later.</li>
+  </ul>
+</div>
+
+<footer>
+  <p>Board 01 &middot; <a href="index.html">start</a> &middot; prev: <a href="00-foundations.html">Foundations</a> &middot; next: <a href="02-dashboard.html">Dashboard</a></p>
+</footer>
+</div>
+</body>
+</html>

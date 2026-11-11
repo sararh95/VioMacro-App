@@ -1,0 +1,410 @@
+rules_version = '2';
+
+// VIOMACRO FIRESTORE SECURITY RULES
+// Maximum security: Users can only access their own data
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function: Check if user owns this document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDateKey(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+    
+    // Helper function: Validate recipe data structure
+    function isValidRecipe() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+            'title',
+            'mealType',
+            'tags',
+            'folders',
+            'ingredients',
+            'instructions',
+            'imageUrl',
+            'description',
+            'cookTime',
+            'servings',
+            'calories',
+            'protein',
+            'carbs',
+            'fat',
+            'isFavorite',
+            'source',
+            'createdAt',
+            'updatedAt',
+            'originalAssetUrl',
+            'originalAssetPath',
+            'originalAssetType',
+            'micronutrients',
+            'embedding'
+          ])
+          && data.keys().hasAll([
+            'title',
+            'mealType',
+            'tags',
+            'folders',
+            'imageUrl',
+            'cookTime',
+            'servings',
+            'calories',
+            'protein',
+            'carbs',
+            'fat',
+            'createdAt'
+          ])
+          && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+          && data.mealType in ['breakfast', 'lunch', 'dinner', 'snack', 'smoothie']
+          && data.tags is list && data.tags.size() <= 50
+          && data.folders is list && data.folders.size() <= 50
+          && (!('ingredients' in data) || (data.ingredients is list && data.ingredients.size() <= 300))
+          && (!('instructions' in data) || (data.instructions is list && data.instructions.size() <= 300))
+          && isSafeHttpsUrl(data.imageUrl)
+          && (!('description' in data) || (data.description is string && data.description.size() <= 3000))
+          && data.cookTime is number && data.cookTime >= 0 && data.cookTime <= 1440
+          && data.servings is number && data.servings > 0 && data.servings <= 100
+          && data.calories is number && data.calories >= 0 && data.calories <= 10000
+          && data.protein is number && data.protein >= 0 && data.protein <= 1000
+          && data.carbs is number && data.carbs >= 0 && data.carbs <= 1000
+          && data.fat is number && data.fat >= 0 && data.fat <= 1000
+          && (!('isFavorite' in data) || data.isFavorite is bool)
+          && (!('source' in data) || data.source in ['created', 'imported'])
+          // AUD-028: required, not optional. getRecipes orders by createdAt, and
+          // Firestore silently omits documents missing the ordered field -- so a
+          // recipe saved without it succeeded and then never appeared again.
+          && data.createdAt is timestamp
+          && (!('updatedAt' in data) || data.updatedAt is timestamp)
+          && (!('originalAssetUrl' in data) || isSafeHttpsUrl(data.originalAssetUrl))
+          && (!('originalAssetPath' in data) || (data.originalAssetPath is string && data.originalAssetPath.size() <= 1000))
+          && (!('originalAssetType' in data) || data.originalAssetType in ['image', 'pdf'])
+          && (!('micronutrients' in data) || (
+            data.micronutrients is map
+            && data.micronutrients.keys().hasOnly(['vitaminA', 'vitaminC', 'calcium', 'iron'])
+            && (!('vitaminA' in data.micronutrients) || (data.micronutrients.vitaminA is number && data.micronutrients.vitaminA >= 0 && data.micronutrients.vitaminA <= 100000))
+            && (!('vitaminC' in data.micronutrients) || (data.micronutrients.vitaminC is number && data.micronutrients.vitaminC >= 0 && data.micronutrients.vitaminC <= 100000))
+            && (!('calcium' in data.micronutrients) || (data.micronutrients.calcium is number && data.micronutrients.calcium >= 0 && data.micronutrients.calcium <= 100000))
+            && (!('iron' in data.micronutrients) || (data.micronutrients.iron is number && data.micronutrients.iron >= 0 && data.micronutrients.iron <= 100000))
+          ));
+    }
+    
+    // AUD-002: the previous version of this function was never called anywhere,
+    // and it required dailyCalorieTarget > 0 -- which createDefaultUserSettings()
+    // does not satisfy, since it writes 0. Wiring it in as it stood would have
+    // broken every new account. This version matches the UserSettings interface
+    // in src/services/userService.ts, where every field is optional.
+    //
+    // AUD-001: the user document previously accepted any field of any shape or
+    // size. Every key below was confirmed against the real stored data before
+    // this allow-list was written, so no existing account is locked out.
+    function isValidUserDocument() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['email', 'createdAt', 'settings'])
+          && (!('email' in data) || (data.email is string && data.email.size() <= 320))
+          && (!('createdAt' in data) || data.createdAt is timestamp)
+          && (!('settings' in data) || isValidSettings(data.settings));
+    }
+
+    function isValidSettings(data) {
+      return data is map
+          && data.keys().hasOnly([
+            'currentWeight',
+            'goalWeight',
+            'rateOfChange',
+            'macroSplit',
+            'macroTargets',
+            'macroMode',
+            'dietaryTags',
+            'allergies',
+            'dailyCalorieTarget',
+            'measurementUnit',
+            'onboardingCompleted',
+            'phase',
+            'phaseStartDate',
+            'bottleSize',
+            'profileName',
+            'profileAvatar',
+            'updatedAt'
+          ])
+          && (!('currentWeight' in data) || (data.currentWeight is number && data.currentWeight >= 0 && data.currentWeight < 1000))
+          && (!('goalWeight' in data) || (data.goalWeight is number && data.goalWeight >= 0 && data.goalWeight < 1000))
+          // rateOfChange is the 0-100 position of the Settings slider
+          // (Settings.tsx: <input type="range" min="0" max="100">), NOT a weight
+          // per week. A stored account already holds 65. Guessing the range from
+          // the field name would have locked that user out of saving.
+          && (!('rateOfChange' in data) || (data.rateOfChange is number && data.rateOfChange >= 0 && data.rateOfChange <= 100))
+          && (!('macroSplit' in data) || isMacroTriple(data.macroSplit, 100))
+          && (!('macroTargets' in data) || isMacroTriple(data.macroTargets, 2000))
+          && (!('macroMode' in data) || data.macroMode in ['percentage', 'grams'])
+          && (!('dietaryTags' in data) || (data.dietaryTags is list && data.dietaryTags.size() <= 50))
+          && (!('allergies' in data) || (data.allergies is list && data.allergies.size() <= 50))
+          && (!('dailyCalorieTarget' in data) || (data.dailyCalorieTarget is number && data.dailyCalorieTarget >= 0 && data.dailyCalorieTarget <= 20000))
+          && (!('measurementUnit' in data) || data.measurementUnit in ['metric', 'imperial'])
+          && (!('onboardingCompleted' in data) || data.onboardingCompleted is bool)
+          && (!('phase' in data) || data.phase in ['fat-loss', 'maintenance', 'muscle-gain'])
+          && (!('phaseStartDate' in data) || (data.phaseStartDate is string && data.phaseStartDate.size() <= 40))
+          && (!('bottleSize' in data) || (data.bottleSize is number && data.bottleSize > 0 && data.bottleSize <= 10000))
+          && (!('profileName' in data) || (data.profileName is string && data.profileName.size() <= 120))
+          && (!('profileAvatar' in data) || (data.profileAvatar is string && data.profileAvatar.size() <= 200))
+          && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isMacroTriple(value, ceiling) {
+      return value is map
+          && value.keys().hasOnly(['protein', 'carbs', 'fat'])
+          && (!('protein' in value) || (value.protein is number && value.protein >= 0 && value.protein <= ceiling))
+          && (!('carbs' in value) || (value.carbs is number && value.carbs >= 0 && value.carbs <= ceiling))
+          && (!('fat' in value) || (value.fat is number && value.fat >= 0 && value.fat <= ceiling));
+    }
+
+    // AUD-004: these values end up in an <img src> and an <a href>, so the
+    // scheme matters. javascript: and data: are refused at the write.
+    //
+    // Three things are allowed, and each is deliberate:
+    //   - https://, which is every real URL, including Firebase Storage
+    //   - the empty string, which is how a recipe with no photo is stored
+    //   - http:// on 127.0.0.1 or localhost, which is what the Storage EMULATOR
+    //     returns from getDownloadURL. Without this the rule is correct in
+    //     production and breaks every local recipe import -- the same trap the
+    //     Content-Security-Policy hit in PR-3. The exception cannot widen the
+    //     production surface: a deployed app never sees a loopback host.
+    // AUD-003: `embedding` is the semantic-search vector. It is written only by
+    // the generateRecipeEmbedding trigger, which uses the Admin SDK and so
+    // bypasses these rules entirely. No client code reads or writes it.
+    //
+    // It stays in the isValidRecipe() key allow-list on purpose: editing a
+    // recipe sends the whole merged document, embedding included, so removing
+    // it from the list would make every recipe the server had already processed
+    // permanently uneditable. The rule is "the client may not CHANGE it",
+    // not "it may not be present".
+    function clientDoesNotTouchEmbedding() {
+      return resource == null
+          ? !('embedding' in request.resource.data)
+          : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['embedding']);
+    }
+
+    function isSafeHttpsUrl(value) {
+      return value is string
+          && value.size() <= 2000
+          && (
+            value.matches('^(https://.*)?$')
+            || value.matches('^http://(127\\.0\\.0\\.1|localhost)(:[0-9]+)?/.*$')
+          );
+    }
+
+    // Helper function: Validate daily weight, hydration, sleep, and biofeedback logs
+    function isValidDailyLog(docId) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+            'date',
+            'timestamp',
+            'weight',
+            'waterMl',
+            'sleepHours',
+            'sleepQuality',
+            'sleepNotes',
+            'energy',
+            'hunger'
+          ])
+          && data.keys().hasAll(['date', 'timestamp'])
+          && isDateKey(data.date)
+          && data.date == docId
+          && data.timestamp is timestamp
+          && (!('weight' in data) || (data.weight is number && data.weight > 0 && data.weight < 1000))
+          && (!('waterMl' in data) || (data.waterMl is number && data.waterMl >= 0 && data.waterMl <= 10000))
+          && (!('sleepHours' in data) || (data.sleepHours is number && data.sleepHours >= 0 && data.sleepHours <= 24))
+          && (!('sleepQuality' in data) || (data.sleepQuality is number && data.sleepQuality >= 1 && data.sleepQuality <= 5))
+          && (!('sleepNotes' in data) || (data.sleepNotes is string && data.sleepNotes.size() <= 1000))
+          && (!('energy' in data) || (data.energy is number && data.energy >= 1 && data.energy <= 5))
+          && (!('hunger' in data) || (data.hunger is number && data.hunger >= 1 && data.hunger <= 5));
+    }
+
+    // Helper function: Validate manual and generated grocery list items
+    function isValidGroceryItem() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+            'name',
+            'quantity',
+            'unit',
+            'aisle',
+            'isChecked',
+            'mealPlanId',
+            'source',
+            'createdAt',
+            'updatedAt'
+          ])
+          && data.keys().hasAll(['name', 'quantity', 'unit', 'aisle', 'isChecked'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 200
+          && data.quantity is number
+          && data.quantity >= 0
+          && data.quantity <= 100000
+          && data.unit is string
+          && data.unit.size() > 0
+          && data.unit.size() <= 50
+          && data.aisle is string
+          && data.aisle.size() > 0
+          && data.aisle.size() <= 80
+          && data.isChecked is bool
+          && (!('mealPlanId' in data) || (data.mealPlanId is string && data.mealPlanId.size() <= 200))
+          && (!('source' in data) || data.source in ['manual', 'generated'])
+          && (!('createdAt' in data) || data.createdAt is timestamp)
+          && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // Helper function: Validate lightweight pantry inventory items
+    function isValidPantryItem() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+            'name',
+            'quantity',
+            'unit',
+            'category',
+            'expiresAt',
+            'isLowStock',
+            'createdAt',
+            'updatedAt'
+          ])
+          && data.keys().hasAll(['name', 'quantity', 'unit', 'isLowStock'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 200
+          && data.quantity is number
+          && data.quantity >= 0
+          && data.quantity <= 100000
+          && data.unit is string
+          && data.unit.size() > 0
+          && data.unit.size() <= 50
+          && data.isLowStock is bool
+          && (!('category' in data) || (data.category is string && data.category.size() <= 80))
+          && (!('expiresAt' in data) || isDateKey(data.expiresAt))
+          && (!('createdAt' in data) || data.createdAt is timestamp)
+          && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // Helper function: Validate weekly meal plan shells without blocking nested plan editing
+    function isValidMealPlan() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+            'weekStart',
+            'weekEnd',
+            'goal',
+            'days',
+            'mealStatus',
+            'dailyTargets',
+            'isAiGenerated',
+            'createdAt',
+            'updatedAt'
+          ])
+          && data.keys().hasAll(['weekStart', 'weekEnd', 'goal', 'days'])
+          && isDateKey(data.weekStart)
+          && isDateKey(data.weekEnd)
+          && data.goal is string
+          && data.goal.size() <= 120
+          && data.days is list
+          && data.days.size() <= 14
+          && (!('dailyTargets' in data) || (
+            data.dailyTargets is map
+            && data.dailyTargets.keys().hasOnly(['calories', 'protein', 'carbs', 'fat'])
+            && (!('calories' in data.dailyTargets) || (data.dailyTargets.calories is number && data.dailyTargets.calories >= 0 && data.dailyTargets.calories <= 10000))
+            && (!('protein' in data.dailyTargets) || (data.dailyTargets.protein is number && data.dailyTargets.protein >= 0 && data.dailyTargets.protein <= 1000))
+            && (!('carbs' in data.dailyTargets) || (data.dailyTargets.carbs is number && data.dailyTargets.carbs >= 0 && data.dailyTargets.carbs <= 1000))
+            && (!('fat' in data.dailyTargets) || (data.dailyTargets.fat is number && data.dailyTargets.fat >= 0 && data.dailyTargets.fat <= 1000))
+          ))
+          // AUD-022: `isEaten` moved out of the days array into a flat map, so
+          // one tick is a single-field write instead of a whole-document
+          // rewrite. Rules can prove this is a map and count its keys, but they
+          // cannot iterate the values to prove each is a boolean -- the same
+          // wall that put the per-day meal cap in src/lib/meal-status.ts.
+          && (!('mealStatus' in data) || (
+            data.mealStatus is map
+            && data.mealStatus.keys().size() <= 200
+          ))
+          && (!('isAiGenerated' in data) || data.isAiGenerated is bool)
+          && (!('createdAt' in data) || data.createdAt is timestamp)
+          && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+    
+    // ============== USER DOCUMENTS ==============
+    // Each user has their own document with settings
+    match /users/{userId} {
+      // Allow read/write only to the owner
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserDocument();
+      allow update: if isOwner(userId) && isValidUserDocument();
+      allow delete: if false; // Never allow user document deletion
+      
+      // ============== RECIPES ==============
+      match /recipes/{recipeId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidRecipe() && clientDoesNotTouchEmbedding();
+        allow update: if isOwner(userId) && isValidRecipe() && clientDoesNotTouchEmbedding();
+        allow delete: if isOwner(userId);
+      }
+      
+      // ============== MEAL PLANS ==============
+      match /mealPlans/{planId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMealPlan();
+        allow update: if isOwner(userId) && isValidMealPlan();
+        allow delete: if isOwner(userId);
+      }
+      
+      // ============== GROCERY ITEMS ==============
+      match /groceryItems/{itemId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidGroceryItem();
+        allow update: if isOwner(userId) && isValidGroceryItem();
+        allow delete: if isOwner(userId);
+      }
+      
+      // ============== PANTRY ITEMS ==============
+      match /pantryItems/{itemId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidPantryItem();
+        allow update: if isOwner(userId) && isValidPantryItem();
+        allow delete: if isOwner(userId);
+      }
+      
+      // ============== CUSTOM FOLDERS ==============
+      // AUD-006: closed. Nothing in the app reads or writes this collection --
+      // the folder names shown in RecipeForm come from a hardcoded list and are
+      // stored as strings on the recipe itself. This block previously allowed
+      // any shape, at any size, with no validation at all. Bring it back with a
+      // validator when custom folders are a real feature.
+      match /folders/{folderId} {
+        allow read, write: if false;
+      }
+
+      // ============== WEIGHT HISTORY ==============
+      match /weightHistory/{docId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidDailyLog(docId);
+        allow update: if isOwner(userId) && isValidDailyLog(docId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // ============== SERVER-ONLY OPS DATA ==============
+    // AI spend state, reservations, audit, and email outbox are managed only
+    // by trusted server code. No client may read or write this namespace.
+    match /ops/{document=**} {
+      allow read, write: if false;
+    }
+    
+    // ============== DENY ALL OTHER ACCESS ==============
+    // Any path not explicitly matched above is denied
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

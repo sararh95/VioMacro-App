@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Weekly Meal Plan Grid</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex font-display">
+<!-- Left Navigation -->
+<aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col fixed h-full z-20">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary font-bold">query_stats</span>
+</div>
+<div>
+<h1 class="text-lg font-bold leading-tight">VioMacro</h1>
+<p class="text-xs text-primary font-semibold uppercase tracking-wider">Metabolic Science</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2 mt-4">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1">calendar_today</span>
+<span class="text-sm font-bold">Meal Plan</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="text-sm font-medium">Grocery List</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">restaurant_menu</span>
+<span class="text-sm font-medium">Recipes</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-sm font-medium">Profile</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<button class="w-full bg-primary text-black text-sm font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">stars</span>
+                Upgrade to Pro
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- Header / Top Nav -->
+<header class="h-20 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark sticky top-0 z-10 px-8 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<h2 class="text-xl font-bold">Weekly Meal Plan</h2>
+<div class="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1">
+<button class="p-1 hover:bg-white dark:hover:bg-white/10 rounded-md transition-all">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<span class="px-4 text-sm font-medium">Jan 15 - Jan 21</span>
+<button class="p-1 hover:bg-white dark:hover:bg-white/10 rounded-md transition-all">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 text-sm font-bold border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    Regenerate
+                </button>
+<button class="px-4 py-2 text-sm font-bold bg-primary text-black rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">edit</span>
+                    Edit Plan
+                </button>
+</div>
+</header>
+<!-- Grid View Content -->
+<div class="p-8 overflow-x-auto">
+<div class="min-w-[1200px] grid grid-cols-7 gap-4">
+<!-- Day Column Component (Repeated for Monday-Sunday) -->
+<!-- Monday -->
+<div class="flex flex-col gap-4">
+<div class="px-1">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Monday</p>
+<h3 class="text-lg font-bold mb-3">Jan 15</h3>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold uppercase text-primary">
+<span>Metabolic Adherence</span>
+<span>94%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[94%]"></div>
+</div>
+</div>
+</div>
+<!-- Meal Cards -->
+<div class="space-y-4">
+<!-- Breakfast -->
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Healthy protein pancakes with berries and yogurt" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDmrw_-pPjLzmuIVowysrESbWhIDTsWZAJuddwYyuSJsXce7Ojirppc840x9q8781H01f3o_vA4FkCFiU4IoSk_cjVQwK3etcNRYfE_yvdBAKyCrfUMfNpplSqQaAn11E7evI1SXGgbkT7TPYh9S_n1ZaKdb3-rkatYITZ7KKfkDOKn3f3BbDQCLR64RkXcF1ZIEuMLJA7fD9j5RXIu9mpsdTP0sClicTsjDUc4X3pUpbuez14aAI_-aUKQ4ZgRazwaABLViyAqh5Rp');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Breakfast</p>
+<h4 class="text-sm font-bold truncate mb-2">Berry Protein Pancakes</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 340 kcal</div>
+<div class="flex items-center gap-1">P: 28g</div>
+<div class="flex items-center gap-1">C: 42g</div>
+<div class="flex items-center gap-1">F: 8g</div>
+</div>
+</div>
+</div>
+<!-- Lunch -->
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Quinoa salad bowl with salmon and greens" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDvxY-D-gVzQ3bLSbFnWZN7UopGUDI0PdHL8KKXmkz822KLQLtgxAYpUD_jn3PPd4PDCXZpDbTY4l3cHPW80gUfZOdQA0cDAiDYpDF6JLyaGN5xuy0a_rVHS_SivpysswamCWU6hfy1smSs8biP_rXMBfwOhBLMdoC9Qc5_HrkZdsyatUtQUP3Yv8d1H1Gro5mycoYdsAQKwl_eCJYOGQN4X7aUnSNSKnCsafQla1ahvcwgmZu9bpMVgMSb58Fa32CmGyDLheC5B3jn');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Lunch</p>
+<h4 class="text-sm font-bold truncate mb-2">Grilled Salmon Salad</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 520 kcal</div>
+<div class="flex items-center gap-1">P: 45g</div>
+<div class="flex items-center gap-1">C: 12g</div>
+<div class="flex items-center gap-1">F: 22g</div>
+</div>
+</div>
+</div>
+<!-- Dinner -->
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Lean chicken breast with roasted vegetables" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDwKT2CiTeVjMuQlN0T3NcbNXSYtrc0L1_L6S3iq0HXBMtZcslNv54C7glGUwyoerbMvZ3cMMQAylbMpFcnpQY6__8qtZ8vEsfAkp9wzLPqH7CFmbk254Su5ntoMmnj-2cIUA6QgDJqYY-2ICD1f6EkyNltN6CW9VbS0JuPr9ovZYLllLH2FfZrilSwekn7pStS-ekmEtkvKm_NzNw7kPlA4y_fEQGOOdPx1-taLIjHA4mSAEJm_UOUeOUhYEqgAbSGEAdfQZPoFo8i');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Dinner</p>
+<h4 class="text-sm font-bold truncate mb-2">Lemon Garlic Chicken</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 480 kcal</div>
+<div class="flex items-center gap-1">P: 52g</div>
+<div class="flex items-center gap-1">C: 15g</div>
+<div class="flex items-center gap-1">F: 14g</div>
+</div>
+</div>
+</div>
+<!-- Snack -->
+<div class="bg-white dark:bg-white/5 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-3 flex items-center justify-between group cursor-pointer hover:border-primary transition-colors">
+<div>
+<p class="text-[10px] font-bold uppercase text-slate-400 mb-1">Snack</p>
+<h4 class="text-sm font-bold truncate">Greek Yogurt</h4>
+</div>
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Tuesday (Condensed for sample) -->
+<div class="flex flex-col gap-4">
+<div class="px-1 opacity-80">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Tuesday</p>
+<h3 class="text-lg font-bold mb-3">Jan 16</h3>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold uppercase text-primary">
+<span>Adherence</span>
+<span>88%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[88%]"></div>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Avocado toast with poached egg" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBQXF6j0sOwQhPQmQcE1Zs62jQB_WQS9CHyyXMaHaLQpKvWSI_mHhajxvAYZTznF01WKDHE1BpwT1c1VKybSsQw07TJEyAA1zt6IWycNZbph9YPDRVDUhQ3MpOaIMp14m32lKUV6DW5MztKYCns6LuJ1OTsW8Txz3yU-9CSCr229s8qe_L9owonTbq3MRHUzOEZCqJVfF1upmWwp0zo_1P__2hffnkDOVYOEjfXP15ZL3Ty-GgYlwTn6Di8a3-fvT3X1PvuNGzDLKhW');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Breakfast</p>
+<h4 class="text-sm font-bold truncate mb-2">Avocado Poached Toast</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 410 kcal</div>
+<div class="flex items-center gap-1">P: 18g</div>
+<div class="flex items-center gap-1">C: 38g</div>
+<div class="flex items-center gap-1">F: 22g</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Healthy Buddha bowl with tofu" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBTTa6Oz2Rk2AmR7WUdEpy7DFyyiqjpqKz6KhIbtT7vVOJGApQGFdFvd78CDPPP2J9Gufqd_Qoni2V6Dhm81Gy-AUVIDtxzfm8qg0GLG7kfjv8Ddr32VkG8uqojtzn0-k_c7R7TDdlIKpTk7RTLbnTm_NoRNTysQnybgOr4d9Fb_FivG80IRPO3lxXrhkqp9pCR8S8plvjdAgvONHaH7CnCfYgFnH0pXabgjKNswq2JSLUtiUoPxn3DUAdSzKYgXYU2PVtxlBXMGbKW');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Lunch</p>
+<h4 class="text-sm font-bold truncate mb-2">Miso Tofu Bowl</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 445 kcal</div>
+<div class="flex items-center gap-1">P: 22g</div>
+<div class="flex items-center gap-1">C: 56g</div>
+<div class="flex items-center gap-1">F: 12g</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Steak with asparagus and sweet potato" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDw1yIWiijbwgut_mf7rtNXCjzobAv5EnoVSvxU1Me2zTDhfGQOczxwXQh-PZFwhGnc6U1mC87hj9xmszPA0IVw6acMpbiQK-XWefPgO38-qoBmcLnXT7zIKyMqDn-qwsS7eZAoTGK57tJQXiYxtAgeT4y1hg8Y0nIo3j3L5LJnusi6Zh0hdaxH3IDredchgJnrGwjEg6Udz3QaUQWTBYy-sWybyiTCfrH05b9asVPYKWW6xAWAISvbzeSWA5tmYhiAnQAtK5Z8ChVB');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Dinner</p>
+<h4 class="text-sm font-bold truncate mb-2">Sirloin &amp; Asparagus</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 580 kcal</div>
+<div class="flex items-center gap-1">P: 48g</div>
+<div class="flex items-center gap-1">C: 22g</div>
+<div class="flex items-center gap-1">F: 32g</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Wednesday -->
+<div class="flex flex-col gap-4">
+<div class="px-1">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Wednesday</p>
+<h3 class="text-lg font-bold mb-3">Jan 17</h3>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold uppercase text-primary">
+<span>Adherence</span>
+<span>100%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-full"></div>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Oatmeal with nuts and fruit" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAhrgBtOBkwKCGgHqGAT0C2EwaAKWS1Q9GVP86Ga9zbtBCLEknz0gZIE3ZiJeVdPcDce-X9x0loqXd2M-6EO7CVRjbQTBPPA4-NLo8LusEzCD4gtQLDUCBQoufz6Q7b4JnrkEejnGGbwVBz6kk6t1QUVCa9CEFZt5Rwg8S7rI22TGuJIsMeNRy6uoeZdXb2uoDK7rCV2gANxN32FILCHLIRr_2plLWcy6qQKlpL6pJEweXWCtSHSRsY4xufZWz2bN1KrDW9zPesIPcS');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Breakfast</p>
+<h4 class="text-sm font-bold truncate mb-2">Steel Cut Oats</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 380 kcal</div>
+<div class="flex items-center gap-1">P: 14g</div>
+<div class="flex items-center gap-1">C: 62g</div>
+<div class="flex items-center gap-1">F: 10g</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Turkey wrap with colorful vegetables" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuByc26eJUqk_9zxfwgJezcMqUsvv8T6rrCWY2epvp95W1Cbj1tov9ZtR_Cv5hIiMHoZOAZ4TdXocxtENuZ5H-bl7IDJXpGjUa3_z7nqW9UUICscrQbScF9pk-J_IFI0c2f8RgsVDLj4e1uWM3fonaSePt3-98-wdSVRQTerr2ikw9Okl2C-u115LvTKOIfC8ZO-gIccT6Etb1hf2af_d0tnlvnWdoBM7zb1Tm10vOjOyG5rygPf2dL0aGQcB4Xb0iGIinO_24_CRVIR');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Lunch</p>
+<h4 class="text-sm font-bold truncate mb-2">Turkey Avocado Wrap</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 420 kcal</div>
+<div class="flex items-center gap-1">P: 32g</div>
+<div class="flex items-center gap-1">C: 34g</div>
+<div class="flex items-center gap-1">F: 16g</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<div class="h-28 w-full bg-cover bg-center" data-alt="Shrimp pasta with lemon" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCGqEEVEmttyAEn9KCG7j65yVqIaVpTElD9PV4FaHuI7EsqSa7fMVtETjwYukpH-Far0gYelRq-Auz0Tu1R4946qkBk8gB6GDJRybqSivY7IayeTkSo1GhbOa_UeyUVu67XKYzAfsZ4QruRP5QrqdJl8_zMGhnGy_fYmYV6BRKsSABXYjXWIJerzenV2-mtqpwQqwbS_uVfzDK9yjz22rQ9X3SiHIEX5FrLlyLODfWh5sOHAKpOkPCdAtvxmZCaaAc50dd5QhoNZyOs');"></div>
+<div class="p-3">
+<p class="text-[10px] font-bold uppercase text-primary mb-1">Dinner</p>
+<h4 class="text-sm font-bold truncate mb-2">Lemon Shrimp Scampi</h4>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+<div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> 540 kcal</div>
+<div class="flex items-center gap-1">P: 38g</div>
+<div class="flex items-center gap-1">C: 48g</div>
+<div class="flex items-center gap-1">F: 18g</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Repeated for Thu-Sun (Placeholders) -->
+<!-- Thursday -->
+<div class="flex flex-col gap-4">
+<div class="px-1 opacity-60">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Thursday</p>
+<h3 class="text-lg font-bold mb-3">Jan 18</h3>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[0%]"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="h-48 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-white/5 flex flex-col items-center justify-center gap-2 p-4 text-center">
+<span class="material-symbols-outlined text-slate-300">restaurant</span>
+<p class="text-[10px] font-bold uppercase text-slate-400">Plan Upcoming</p>
+</div>
+</div>
+</div>
+<!-- Friday -->
+<div class="flex flex-col gap-4">
+<div class="px-1 opacity-60">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Friday</p>
+<h3 class="text-lg font-bold mb-3">Jan 19</h3>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[0%]"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="h-48 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-white/5 flex flex-col items-center justify-center gap-2 p-4 text-center">
+<span class="material-symbols-outlined text-slate-300">restaurant</span>
+<p class="text-[10px] font-bold uppercase text-slate-400">Plan Upcoming</p>
+</div>
+</div>
+</div>
+<!-- Saturday -->
+<div class="flex flex-col gap-4">
+<div class="px-1 opacity-60">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Saturday</p>
+<h3 class="text-lg font-bold mb-3">Jan 20</h3>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[0%]"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="h-48 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-white/5 flex flex-col items-center justify-center gap-2 p-4 text-center">
+<span class="material-symbols-outlined text-slate-300">restaurant</span>
+<p class="text-[10px] font-bold uppercase text-slate-400">Plan Upcoming</p>
+</div>
+</div>
+</div>
+<!-- Sunday -->
+<div class="flex flex-col gap-4">
+<div class="px-1 opacity-60">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Sunday</p>
+<h3 class="text-lg font-bold mb-3">Jan 21</h3>
+<div class="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[0%]"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="h-48 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-white/5 flex flex-col items-center justify-center gap-2 p-4 text-center">
+<span class="material-symbols-outlined text-slate-300">restaurant</span>
+<p class="text-[10px] font-bold uppercase text-slate-400">Plan Upcoming</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Stats Bar -->
+<footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark p-6 sticky bottom-0 z-10">
+<div class="flex items-center justify-between max-w-full overflow-x-auto hide-scrollbar">
+<div class="flex gap-12">
+<div class="flex flex-col">
+<p class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Weekly Target</p>
+<p class="text-sm font-bold">14,500 kcal <span class="text-primary text-[10px] ml-1">92% Met</span></p>
+</div>
+<div class="flex flex-col">
+<p class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Avg Protein</p>
+<p class="text-sm font-bold">165g <span class="text-slate-400 font-normal text-xs ml-1">/ 170g</span></p>
+</div>
+<div class="flex flex-col">
+<p class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Avg Carbs</p>
+<p class="text-sm font-bold">185g <span class="text-slate-400 font-normal text-xs ml-1">/ 200g</span></p>
+</div>
+<div class="flex flex-col">
+<p class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Avg Fats</p>
+<p class="text-sm font-bold">58g <span class="text-slate-400 font-normal text-xs ml-1">/ 65g</span></p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-white dark:border-background-dark bg-primary flex items-center justify-center text-[10px] font-bold">JD</div>
+<div class="w-8 h-8 rounded-full border-2 border-white dark:border-background-dark bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+<span class="material-symbols-outlined text-xs">settings</span>
+</div>
+</div>
+<button class="bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2 rounded-lg text-xs font-bold transition-colors">
+                        Share Plan
+                    </button>
+</div>
+</div>
+</footer>
+</main>
+</body></html>

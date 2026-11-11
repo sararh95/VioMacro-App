@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// VIOMACRO STORAGE SECURITY RULES
+//
+// Read and write are BOTH restricted to the owner of the path. See the
+// users/{userId} block below.
+//
+// AUD-008: this header used to claim "anyone authenticated can read", which was
+// never what the rules did. A comment describing a weaker policy than the code
+// is worse than no comment -- someone tidying up could have "corrected" the rule
+// to match it and opened every file to every account.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function: Check if user owns the file path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function: Validate image or PDF uploads.
+    //
+    // AUD-007, accepted risk: contentType is declared by the uploading client,
+    // not derived from the bytes, so any file can claim to be image/png. The
+    // objects are served from firebasestorage.googleapis.com, a different origin
+    // from the app, so a disguised HTML payload cannot script against it -- the
+    // residual cost is storing arbitrary bytes under the 10 MB cap. A client-side
+    // magic-byte check belongs in uploadRecipeAsset so the user gets an honest
+    // error; that is tracked separately and is not a rules change.
+    function isValidFile() {
+      return (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf')
+          && request.resource.size < 10 * 1024 * 1024; // Max 10MB
+    }
+    
+    // Users folder: /users/{userId}/...
+    match /users/{userId}/{allPaths=**} {
+      // Owner can read, write, delete their own files
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidFile();
+      allow delete: if isOwner(userId);
+    }
+    
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

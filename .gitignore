@@ -1,0 +1,141 @@
+# Dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+build/
+coverage/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment and local secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!.env.local.example
+!**/.env.example
+!**/.env.local.example
+.secret.local
+**/.secret.local
+
+# Firebase local/generated data
+.firebase/
+**/.firebase/
+firebase-data/
+**/firebase-data/
+firebase-export-*/
+**/firebase-export-*/
+
+# Generated Firebase Functions build output
+functions/lib/
+**/functions/lib/
+
+# Local research archives and raw source libraries
+**/old_conversations/
+**/Source PDFs/
+
+# Local tool state
+.codex/
+.agents/
+
+# Editor/system files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Existing app ignore rules, retained during root flattening
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+_local/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
+.env.*
+!.env.example
+!.env.local.example
+node_modules/
+dist/
+test-results/
+.codebase-memory/
+docs/brain/.obsidian/workspace.json
+docs/brain/.obsidian/workspace-mobile.json
+docs/brain/.obsidian/cache/
+docs/brain/.trash/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
+coverage/
+playwright-report/
+
+# Private credentials and key material
+secrets/
+credentials/
+credentials*.json
+client_secret*.json
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Machine-specific agent and MCP configuration
+.mcp.json
+mcp.json
+.mcp/
+.cursor/mcp.json
+.claude/mcp.json
+.claude/settings.local.json
+.app-brain/
+docs/brain/.obsidian/
+__pycache__/
+*.pyc
+
+# Recoverable task archives; never commit retired/private contents
+_codex-trash/

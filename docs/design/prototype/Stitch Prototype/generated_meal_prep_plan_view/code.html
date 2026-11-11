@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Meal Prep Plan</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "surface-dark": "#193322",
+                        "surface-darker": "#112217",
+                        "accent-green": "#23482f",
+                        "text-muted": "#92c9a4"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden antialiased selection:bg-primary selection:text-background-dark">
+<div class="relative flex min-h-screen w-full flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-accent-green bg-surface-darker px-4 py-3 md:px-10 sticky top-0 z-50">
+<div class="flex items-center gap-4 md:gap-8">
+<div class="flex items-center gap-2 text-white cursor-pointer">
+<div class="size-8 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">eco</span>
+</div>
+<h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] hidden sm:block">VioMacro</h2>
+</div>
+<!-- Search Bar -->
+<label class="hidden md:flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full group">
+<div class="text-text-muted flex border-none bg-accent-green items-center justify-center pl-4 rounded-l-lg border-r-0 group-focus-within:text-white transition-colors">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-accent-green focus:border-none h-full placeholder:text-text-muted px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal" placeholder="Search foods..." value=""/>
+</div>
+</label>
+</div>
+<div class="flex flex-1 justify-end gap-4 md:gap-8 items-center">
+<div class="hidden lg:flex items-center gap-6">
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-primary text-sm font-bold border-b-2 border-primary pb-0.5" href="#">Meal Plans</a>
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Pantry</a>
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Shopping List</a>
+</div>
+<div class="flex gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-accent-green text-white hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-accent-green text-white hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-accent-green cursor-pointer ml-2" data-alt="User profile picture showing a smiling person" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCoXv2G8pNe63jTHS19tvcK5UYRVVnALEN9LDlNdkcYiE0HMcP7zL5silBdUGemDi8ZNrtHB0lT0bdLSGiZqWrJAJXGlwGvT4Q1h2iQGHzAE2wb0xf7hdJgHGtf2R6aPWTWl_W0YfEccMbxlMlPLbHt0fzeORSj5mPXofLomXjcWBK7ubXjdHZUdfWaGZxyhwfdWL__wMrqmlmDUp52LiEAwzLSzUdAASfHBEegjT2s3jXzsLF8hwhjwBgkKnhKgCp0kTeBLBbmnj6y");'></div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-[1400px] mx-auto px-4 md:px-6 lg:px-10 py-8">
+<!-- Page Heading & Actions -->
+<div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-10 border-b border-accent-green pb-8">
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<span class="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Active Plan</span>
+<p class="text-text-muted text-sm font-normal">Oct 16 - Oct 22, 2023</p>
+</div>
+<h1 class="text-white text-3xl md:text-5xl font-black leading-tight tracking-[-0.033em]">Week 42: High Protein Prep</h1>
+<div class="flex flex-wrap gap-4 text-sm mt-2">
+<div class="flex items-center gap-2 text-white bg-surface-dark px-3 py-1.5 rounded-lg border border-accent-green">
+<span class="material-symbols-outlined text-primary text-lg">local_fire_department</span>
+<span class="font-bold">2,200</span> <span class="text-text-muted">kcal</span>
+</div>
+<div class="flex items-center gap-2 text-white bg-surface-dark px-3 py-1.5 rounded-lg border border-accent-green">
+<span class="material-symbols-outlined text-blue-400 text-lg">egg_alt</span>
+<span class="font-bold">180g</span> <span class="text-text-muted">Protein</span>
+</div>
+<div class="flex items-center gap-2 text-white bg-surface-dark px-3 py-1.5 rounded-lg border border-accent-green">
+<span class="material-symbols-outlined text-yellow-400 text-lg">bakery_dining</span>
+<span class="font-bold">200g</span> <span class="text-text-muted">Carbs</span>
+</div>
+<div class="flex items-center gap-2 text-white bg-surface-dark px-3 py-1.5 rounded-lg border border-accent-green">
+<span class="material-symbols-outlined text-red-400 text-lg">opacity</span>
+<span class="font-bold">70g</span> <span class="text-text-muted">Fat</span>
+</div>
+</div>
+</div>
+<div class="flex gap-3 w-full lg:w-auto">
+<button class="flex-1 lg:flex-none h-12 px-6 flex items-center justify-center gap-2 rounded-xl bg-surface-dark text-white font-bold border border-accent-green hover:bg-accent-green transition-all">
+<span class="material-symbols-outlined">refresh</span>
+                        Regenerate
+                    </button>
+<button class="flex-1 lg:flex-none h-12 px-6 flex items-center justify-center gap-2 rounded-xl bg-primary text-background-dark font-bold hover:bg-green-400 transition-all shadow-[0_0_15px_rgba(19,236,91,0.3)]">
+<span class="material-symbols-outlined">shopping_cart</span>
+                        Export List
+                    </button>
+</div>
+</div>
+<!-- Prep Section (Bulk Cooking) -->
+<section class="mb-12">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-white text-2xl font-bold flex items-center gap-3">
+<span class="flex items-center justify-center size-8 rounded-full bg-surface-dark border border-accent-green text-sm text-primary">1</span>
+                        The Prep (Sunday)
+                    </h2>
+<a class="text-primary text-sm font-bold hover:underline" href="#">View Cooking Mode</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Prep Card 1 -->
+<div class="group flex flex-col bg-surface-dark rounded-2xl overflow-hidden border border-accent-green hover:border-primary/50 transition-all shadow-lg">
+<div class="relative h-48 w-full overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark to-transparent z-10"></div>
+<div class="w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-110" data-alt="Grilled chicken breast strips with lemon and herbs" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDaPJAncMfDA7H2ra_yfhA3euozcXvugG0I-3PG0yVBVqemGJQSTL4EeuVMJzgI3cjeaRpilnolXYGqr0oKkcW5QAWCLiHI6i7K7mnCBo5j9xyA1FOL3BpDg7X0rR6ZbgbcSCRDsBHQdYeh2R_aQ83g71Qsn-B4tTTsjeBo_aTnXCZtzHUzwG74VJP6rK81Na9ZN5GJtNVvbW9QDTfPAHalKo_EFO3QzsmPPy89huxnV-lRfjYcFptwL5pp5D5eX9k2l2HasSvwn1B3");'></div>
+<div class="absolute bottom-3 left-4 z-20">
+<span class="bg-primary text-background-dark text-xs font-bold px-2 py-1 rounded">Batch Cook</span>
+</div>
+</div>
+<div class="p-5 flex flex-col grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-white text-xl font-bold">Lemon Herb Chicken</h3>
+<button class="text-text-muted hover:text-white"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="text-text-muted text-sm mb-4">Marinate for 2 hours. Grill high heat 6 mins per side.</p>
+<div class="mt-auto pt-4 border-t border-accent-green/50 grid grid-cols-2 gap-4">
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Raw Wt.</p>
+<p class="text-white font-mono font-medium">1.5 kg</p>
+</div>
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Yield</p>
+<p class="text-primary font-mono font-medium">~1.1 kg</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Prep Card 2 -->
+<div class="group flex flex-col bg-surface-dark rounded-2xl overflow-hidden border border-accent-green hover:border-primary/50 transition-all shadow-lg">
+<div class="relative h-48 w-full overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark to-transparent z-10"></div>
+<div class="w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-110" data-alt="Roasted sweet potato cubes on a baking sheet" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBjdEJJvzxDUSYFwU5vK1E9iysDFcUPNYSrSPd1KIHYOTBMGZ_h4FsRAv6YhWt_dxrM9KRvF7XxdEIgN_nB9niWoPmiSV_kzJi3Z5w8pTQIzH7CL5R-B7sFYcWHxciAIBNCSWPNGM62iq_B-_j1FAZLIQUaJJKFiqWaj_0cQx9SfLnPtwh6Rg9JWM_7U5rX6E3RVpoFaMkxQVtFuHCLGDM8EUNyqMVq5UUDYd2tf4Pg7eivKwGTW2LvWeYvMtg2exSxU5GzE8QyQrmd");'></div>
+<div class="absolute bottom-3 left-4 z-20">
+<span class="bg-primary text-background-dark text-xs font-bold px-2 py-1 rounded">Batch Cook</span>
+</div>
+</div>
+<div class="p-5 flex flex-col grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-white text-xl font-bold">Roasted Sweet Potato</h3>
+<button class="text-text-muted hover:text-white"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="text-text-muted text-sm mb-4">Dice into 2cm cubes. Roast at 400°F for 35 mins.</p>
+<div class="mt-auto pt-4 border-t border-accent-green/50 grid grid-cols-2 gap-4">
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Raw Wt.</p>
+<p class="text-white font-mono font-medium">1.0 kg</p>
+</div>
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Yield</p>
+<p class="text-primary font-mono font-medium">~750g</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Prep Card 3 -->
+<div class="group flex flex-col bg-surface-dark rounded-2xl overflow-hidden border border-accent-green hover:border-primary/50 transition-all shadow-lg">
+<div class="relative h-48 w-full overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark to-transparent z-10"></div>
+<div class="w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-110" data-alt="Bowl of cooked quinoa" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD3CJ79oFusjwRRoW0g7XCh3YJlr8fiZ-sbLz2PWujxY7Rdk4SgOa718LULFc1MiHQ5h8fw71ezTg3uQEGrgiyGYTnylqaXmbSyXCYaEjH-0zXMOHTVbUzgIOoPu0vfdHiKbIjamyxr10sJ4pIXwFFpWhYaPx9nBnDtokxYN_790ZkB5dlrymhxDeR2pPgCuu9KyOTUH5E-wdguBIZcKZusXMw4TppZ8pA4nsUXvtUeJNK2qZzvm47XG6P2iRbg6qYv9QAsdTvt5BvJ");'></div>
+<div class="absolute bottom-3 left-4 z-20">
+<span class="bg-primary text-background-dark text-xs font-bold px-2 py-1 rounded">Batch Cook</span>
+</div>
+</div>
+<div class="p-5 flex flex-col grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-white text-xl font-bold">Fluffy Quinoa</h3>
+<button class="text-text-muted hover:text-white"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="text-text-muted text-sm mb-4">Rinse thoroughly. Simmer 15 mins. Let sit covered.</p>
+<div class="mt-auto pt-4 border-t border-accent-green/50 grid grid-cols-2 gap-4">
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Dry Wt.</p>
+<p class="text-white font-mono font-medium">300g</p>
+</div>
+<div>
+<p class="text-xs text-text-muted uppercase font-bold tracking-wider">Yield</p>
+<p class="text-primary font-mono font-medium">~900g</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Daily Schedule -->
+<section class="flex flex-col lg:flex-row gap-8">
+<!-- Main Schedule Column -->
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-white text-2xl font-bold flex items-center gap-3">
+<span class="flex items-center justify-center size-8 rounded-full bg-surface-dark border border-accent-green text-sm text-primary">2</span>
+                            The Week
+                        </h2>
+<div class="flex bg-surface-dark rounded-lg p-1 border border-accent-green">
+<button class="px-3 py-1 rounded text-sm font-medium bg-primary text-background-dark shadow-sm">Mon</button>
+<button class="px-3 py-1 rounded text-sm font-medium text-text-muted hover:text-white">Tue</button>
+<button class="px-3 py-1 rounded text-sm font-medium text-text-muted hover:text-white">Wed</button>
+<button class="px-3 py-1 rounded text-sm font-medium text-text-muted hover:text-white">Thu</button>
+<button class="px-3 py-1 rounded text-sm font-medium text-text-muted hover:text-white">Fri</button>
+</div>
+</div>
+<!-- Monday Container -->
+<div class="bg-surface-dark rounded-2xl border border-accent-green overflow-hidden">
+<!-- Day Header -->
+<div class="p-6 border-b border-accent-green bg-surface-darker/50 flex flex-wrap items-center justify-between gap-4">
+<div>
+<h3 class="text-xl font-bold text-white">Monday, Oct 16</h3>
+<p class="text-text-muted text-sm">Perfect adherence day</p>
+</div>
+<div class="flex items-center gap-4 bg-background-dark/50 px-4 py-2 rounded-xl border border-accent-green/30">
+<div class="flex flex-col gap-1 w-24">
+<div class="flex justify-between text-[10px] font-bold uppercase text-text-muted"><span>Pro</span><span>98%</span></div>
+<div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[98%]"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1 w-24">
+<div class="flex justify-between text-[10px] font-bold uppercase text-text-muted"><span>Carb</span><span>100%</span></div>
+<div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-yellow-500 w-full"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1 w-24">
+<div class="flex justify-between text-[10px] font-bold uppercase text-text-muted"><span>Fat</span><span>92%</span></div>
+<div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-red-500 w-[92%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Meals List -->
+<div class="p-4 md:p-6 flex flex-col gap-4">
+<!-- Meal 1 -->
+<div class="group relative flex flex-col md:flex-row gap-4 bg-background-dark p-4 rounded-xl border border-transparent hover:border-accent-green transition-all">
+<div class="md:w-32 flex md:flex-col justify-between md:justify-start gap-1">
+<span class="text-xs font-bold text-text-muted uppercase tracking-wider">Breakfast</span>
+<span class="text-sm font-medium text-white">08:00 AM</span>
+</div>
+<div class="size-16 min-w-16 rounded-lg bg-center bg-cover" data-alt="Bowl of oatmeal with berries" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCRSURBNqf_2yHar9jRV-HZwYdrLQW2AyYggvuFwh6X8vX052wqfZtrVto5r71b5hmagQ9RKTKjlXjsGR-hlych-anLqC-2dFGfbiM_E4gI8q9VWJTLMr3mBbKWlGytitR09nShiV-V_ZPG8JB91HNnioGXd0fGavQG7oYL_zYhKfLb-B0nbTuMZWx4aOxWvXIAxDKNcM2yA30JYVb5WtgZIwzmE9gdOcyCKkTvE8sEB5zjG6ZlL__kEswg4AF-JDP7zG8OxdSVNqgk");'></div>
+<div class="flex-1">
+<h4 class="text-white font-bold text-lg">Pro Oats &amp; Berries</h4>
+<div class="flex flex-wrap gap-2 mt-2">
+<span class="inline-flex items-center gap-1 text-xs bg-surface-dark px-2 py-1 rounded text-text-muted border border-accent-green">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span> 80g Oats
+                                        </span>
+<span class="inline-flex items-center gap-1 text-xs bg-surface-dark px-2 py-1 rounded text-text-muted border border-accent-green">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span> 1 Scoop Whey
+                                        </span>
+</div>
+</div>
+<div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 mt-2 md:mt-0">
+<div class="text-right">
+<span class="block text-white font-bold">450 kcal</span>
+<span class="block text-xs text-primary">35g P / 45g C / 8g F</span>
+</div>
+<div class="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">swap_horiz</span></button>
+</div>
+</div>
+</div>
+<!-- Meal 2 (Linked to Batch) -->
+<div class="group relative flex flex-col md:flex-row gap-4 bg-background-dark p-4 rounded-xl border border-l-4 border-l-primary border-y-transparent border-r-transparent hover:border-r-accent-green hover:border-y-accent-green transition-all">
+<div class="md:w-32 flex md:flex-col justify-between md:justify-start gap-1">
+<span class="text-xs font-bold text-primary uppercase tracking-wider">Lunch</span>
+<span class="text-sm font-medium text-white">01:00 PM</span>
+</div>
+<div class="size-16 min-w-16 rounded-lg bg-center bg-cover" data-alt="Chicken and quinoa bowl" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuArLgD8mK26BpaDnWLYP7bTs4BbnH6comxY_YC5lSFJx_lYTPBmi4PCTRZsNknRE4WIN5v7HwHD9EJetL1kt10QHrG6avsIpfQu6j6Z1wh9tWEmgtQ89YFmtS9hxZf8ReFKnvriVYhfRiR4crKy3gP9Etd86ObW_khVptvEf3T8hyznOAdlrJ-NrHxltPMn21R-PM6CijnstNo8Zkb4UKZE46FmZaV3mQ5Ps1519qnPB2q7K2wQjQoZstM9Q1ap7UfIh-GkR6_ocAff");'></div>
+<div class="flex-1">
+<h4 class="text-white font-bold text-lg">Chicken Quinoa Power Bowl</h4>
+<div class="flex flex-wrap gap-2 mt-2">
+<span class="inline-flex items-center gap-1 text-xs bg-primary/20 px-2 py-1 rounded text-primary font-medium border border-primary/30">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> 150g Batch Chicken
+                                        </span>
+<span class="inline-flex items-center gap-1 text-xs bg-primary/20 px-2 py-1 rounded text-primary font-medium border border-primary/30">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> 200g Batch Quinoa
+                                        </span>
+</div>
+</div>
+<div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 mt-2 md:mt-0">
+<div class="text-right">
+<span class="block text-white font-bold">580 kcal</span>
+<span class="block text-xs text-primary">45g P / 60g C / 12g F</span>
+</div>
+<div class="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">swap_horiz</span></button>
+</div>
+</div>
+</div>
+<!-- Meal 3 -->
+<div class="group relative flex flex-col md:flex-row gap-4 bg-background-dark p-4 rounded-xl border border-l-4 border-l-primary border-y-transparent border-r-transparent hover:border-r-accent-green hover:border-y-accent-green transition-all">
+<div class="md:w-32 flex md:flex-col justify-between md:justify-start gap-1">
+<span class="text-xs font-bold text-primary uppercase tracking-wider">Dinner</span>
+<span class="text-sm font-medium text-white">07:00 PM</span>
+</div>
+<div class="size-16 min-w-16 rounded-lg bg-center bg-cover" data-alt="Steak and sweet potatoes" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWKHXAkT_eercjnMuo1IDEWQ5EZ3cJ8VqEpDdThEkqLFQKig8jkIr6Y-m6TF6ieammPoj0xkvqn4l9LOTzuTQUKDTeH19qAAuMfNeM0eGvjCrfwCFHIS4GNOZmSZAMDxhZZeGrJOTyU805D7cgdrtDHeSgLnll4Ohp4ObV3MsB0OFzNErIh4gJOVRhd52wyiv1SPaSgwvLgXY3CvpdjZrKj46x4MwdOVKA0T6AieF0tX2lJ0q97rHrDcpzmL1OCazx0KKI9u8PNcWW");'></div>
+<div class="flex-1">
+<h4 class="text-white font-bold text-lg">Steak &amp; Sweet Potato</h4>
+<div class="flex flex-wrap gap-2 mt-2">
+<span class="inline-flex items-center gap-1 text-xs bg-primary/20 px-2 py-1 rounded text-primary font-medium border border-primary/30">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> 200g Batch Swt Potato
+                                        </span>
+<span class="inline-flex items-center gap-1 text-xs bg-surface-dark px-2 py-1 rounded text-text-muted border border-accent-green">
+<span class="material-symbols-outlined text-[14px]">skillet</span> 180g Fresh Steak
+                                        </span>
+</div>
+</div>
+<div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 mt-2 md:mt-0">
+<div class="text-right">
+<span class="block text-white font-bold">650 kcal</span>
+<span class="block text-xs text-primary">50g P / 45g C / 25g F</span>
+</div>
+<div class="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="size-8 flex items-center justify-center rounded bg-surface-dark text-text-muted hover:text-white hover:bg-accent-green"><span class="material-symbols-outlined text-lg">swap_horiz</span></button>
+</div>
+</div>
+</div>
+<!-- Add Meal Button -->
+<button class="w-full py-3 rounded-xl border border-dashed border-accent-green text-text-muted font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add_circle</span> Add Snack
+                            </button>
+</div>
+</div>
+</div>
+<!-- Right Sidebar Summary -->
+<aside class="w-full lg:w-80 flex flex-col gap-6">
+<!-- Weekly Nutrition Card -->
+<div class="bg-surface-dark p-6 rounded-2xl border border-accent-green">
+<h3 class="text-white font-bold text-lg mb-4">Weekly Adherence</h3>
+<div class="relative size-40 mx-auto mb-4 flex items-center justify-center">
+<!-- Abstract Circular Progress using borders -->
+<div class="absolute inset-0 rounded-full border-[12px] border-surface-darker"></div>
+<div class="absolute inset-0 rounded-full border-[12px] border-primary border-l-transparent border-b-transparent rotate-45"></div>
+<div class="flex flex-col items-center">
+<span class="text-3xl font-black text-white">94%</span>
+<span class="text-xs text-text-muted uppercase">On Track</span>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm">
+<span class="text-text-muted">Total Calories</span>
+<span class="text-white font-bold">15,400</span>
+</div>
+<div class="w-full bg-surface-darker h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[94%]"></div>
+</div>
+</div>
+</div>
+<!-- Shopping List Preview -->
+<div class="bg-surface-dark p-6 rounded-2xl border border-accent-green flex-1">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white font-bold text-lg">Quick Shop</h3>
+<button class="text-primary text-sm font-bold">View All</button>
+</div>
+<ul class="space-y-3">
+<li class="flex items-center gap-3">
+<div class="size-5 rounded border border-text-muted flex items-center justify-center text-transparent hover:text-primary hover:border-primary cursor-pointer">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-text-muted text-sm line-through decoration-text-muted">Olive Oil</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="size-5 rounded border border-primary flex items-center justify-center text-primary cursor-pointer">
+</div>
+<span class="text-white text-sm">Chicken Breast (3kg)</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="size-5 rounded border border-primary flex items-center justify-center text-primary cursor-pointer">
+</div>
+<span class="text-white text-sm">Sweet Potatoes (2kg)</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="size-5 rounded border border-primary flex items-center justify-center text-primary cursor-pointer">
+</div>
+<span class="text-white text-sm">Quinoa (1 bag)</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="size-5 rounded border border-primary flex items-center justify-center text-primary cursor-pointer">
+</div>
+<span class="text-white text-sm">Spinach (2 bags)</span>
+</li>
+</ul>
+<button class="w-full mt-6 py-2.5 rounded-lg bg-accent-green text-white text-sm font-bold hover:bg-white/10 transition-colors">
+                            Add Custom Item
+                        </button>
+</div>
+</aside>
+</section>
+</main>
+</div>
+</body></html>

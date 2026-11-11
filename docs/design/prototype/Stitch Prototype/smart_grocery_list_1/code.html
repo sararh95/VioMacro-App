@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Smart Grocery List</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "surface-dark": "#112217",
+                        "surface-card": "#193322",
+                        "border-green": "#23482f",
+                        "text-secondary": "#92c9a4"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen w-screen flex">
+<!-- Sidebar Navigation -->
+<aside class="w-[280px] hidden md:flex flex-col border-r border-border-green bg-surface-dark h-full shrink-0 z-20">
+<div class="flex flex-col h-full justify-between p-4">
+<div class="flex flex-col gap-6">
+<!-- User Profile / App Brand -->
+<div class="flex items-center gap-3 px-2">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-lg ring-2 ring-[#23482f]" data-alt="Abstract green geometric logo pattern" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCUkYViEwrNd3Fz0qMGUuj4BAoEUju-Xied9f9tWXpcqNU3EFb3v7xLOHKrOLeWv2acWL1SNBWr-0LpJDwkt-u15Ks3PwxYSsBvod1D8RcY2uyaNdMp8z3_pvXPZAGKwtQXSFv7kM6rVZq9qF-UfY__9dbYe1TlVvFJOld5IuNYl_oKkyHyvTF-ePOf18lDKYHLaFZgkwnaFXA4KsyHhVklY7WNf1PT2vo_oQ6B04tGYqeSzGsv4kOtEj6yMkDT9tWOZVKKRgQ51aqN");'></div>
+<div class="flex flex-col">
+<h1 class="text-white text-base font-bold leading-normal tracking-wide">VioMacro</h1>
+<p class="text-text-secondary text-xs font-medium uppercase tracking-wider">Pro Plan</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:bg-[#193322] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-primary transition-colors">grid_view</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:bg-[#193322] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-primary transition-colors">restaurant_menu</span>
+<span class="text-sm font-medium">Meal Plan</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#23482f] text-white shadow-sm ring-1 ring-[#326744]" href="#">
+<span class="material-symbols-outlined text-2xl text-primary font-variation-settings-'FILL' 1">check_circle</span>
+<span class="text-sm font-bold">Grocery List</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:bg-[#193322] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-primary transition-colors">pie_chart</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-text-secondary hover:bg-[#193322] hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Action -->
+<div class="p-3 bg-gradient-to-br from-[#193322] to-[#102216] rounded-xl border border-[#23482f] shadow-lg">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary">bolt</span>
+<p class="text-xs text-white font-semibold">Macro Cycle Active</p>
+</div>
+<p class="text-[10px] text-text-secondary leading-tight">You are 4 days into your high-performance cycle.</p>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-dark overflow-hidden relative">
+<!-- Header -->
+<header class="bg-surface-dark/80 backdrop-blur-md border-b border-border-green sticky top-0 z-10">
+<div class="flex flex-wrap items-center justify-between gap-4 p-6">
+<div class="flex flex-col gap-1">
+<h2 class="text-white text-3xl font-black tracking-tight">Smart Grocery List</h2>
+<div class="flex items-center gap-2 text-text-secondary text-sm">
+<span>Week of Oct 24</span>
+<span class="size-1 rounded-full bg-primary"></span>
+<span class="text-primary/80">High-Performance Macro Cycle</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2 mr-2">
+<div class="size-8 rounded-full ring-2 ring-surface-dark bg-cover bg-center" data-alt="User avatar 1" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAGT5QSPGaAKYtk4AZe1Gligl5JNle6sJ0ID3viCGnDldqmTxG92uP7KkqfMcz4sR07BiTjkOzy4NjKR_JFb_CL7L_Qk3Hi9vUp_HvzxK_Eg4YmlT_-RUBFxTtQSC4DKFUCfYrz5t4hkJ6sqZ3pHvOjbALbSeY8sxAqQx8G3EdBDp5TZy32B2KQVRnC3EPrTp7ttPNoNfy-nPsQmxQ4qIZQvEehgBY-LKnd_Hx1z5IRufQGN9RsK1vCE_3GlUOXSX3mcuiAejG9omtq");'></div>
+<div class="size-8 rounded-full ring-2 ring-surface-dark bg-cover bg-center" data-alt="User avatar 2" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6dj7LkuAaHyvt60Dwr-cnNLDKIC80UI3CuzuLo4CSO8LEc9qy-jA2tXMnLf2DCtKOtqCrwons7EWZZ4_YNIgnUNuwyartioaVaoznJHWck6-aL_m8x4gzIy9IB5blFBhh9KCmWAU65OYyXqGdHgHxAPtpQrXYp4R7OB3hzLNFYZ2cN1CUffbP5BOGj6xZxT2UuMLy6_JgJsgnvif7o5hK9Y3ZMd6YMNRjvSSbCiZwVmBkWwpAMfUTj6u502vVm7jgEyjC8pmauh5X");'></div>
+<div class="size-8 rounded-full ring-2 ring-surface-dark bg-[#23482f] flex items-center justify-center text-[10px] font-bold text-white">+2</div>
+</div>
+<button class="flex items-center justify-center gap-2 px-4 h-10 rounded-lg border border-[#326744] hover:bg-[#193322] text-white text-sm font-semibold transition-colors">
+<span class="material-symbols-outlined text-[20px]">ios_share</span>
+                        Share
+                    </button>
+<button class="flex items-center justify-center gap-2 px-4 h-10 rounded-lg bg-[#193322] hover:bg-[#23482f] text-text-secondary hover:text-white text-sm font-semibold transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Scrollable Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#23482f] scrollbar-track-transparent">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1600px] mx-auto pb-10">
+<!-- LEFT COLUMN: Context (Visible on XL screens) -->
+<div class="hidden xl:flex flex-col col-span-3 gap-6 sticky top-0">
+<!-- Source Meal Plan Card -->
+<div class="flex flex-col gap-0 rounded-xl bg-surface-card border border-border-green overflow-hidden shadow-sm">
+<div class="h-32 w-full bg-cover bg-center relative" data-alt="Healthy meal prep arrangement top view" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAyk-EnPOttFUfn2gyD6bOMnvkQs8Urg_x_2spFgHr4k8KMlhogRsKMay8kCYmPYglhaRM8unhlyLpqZby-zj1_Zrqz4kTR2bBP498eEMnvGNaoehjKz1UFlCGK4-m6h666N8H47ZHT9tegFRPceTIv0pORxrvmGcComDxGCWh7qrR0vtqCAUgh8Ohtjnj9dTLyELEBh1tsuCEU2TrlnHAXYGW7enJOhu10cTRaI-LU1uKJCugpBcDNBXcbj0mavHhueXWR5k64-yMg");'>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-card to-transparent opacity-90"></div>
+<div class="absolute bottom-3 left-4">
+<span class="bg-primary/20 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-primary/20">Source</span>
+</div>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="text-white text-lg font-bold leading-tight">Meal Plan Source</h3>
+<p class="text-text-secondary text-sm">Generated from your active "High-Performance Macro Cycle" (Mon-Sun).</p>
+<div class="mt-4 pt-4 border-t border-[#23482f] flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<div class="p-1.5 rounded-md bg-[#102216]">
+<span class="material-symbols-outlined text-text-secondary text-[18px]">calendar_month</span>
+</div>
+<div>
+<p class="text-white text-sm font-medium">21 Meals Planned</p>
+<p class="text-text-secondary text-xs">Breakfast, Lunch, Dinner</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="p-1.5 rounded-md bg-[#102216]">
+<span class="material-symbols-outlined text-text-secondary text-[18px]">local_fire_department</span>
+</div>
+<div>
+<p class="text-white text-sm font-medium">2,400 kcal / day</p>
+<p class="text-text-secondary text-xs">Average target</p>
+</div>
+</div>
+</div>
+<button class="mt-2 w-full py-2 text-xs font-medium text-text-secondary hover:text-white hover:bg-[#23482f] rounded transition-colors">
+                                View Full Meal Plan
+                            </button>
+</div>
+</div>
+<!-- Sync Status -->
+<div class="flex items-center justify-between px-4 py-3 rounded-lg bg-[#112217] border border-border-green/50">
+<span class="text-text-secondary text-xs">Last synced</span>
+<span class="flex items-center gap-1.5 text-xs text-primary">
+<span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                            Just now
+                        </span>
+</div>
+</div>
+<!-- MIDDLE COLUMN: The List (Main) -->
+<div class="col-span-1 lg:col-span-8 xl:col-span-6 flex flex-col gap-6">
+<!-- Quick Add Input -->
+<div class="sticky top-0 z-20 bg-background-dark pt-1 pb-4 shadow-[0_10px_20px_-10px_rgba(16,34,22,1)]">
+<label class="flex w-full items-center gap-2 rounded-xl bg-surface-card border border-[#326744] focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-primary transition-all p-1 pr-2">
+<input class="bg-transparent border-none text-white placeholder-text-secondary/70 text-base w-full h-12 px-4 focus:ring-0" placeholder="+ Quick add item (e.g. 2 avocados)..." type="text"/>
+<button class="size-10 flex items-center justify-center rounded-lg bg-[#23482f] text-white hover:bg-primary hover:text-surface-dark transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</label>
+</div>
+<!-- Aisle Group: Produce -->
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between px-2">
+<h3 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">nutrition</span>
+                                Produce
+                            </h3>
+<span class="text-text-secondary text-xs font-medium bg-[#193322] px-2 py-1 rounded">4 items</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- List Item 1 -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Organic Spinach</span>
+<span class="text-text-secondary text-xs">2 bags (16oz) • <span class="text-primary/80">Iron Rich</span></span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">2</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Bananas</span>
+<span class="text-text-secondary text-xs">1 bunch (approx 6)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">1</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- List Item 3 with Sub -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Avocados</span>
+<span class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 rounded">Low Glycemic</span>
+</div>
+<span class="text-text-secondary text-xs">3 large / ripe</span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">3</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Aisle Group: Proteins -->
+<div class="flex flex-col gap-3 mt-4">
+<div class="flex items-center justify-between px-2">
+<h3 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">egg_alt</span>
+                                Proteins
+                            </h3>
+<span class="text-text-secondary text-xs font-medium bg-[#193322] px-2 py-1 rounded">2 items</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- List Item 1 -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Chicken Breast</span>
+<span class="text-text-secondary text-xs">2 lbs • Boneless Skinless</span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">1</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Firm Tofu</span>
+<span class="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-300 border border-green-500/30 px-1.5 rounded">
+<span class="material-symbols-outlined text-[10px]">eco</span> Plant Based
+                                            </span>
+</div>
+<span class="text-text-secondary text-xs">1 block (14oz)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">1</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Aisle Group: Pantry -->
+<div class="flex flex-col gap-3 mt-4">
+<div class="flex items-center justify-between px-2">
+<h3 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">kitchen</span>
+                                Pantry
+                            </h3>
+<span class="text-text-secondary text-xs font-medium bg-[#193322] px-2 py-1 rounded">2 items</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- List Item 1 -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-green/50 hover:border-primary/50 transition-all">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<span class="text-white font-medium group-hover:text-primary transition-colors">Quinoa</span>
+<span class="text-text-secondary text-xs">1 box (12oz) • Tricolor</span>
+</div>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-white text-sm font-medium w-4 text-center">1</span>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-8 flex items-center justify-center rounded hover:bg-[#23482f] text-text-secondary hover:text-white ml-1">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- List Item 2 (Checked State Example) -->
+<div class="group flex items-center justify-between p-3 rounded-lg bg-surface-dark/50 border border-transparent transition-all opacity-60 hover:opacity-100">
+<div class="flex items-center gap-4 flex-1">
+<label class="relative flex items-center justify-center cursor-pointer p-1">
+<input checked="" class="peer size-6 appearance-none rounded border-2 border-[#326744] bg-transparent checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-surface-dark opacity-0 peer-checked:opacity-100 pointer-events-none text-lg font-bold">check</span>
+</label>
+<div class="flex flex-col">
+<span class="text-white font-medium line-through decoration-text-secondary decoration-2">Olive Oil</span>
+<span class="text-text-secondary text-xs">Extra Virgin • 1 bottle</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-2 py-1 text-xs text-primary font-medium bg-primary/10 rounded">
+                                        Added to cart
+                                     </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Fulfillment (Visible on LG+) -->
+<div class="col-span-1 lg:col-span-4 xl:col-span-3 flex flex-col gap-6">
+<!-- Checkout Card -->
+<div class="bg-surface-card rounded-xl border border-border-green p-5 flex flex-col gap-5 shadow-lg relative overflow-hidden">
+<!-- Instacart Banner Background Effect -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+<div class="flex items-center justify-between">
+<h3 class="text-white font-bold text-lg">Checkout</h3>
+<div class="flex items-center gap-1 bg-[#102216] px-2 py-1 rounded border border-[#23482f]">
+<span class="material-symbols-outlined text-primary text-sm">local_shipping</span>
+<span class="text-[10px] text-white font-medium">Delivery</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 py-4 border-b border-[#23482f]">
+<div class="flex justify-between items-end">
+<span class="text-text-secondary text-sm">Estimated Total</span>
+<span class="text-white text-2xl font-black tracking-tight">$145.00</span>
+</div>
+<span class="text-[11px] text-text-secondary text-right">Includes taxes &amp; estimated fees</span>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full h-12 bg-primary hover:bg-[#0fd650] text-[#102216] rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(19,236,91,0.2)] transition-all">
+<span>Checkout with Instacart</span>
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</button>
+<button class="w-full h-10 bg-[#102216] hover:bg-[#0a160e] text-white border border-[#326744] rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                                Print / PDF
+                            </button>
+</div>
+<div class="flex items-center justify-center gap-4 mt-2 opacity-50 grayscale hover:grayscale-0 transition-all">
+<div class="h-6 w-12 bg-contain bg-center bg-no-repeat" data-alt="Whole Foods logo" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCIdbri2NCUlHpSBvQwRPO4rJ7U8IJIvJIkUHxgHHWv1wiyKtII618HyGx6Xdau1_iCU1NYJXzBzVV_Fro0bbke97eJlb6tFQJm9D73CkNL6hfVFRHrHcRZHrmEGcKAqNfl9Ee7AJckHDREzYjR-ZilGE6wOF0kkeRFj8FGcrV3mgwuCgPfCRez1Olse5o2gjnEHWOkCzCs-1IDuDcgMPtTpoV90-bjR0DLGe-XgmeVHX1mB4lTkt1ipD1W0b-cFMDpRU6dSYKvvhdF');"></div>
+<div class="h-6 w-12 bg-contain bg-center bg-no-repeat" data-alt="Kroger logo" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBmS8M8m1WisSIidqTt6CQXszpV5ePwTWkEQVZiX2GI67hYvUQeq-trrVUQU98IX9zHr7Jm2_pMuxT27-GH4fkA2j2CfzXvt9IjNCgzim9QlZl4qLpV-ZOALo6F2iGkOAvZoHqasaAGFO4q5GfWxTZKFMwak-ZEbowvYT3Ze76tKZS-SszXkU0fjsJzG9YRDBDEBHZ44AA485BYi_1FefXi7CNzlL2Kh3XaDUiK28o8NQX1CFDoIzLscOr3OUhPY6brXQAbVX4q-MIb');"></div>
+</div>
+</div>
+<!-- Store Availability -->
+<div class="bg-[#112217] rounded-xl border border-border-green/50 p-4">
+<h4 class="text-text-secondary text-xs font-bold uppercase tracking-wider mb-3">Store Availability</h4>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-white flex items-center justify-center text-black font-bold text-xs overflow-hidden">
+<img alt="Whole Foods" class="w-6 h-6 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGfjcsdDLDOjzfWEWaeMPL1P8FM86QHhKBWtizqw1U-HJHWC6cF61D4zjFExarrf5ip7gRBA1W8VpeN540cjrwTF4ynTitnZOPf7VqA7-NT3F7LO-2P2tOuujSLK9Mi2WHS6eCKJjzIveTTGsOs2TeadhLRmOeBoTm8BoTdZmhPmPKW7NoTke4x_uavynwZweq7pRAmbQqszIVU83qzYE_eY5uVeAnjqd_YAtrSikkEHYZg-H6GfnZohL6lfMgA4yzscjVJmwpE0Js"/>
+</div>
+<div class="flex flex-col">
+<span class="text-white text-sm font-medium">Whole Foods</span>
+<span class="text-text-secondary text-[10px]">1.2 miles away</span>
+</div>
+</div>
+<div class="flex items-center">
+<span class="size-2 rounded-full bg-primary"></span>
+</div>
+</div>
+<div class="flex items-center justify-between group cursor-pointer opacity-60">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-white flex items-center justify-center text-black font-bold text-xs overflow-hidden">
+<img alt="Kroger" class="w-6 h-6 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRfTX8jPlWnTdTiwnP_ZLd-WBEQlpJKV8MNVMtkNDhJiwViaUYKf7Zk_CgKifZwlTQ56OX9_1NQLL4-a7U8yjBAXe2uOWJs1Y7xqt93lm6b6InzUOxr5lgaNbklbAUWNYGACuaFt-EBtaCj720dbNpMna14lgUttET-j6dF_5JBHeble0sj5SPvLByPl_yNLEZj1-2yCL0sVHBI84cbnWGW6dwyPc7TT2KkITY9L_-FFsvE33oocTChTv5ESJEQ1cj2GoqfcyiUKNg"/>
+</div>
+<div class="flex flex-col">
+<span class="text-white text-sm font-medium">Kroger</span>
+<span class="text-text-secondary text-[10px]">3 items missing</span>
+</div>
+</div>
+<div class="flex items-center">
+<span class="size-2 rounded-full bg-red-500"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Helper Tip -->
+<div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 flex gap-3 items-start">
+<span class="material-symbols-outlined text-blue-400 text-lg mt-0.5">tips_and_updates</span>
+<div>
+<p class="text-blue-100 text-xs font-medium leading-relaxed">
+                                Tip: Substituting Tofu with Tempeh increases fiber by 4g per serving for this meal plan.
+                            </p>
+<button class="text-blue-400 text-xs font-bold mt-1 hover:underline">Apply Substitution</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

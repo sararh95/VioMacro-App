@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VioMacro - Adaptive Coaching Engine</title>
+
+    <!--
+      Content-Security-Policy (PR-3, AUD-072/091/104/116/117/118).
+
+      The app used to fetch placeholder food photos from Unsplash and avatars
+      from DiceBear. Both were accidental fallbacks rather than considered
+      dependencies, and both leaked the viewer's IP and referrer. All visuals
+      are now generated locally (src/lib/visuals.ts).
+
+      img-src is pinned so a new external image host cannot creep back in
+      unnoticed. Google Fonts stays on purpose — it is a deliberate typography
+      choice, not a decorative fallback.
+
+      Firebase needs: connect-src for Firestore/Auth/Functions and their
+      websockets, plus localhost for the emulators. frame-src covers the
+      reCAPTCHA/App Check iframe.
+      Firebase Auth's mobile gapi loader requires https://apis.google.com.
+
+      img-src also allows, and these were each found by the emulator suite
+      rejecting them rather than by guesswork:
+        - http://127.0.0.1:* / localhost:*  the Storage emulator serves recipe
+          images from there in local development
+        - https://www.google.com           reCAPTCHA / App Check loads a
+          tracking pixel (cleardot.gif) during token exchange
+      Production Storage is covered by https://*.googleapis.com.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://www.google.com http://127.0.0.1:* http://localhost:*;
+        font-src 'self' https://fonts.gstatic.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://apis.google.com;
+        connect-src 'self' https://www.google.com https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*;
+        frame-src 'self' https://*.firebaseapp.com https://www.google.com;
+        object-src 'none';
+        base-uri 'self';
+      "
+    />
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

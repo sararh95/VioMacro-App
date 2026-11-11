@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - Seamless Food Logging</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "card-dark": "#23482f",
+                        "text-secondary": "#92c9a4",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #112217; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #23482f; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #13ec5b; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex">
+<!-- Left Sidebar -->
+<aside class="w-64 bg-[#112217] border-r border-[#23482f] hidden md:flex flex-col justify-between flex-shrink-0">
+<div class="flex flex-col gap-6 p-6">
+<div class="flex flex-col">
+<h1 class="text-white text-xl font-bold tracking-tight">VioMacro</h1>
+<p class="text-text-secondary text-xs font-medium">Pro Plan</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-[#23482f] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#23482f] text-white shadow-sm border border-white/5" href="#">
+<span class="material-symbols-outlined text-primary fill-1">edit_note</span>
+<span class="text-sm font-bold">Food Log</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-[#23482f] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">pie_chart</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-[#23482f] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">account_circle</span>
+<span class="text-sm font-medium">Coach</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-[#23482f] transition-colors group" href="#">
+<span class="material-symbols-outlined text-text-secondary group-hover:text-primary transition-colors">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+</div>
+<div class="p-6">
+<div class="bg-[#23482f] rounded-xl p-4 flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">workspace_premium</span>
+</div>
+<div>
+<p class="text-white text-xs font-bold">Streak</p>
+<p class="text-primary text-sm font-bold">12 Days 🔥</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Top Nav -->
+<header class="h-16 border-b border-[#23482f] flex items-center justify-between px-6 bg-[#112217] shrink-0 z-10">
+<div class="flex items-center gap-4">
+<button class="md:hidden text-white">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex items-center gap-2 text-white">
+<span class="material-symbols-outlined text-primary">nutrition</span>
+<h2 class="text-lg font-bold tracking-tight">Food Logger</h2>
+</div>
+</div>
+<div class="flex-1 max-w-xl mx-8 hidden sm:block relative group">
+<div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-text-secondary">search</span>
+</div>
+<input class="w-full h-10 bg-[#0b160f] border border-[#23482f] rounded-lg pl-10 pr-4 text-white placeholder-text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm" placeholder="Search for food (e.g., 'Avocado Toast', 'Grilled Chicken')..." type="text"/>
+<div class="absolute inset-y-0 right-2 flex items-center">
+<kbd class="hidden lg:inline-flex items-center border border-[#23482f] rounded px-2 text-[10px] font-medium text-text-secondary">⌘ K</kbd>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="relative size-10 flex items-center justify-center rounded-lg hover:bg-[#23482f] text-white transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border border-[#112217]"></span>
+</button>
+<button class="flex items-center gap-2 pl-2 pr-1 py-1 rounded-lg hover:bg-[#23482f] transition-colors">
+<div class="size-8 rounded-full bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center text-[#112217] font-bold text-xs border border-white/10" data-alt="User Avatar Abstract Gradient">
+                        JD
+                    </div>
+</button>
+</div>
+</header>
+<!-- Scrollable Area -->
+<div class="flex-1 overflow-y-auto overflow-x-hidden">
+<div class="max-w-[1400px] mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+<!-- Page Heading & Stats -->
+<div class="flex flex-col gap-6">
+<!-- Date & Controls -->
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<button class="size-8 flex items-center justify-center rounded-full hover:bg-[#23482f] text-white transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="flex flex-col">
+<div class="flex items-baseline gap-2">
+<h2 class="text-2xl md:text-3xl font-black text-white tracking-tight">Today, Oct 24</h2>
+<span class="text-sm font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">Tracking</span>
+</div>
+<p class="text-text-secondary text-sm">Daily Goal: 2400 kcal</p>
+</div>
+<button class="size-8 flex items-center justify-center rounded-full hover:bg-[#23482f] text-white transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 h-9 px-4 bg-[#23482f] hover:bg-[#2e5e3d] text-white text-sm font-bold rounded-lg transition-colors border border-white/5">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+                                Clone Day
+                            </button>
+<button class="flex items-center gap-2 h-9 px-4 bg-[#23482f] hover:bg-[#2e5e3d] text-white text-sm font-bold rounded-lg transition-colors border border-white/5">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+                                Edit Targets
+                            </button>
+</div>
+</div>
+<!-- Macro Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-card-dark rounded-xl p-5 border border-white/5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-white">local_fire_department</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<p class="text-text-secondary text-xs font-bold uppercase tracking-wider">Calories</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-white">1,250</span>
+<span class="text-sm text-white/50">/ 2,400</span>
+</div>
+<div class="w-full bg-black/40 h-1.5 rounded-full mt-2">
+<div class="bg-primary h-1.5 rounded-full" style="width: 52%"></div>
+</div>
+</div>
+</div>
+<div class="bg-card-dark rounded-xl p-5 border border-white/5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-blue-400">egg</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<p class="text-text-secondary text-xs font-bold uppercase tracking-wider">Protein</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-white">110g</span>
+<span class="text-sm text-white/50">/ 180g</span>
+</div>
+<div class="w-full bg-black/40 h-1.5 rounded-full mt-2">
+<div class="bg-blue-400 h-1.5 rounded-full" style="width: 61%"></div>
+</div>
+</div>
+</div>
+<div class="bg-card-dark rounded-xl p-5 border border-white/5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-yellow-400">bakery_dining</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<p class="text-text-secondary text-xs font-bold uppercase tracking-wider">Carbs</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-white">90g</span>
+<span class="text-sm text-white/50">/ 250g</span>
+</div>
+<div class="w-full bg-black/40 h-1.5 rounded-full mt-2">
+<div class="bg-yellow-400 h-1.5 rounded-full" style="width: 36%"></div>
+</div>
+</div>
+</div>
+<div class="bg-card-dark rounded-xl p-5 border border-white/5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-red-400">owl</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<p class="text-text-secondary text-xs font-bold uppercase tracking-wider">Fat</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold text-white">45g</span>
+<span class="text-sm text-white/50">/ 80g</span>
+</div>
+<div class="w-full bg-black/40 h-1.5 rounded-full mt-2">
+<div class="bg-red-400 h-1.5 rounded-full" style="width: 56%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Two Column Layout: Log & Sidebar -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+<!-- Main Log Stream (Left) -->
+<div class="xl:col-span-8 flex flex-col gap-6">
+<!-- Meal Card: Breakfast -->
+<div class="bg-card-dark rounded-xl border border-white/5 overflow-hidden">
+<div class="bg-[#2a5438] px-5 py-3 flex items-center justify-between border-b border-white/5">
+<div class="flex items-center gap-3">
+<div class="p-1.5 bg-background-dark/30 rounded-lg text-yellow-200">
+<span class="material-symbols-outlined text-[20px]">wb_twilight</span>
+</div>
+<h3 class="text-white font-bold text-base">Breakfast</h3>
+</div>
+<div class="text-white font-mono font-medium text-sm">452 kcal</div>
+</div>
+<div class="divide-y divide-white/5">
+<!-- Food Item 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Rolled Oats</p>
+<p class="text-text-secondary text-xs">80g (Dry)</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>303 kcal</span>
+<span class="text-blue-300">10g P</span>
+<span class="text-yellow-300">54g C</span>
+<span class="text-red-300">5g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Food Item 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Whey Protein Isolate</p>
+<p class="text-text-secondary text-xs">1 Scoop (30g)</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>110 kcal</span>
+<span class="text-blue-300">25g P</span>
+<span class="text-yellow-300">1g C</span>
+<span class="text-red-300">0.5g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Food Item 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Blueberries</p>
+<p class="text-text-secondary text-xs">0.5 Cup</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>39 kcal</span>
+<span class="text-blue-300">0.5g P</span>
+<span class="text-yellow-300">9g C</span>
+<span class="text-red-300">0.2g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<div class="p-3 bg-black/20 flex gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded text-primary text-sm font-bold hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                    Add Food
+                                </button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded text-text-secondary text-sm font-medium hover:text-white hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">content_paste</span>
+                                    Paste Meal
+                                </button>
+<div class="flex-1"></div>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded text-text-secondary text-sm font-medium hover:text-white hover:bg-white/5 transition-colors" title="Save as Favorite">
+<span class="material-symbols-outlined text-[18px]">favorite</span>
+</button>
+</div>
+</div>
+<!-- Meal Card: Lunch (Empty State) -->
+<div class="bg-card-dark rounded-xl border border-white/5 overflow-hidden">
+<div class="bg-[#2a5438] px-5 py-3 flex items-center justify-between border-b border-white/5">
+<div class="flex items-center gap-3">
+<div class="p-1.5 bg-background-dark/30 rounded-lg text-orange-200">
+<span class="material-symbols-outlined text-[20px]">sunny</span>
+</div>
+<h3 class="text-white font-bold text-base">Lunch</h3>
+</div>
+<div class="text-white font-mono font-medium text-sm">0 kcal</div>
+</div>
+<div class="p-8 flex flex-col items-center justify-center text-center">
+<div class="bg-white/5 rounded-full p-4 mb-3">
+<span class="material-symbols-outlined text-4xl text-text-secondary">restaurant</span>
+</div>
+<p class="text-white font-medium">Fuel your afternoon</p>
+<p class="text-text-secondary text-sm mb-4">Track your first meal to keep the momentum going.</p>
+<button class="bg-primary hover:bg-green-400 text-background-dark font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                                    Log Lunch
+                                </button>
+</div>
+</div>
+<!-- Meal Card: Dinner -->
+<div class="bg-card-dark rounded-xl border border-white/5 overflow-hidden">
+<div class="bg-[#2a5438] px-5 py-3 flex items-center justify-between border-b border-white/5">
+<div class="flex items-center gap-3">
+<div class="p-1.5 bg-background-dark/30 rounded-lg text-indigo-200">
+<span class="material-symbols-outlined text-[20px]">nights_stay</span>
+</div>
+<h3 class="text-white font-bold text-base">Dinner</h3>
+</div>
+<div class="text-white font-mono font-medium text-sm">798 kcal</div>
+</div>
+<div class="divide-y divide-white/5">
+<!-- Food Item 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Grilled Salmon</p>
+<p class="text-text-secondary text-xs">200g</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>412 kcal</span>
+<span class="text-blue-300">40g P</span>
+<span class="text-yellow-300">0g C</span>
+<span class="text-red-300">28g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Food Item 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Quinoa</p>
+<p class="text-text-secondary text-xs">1 Cup (Cooked)</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>222 kcal</span>
+<span class="text-blue-300">8g P</span>
+<span class="text-yellow-300">39g C</span>
+<span class="text-red-300">4g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Food Item 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
+<div class="flex flex-col gap-0.5">
+<p class="text-white font-medium text-sm">Avocado</p>
+<p class="text-text-secondary text-xs">0.5 Fruit</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex gap-4 text-xs text-text-secondary font-mono">
+<span>164 kcal</span>
+<span class="text-blue-300">2g P</span>
+<span class="text-yellow-300">9g C</span>
+<span class="text-red-300">15g F</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-white transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<div class="p-3 bg-black/20 flex gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded text-primary text-sm font-bold hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                    Add Food
+                                </button>
+</div>
+</div>
+</div>
+<!-- Right Sidebar (Calendar & Tools) -->
+<div class="xl:col-span-4 flex flex-col gap-6">
+<!-- Quick Add Actions -->
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-[#23482f] hover:bg-[#2e5e3d] text-white p-4 rounded-xl flex flex-col items-center gap-2 transition-colors border border-white/5 group">
+<div class="p-2 bg-background-dark rounded-full group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">barcode_scanner</span>
+</div>
+<span class="text-sm font-bold">Scan Barcode</span>
+</button>
+<button class="bg-[#23482f] hover:bg-[#2e5e3d] text-white p-4 rounded-xl flex flex-col items-center gap-2 transition-colors border border-white/5 group">
+<div class="p-2 bg-background-dark rounded-full group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<span class="text-sm font-bold">Quick Calorie</span>
+</button>
+</div>
+<!-- Calendar Widget -->
+<div class="bg-card-dark rounded-xl border border-white/5 p-4">
+<div class="flex items-center justify-between mb-4">
+<p class="text-white text-base font-bold">October 2023</p>
+<div class="flex gap-1">
+<button class="text-white hover:text-primary"><span class="material-symbols-outlined text-lg">chevron_left</span></button>
+<button class="text-white hover:text-primary"><span class="material-symbols-outlined text-lg">chevron_right</span></button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-1">
+<!-- Days Header -->
+<p class="text-text-secondary text-xs text-center font-bold pb-2">S</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">M</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">T</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">W</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">T</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">F</p>
+<p class="text-text-secondary text-xs text-center font-bold pb-2">S</p>
+<!-- Calendar Days (Simulated) -->
+<!-- Empty previous days -->
+<div class="h-8"></div><div class="h-8"></div><div class="h-8"></div>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">1</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">2</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">3</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">4</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">5</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">6</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">7</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">8</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">9</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">10</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">11</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">12</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">13</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">14</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">15</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">16</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">17</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">18</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">19</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">20</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">21</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">22</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">23</button>
+<button class="h-8 w-full text-[#112217] text-xs bg-primary font-bold rounded-full">24</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">25</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">26</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">27</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">28</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">29</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">30</button>
+<button class="h-8 w-full text-white text-xs hover:bg-white/10 rounded-full">31</button>
+</div>
+</div>
+<!-- Favorites / Recent -->
+<div class="bg-card-dark rounded-xl border border-white/5 flex flex-col">
+<div class="px-5 py-3 border-b border-white/5 flex justify-between items-center">
+<h3 class="text-white font-bold text-sm">Favorites</h3>
+<button class="text-primary text-xs font-bold hover:underline">View All</button>
+</div>
+<div class="p-2 flex flex-col gap-1">
+<button class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg text-left transition-colors group">
+<div class="size-8 rounded bg-background-dark flex items-center justify-center text-lg">🍳</div>
+<div class="flex flex-col">
+<p class="text-white text-sm font-medium group-hover:text-primary transition-colors">Classic Breakfast</p>
+<p class="text-text-secondary text-xs">450 kcal</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary ml-auto text-lg opacity-0 group-hover:opacity-100">add_circle</span>
+</button>
+<button class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg text-left transition-colors group">
+<div class="size-8 rounded bg-background-dark flex items-center justify-center text-lg">🥗</div>
+<div class="flex flex-col">
+<p class="text-white text-sm font-medium group-hover:text-primary transition-colors">Chicken Salad</p>
+<p class="text-text-secondary text-xs">320 kcal</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary ml-auto text-lg opacity-0 group-hover:opacity-100">add_circle</span>
+</button>
+<button class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg text-left transition-colors group">
+<div class="size-8 rounded bg-background-dark flex items-center justify-center text-lg">🧉</div>
+<div class="flex flex-col">
+<p class="text-white text-sm font-medium group-hover:text-primary transition-colors">Post-Workout Shake</p>
+<p class="text-text-secondary text-xs">200 kcal</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary ml-auto text-lg opacity-0 group-hover:opacity-100">add_circle</span>
+</button>
+</div>
+</div>
+<!-- Water Tracker -->
+<div class="bg-blue-900/20 rounded-xl border border-blue-500/20 p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-400 text-2xl">water_drop</span>
+<div>
+<p class="text-white text-sm font-bold">Water Intake</p>
+<p class="text-blue-300 text-xs">1,250ml / 3,000ml</p>
+</div>
+</div>
+<button class="size-8 rounded-full bg-blue-500 hover:bg-blue-400 text-white flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-lg">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

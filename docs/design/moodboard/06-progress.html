@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Progress &amp; Settings — VioMacro Moodboard</title>
+<link rel="stylesheet" href="moodboard.css">
+</head>
+<body>
+
+<nav class="topnav"><div class="topnav-in">
+  <span class="brand">VioMacro Moodboard</span>
+  <a href="index.html">Start</a>
+  <a href="00-foundations.html">Foundations</a>
+  <a href="01-entry.html">Entry</a>
+  <a href="02-dashboard.html">Dashboard</a>
+  <a href="03-recipes.html">Recipes</a>
+  <a href="04-planner.html">Planner</a>
+  <a href="05-grocery.html">Grocery + Pantry</a>
+  <a href="06-progress.html" class="here">Progress + Settings</a>
+</div></nav>
+
+<div class="sheet">
+<header class="masthead">
+  <p class="kicker">Board 06 &middot; /progress and /settings</p>
+  <h1>Trend over noise.<br>Never invent a number.</h1>
+  <p class="lede">
+    Two very different screens with one shared responsibility: they are where the app tells you
+    the truth about yourself. Progress must separate signal from daily fluctuation. Settings must
+    never put a stranger's body weight in your profile — which it currently can.
+  </p>
+</header>
+
+<h2>What we take from whom</h2>
+<ul class="borrow">
+  <li><span class="src">MacroFactor</span><span class="take">The <b>trend line is the hero</b>, the raw daily dots are faint context. Reviewers call the expenditure algorithm a genuine innovation, and this chart is how it becomes believable.</span></li>
+  <li><span class="src">Lifesum</span><span class="take">One summary score people can hold in their head, instead of four competing metrics.</span></li>
+  <li><span class="src">Research</span><span class="take">Goals and progress bars are the most-preferred motivational elements. Not badges, not points.</span></li>
+  <li><span class="src">Cronometer</span><span class="take">Detail is welcome; <b>undifferentiated</b> detail is not. Depth belongs one tap down.</span></li>
+  <li><span class="src">MyFitnessPal</span><span class="take">The warning: a settings screen people do not trust is a settings screen people stop opening.</span></li>
+</ul>
+
+<h2>Concept A — the trend, not the scale</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/progress</span>
+    <span class="concept-name">One line that means something, one number that does not</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The behavioural point from your own blueprint:</b> daily weight swings from water and
+      digestion, and reacting to them is counterproductive. The chart's job is to make the smoothed
+      line feel <em>more real</em> than this morning's reading. That is a visual hierarchy problem,
+      not a maths problem.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box tall lit"><span><b>&minus;0.4 kg / week</b><br><span class="hint">trend over 14 days &middot; on target</span></span></div>
+        <div class="box tall"><span><b>78.2 kg</b><br><span class="hint">this morning &middot; day-to-day swing is normal</span></span></div>
+      </div>
+      <div class="box xtall"><span class="hint">Bold trend line &middot; faint scatter of raw weigh-ins behind it &middot; goal band shaded</span></div>
+      <div class="wire-row">
+        <div class="box ghost"><span>14 d</span></div>
+        <div class="box lit"><span>3 mo</span></div>
+        <div class="box ghost"><span>1 y</span></div>
+        <div class="box ghost"><span>All</span></div>
+      </div>
+    </div>
+
+    <ul>
+      <li><strong>The trend number is the big one.</strong> Today's raw weight is deliberately secondary and carries a plain-language reassurance next to it.</li>
+      <li><strong>Raw readings stay visible</strong> as faint dots — hiding them entirely reads as the app hiding something.</li>
+      <li><strong>The range selector drives the query.</strong> Today the page reads a user's <em>entire</em> weight history on every visit, one document per day, forever.</li>
+      <li><strong>A designed empty state:</strong> under three weigh-ins there is no trend to draw, and the chart should say so instead of drawing a straight line between two dots.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Concept B — plan history worth revisiting</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/progress</span>
+    <span class="concept-name">Past weeks as reusable objects</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The missed opportunity:</b> plan history is currently a read-only list. But the most
+      valuable thing about a week you already ate is that <b>you can eat it again</b> — and that is
+      the fastest possible route to a full plan.
+    </p>
+
+    <div class="wire">
+      <div class="wire-row">
+        <div class="box tall"><span><b>18&ndash;24 Aug</b> &middot; Fat loss<br><span class="hint">21 meals &middot; 86% eaten &middot; 2,180 kcal target</span></span></div>
+        <div class="box narrow lit"><span>Reuse</span></div>
+      </div>
+      <div class="wire-row">
+        <div class="box tall"><span><b>11&ndash;17 Aug</b> &middot; Fat loss<br><span class="hint">21 meals &middot; 71% eaten</span></span></div>
+        <div class="box narrow ghost"><span>Reuse</span></div>
+      </div>
+      <div class="box ghost"><span>Showing 8 most recent &middot; <b>Load older</b></span></div>
+    </div>
+
+    <ul>
+      <li><strong>Reuse copies the week forward</strong> into the next empty one. One tap from history to a full plan.</li>
+      <li><strong>Completion percentage is real</strong> — computed from actual <code>isEaten</code> ticks, not asserted. This is one of the few numbers on the page that is already honest.</li>
+      <li><strong>Say the cap out loud.</strong> The page currently reads every plan you have ever saved and silently shows eight. Either page properly or state the limit.</li>
+      <li><strong>Fix the dates.</strong> Ranges currently render one day early for anyone west of Greenwich, so History and Planner disagree about the same week.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Concept C — settings that never guess</h2>
+
+<div class="concept">
+  <div class="concept-head">
+    <span class="concept-tag">/settings</span>
+    <span class="concept-name">Empty means empty</span>
+  </div>
+  <div class="concept-body">
+    <p class="concept-why">
+      <b>The most severe finding in the whole audit lives here.</b> A new account opens Settings and
+      sees a complete profile — 185&nbsp;lb current, 170&nbsp;lb goal, 2,200&nbsp;kcal — none of which
+      the user entered. Change your dietary tags, press Save, and you have silently adopted a
+      stranger's body. Every other invented value in the app merely <em>displays</em> fiction. This
+      one <em>writes</em> it.
+    </p>
+
+    <div class="wire">
+      <div class="stack-label">Wrong &mdash; what happens today</div>
+      <div class="wire-row">
+        <div class="box"><b>185</b> <span class="hint">lbs &middot; looks like your data</span></div>
+        <div class="box"><b>2200</b> <span class="hint">kcal &middot; looks like your target</span></div>
+      </div>
+
+      <div class="stack-label">Right &mdash; placeholders, not values</div>
+      <div class="wire-row">
+        <div class="box narrow lit"><b>kg</b></div>
+        <div class="box ghost"><span class="hint">e.g. 75 &mdash; not set</span></div>
+        <div class="box ghost"><span class="hint">Target &mdash; calculate for me</span></div>
+      </div>
+      <div class="box ghost"><span>Save is disabled until the required fields have real values</span></div>
+    </div>
+
+    <h4>The rest of the screen</h4>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Section</th><th>Concept</th></tr></thead>
+      <tbody>
+        <tr><td><b>Profile</b></td><td>Avatar generated <b>locally</b> from initials and a hue derived from the user id. The current picker fetches from a third-party service and then loads it on every page of the app.</td></tr>
+        <tr><td><b>Targets</b></td><td>Calories and macros as one linked group. Editing grams updates calories and the reverse. One unit control governs the whole screen.</td></tr>
+        <tr><td><b>Rate of change</b></td><td>A slider whose label speaks the user's unit. It currently always says <b>lbs / week</b>.</td></tr>
+        <tr><td><b>AI safety</b></td><td>Keep as-is. It is genuinely good — a real spend cap with a real status. Do not soften it.</td></tr>
+        <tr><td><b>Integrations</b></td><td>Honest Coming Soon list. Name the specific integrations from the blueprint so it reads as a roadmap rather than a placeholder.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note good">
+      <h4>What Settings already gets right</h4>
+      <p>
+        The draft-and-commit model is careful and worth preserving: edits live in a local draft, the
+        store cannot overwrite work in progress, Discard genuinely resets, and a failed save
+        <b>keeps the draft</b> and says so. That is better than most of the apps studied. The only
+        change needed is one blocking alert layered on top of an already-good inline message.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2>Where this all points</h2>
+<div class="note">
+  <p>
+    Progress is where the Adaptive Coaching Engine will eventually live — the weekly moment where
+    logged intake plus weight trend produce a new target. Every concept on this board is shaped so
+    that when the engine exists, it slots into the top of Progress and the top of the Dashboard
+    <b>without a redesign</b>: the trend chart is already the hero, the honest-progress card is
+    already in place, and neither screen is currently claiming the engine is running.
+  </p>
+</div>
+
+<footer>
+  <p>Board 06 &middot; <a href="index.html">start</a> &middot; prev: <a href="05-grocery.html">Grocery &amp; Pantry</a></p>
+</footer>
+</div>
+</body>
+</html>

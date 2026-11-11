@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#ffffff"/>
+  <text x="40" y="70" font-family="Arial" font-size="34" fill="#111111">QA Import Recipe Card</text>
+  <text x="40" y="130" font-family="Arial" font-size="24" fill="#111111">Ingredients</text>
+  <text x="60" y="175" font-family="Arial" font-size="20" fill="#111111">1 cup cooked rice</text>
+  <text x="60" y="210" font-family="Arial" font-size="20" fill="#111111">4 oz chicken breast</text>
+  <text x="60" y="245" font-family="Arial" font-size="20" fill="#111111">1 tbsp olive oil</text>
+  <text x="40" y="305" font-family="Arial" font-size="24" fill="#111111">Cook 10 min until hot.</text>
+</svg>

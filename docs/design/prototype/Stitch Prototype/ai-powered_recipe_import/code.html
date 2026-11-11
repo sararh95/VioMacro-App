@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VioMacro - AI Recipe Import</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13ec5b",
+              "background-light": "#f6f8f6",
+              "background-dark": "#102216",
+              "surface-dark": "#193322",
+              "surface-darker": "#112217",
+              "border-dark": "#23482f",
+              "text-secondary": "#92c9a4",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        /* Custom Scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #102216; }
+        ::-webkit-scrollbar-thumb { background: #23482f; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #13ec5b; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white overflow-x-hidden min-h-screen flex flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-dark px-6 py-4 lg:px-10 bg-surface-darker z-20 sticky top-0">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">nutrition</span>
+</div>
+<h2 class="text-white text-xl font-bold leading-tight tracking-[-0.015em]">VioMacro</h2>
+</div>
+<div class="hidden lg:flex flex-1 justify-end gap-8 items-center">
+<nav class="flex items-center gap-9">
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Nutrition</a>
+<a class="text-primary text-sm font-bold" href="#">Recipes</a>
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Coaching</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center size-10 rounded-full bg-surface-dark hover:bg-border-dark text-white transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-border-dark" data-alt="User profile picture placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBoIxOFNn9V-png0jo2wYKSLQ5FaJ8Gbhz9g1oE5tjsmgyl-xPs8-gQF60Tg4HQ3ycamEYHkUQ7gWKAWFXr7UJQm6jUhSvjsSE3QcPepMRSbZAqRf4q2f7xuWUnDFq8W_QyJBtIsyPaH3Wf72xs1-KCc8WIdSUhaRp_Q115FDTUHEwDHY248503nEIFqpAs2SeSvFQK1H2kHi2hJxCQtIobkvQI5GE6Lm-otaf0QNhn5yzicgMpGs475NUVvfv6JsJRXZqPJqa9W6H6");'></div>
+</div>
+</div>
+<!-- Mobile Menu Icon -->
+<button class="lg:hidden text-white">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</header>
+<main class="flex-1 flex flex-col items-center w-full px-4 py-8 lg:px-10">
+<div class="w-full max-w-[1200px] flex flex-col gap-8">
+<!-- Page Header & Input Section -->
+<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<h1 class="text-white text-3xl lg:text-4xl font-black leading-tight tracking-[-0.033em]">Import Recipe</h1>
+<span class="px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">science</span> AI Beta
+                        </span>
+</div>
+<p class="text-text-secondary text-base lg:text-lg max-w-2xl">
+                        Paste a URL from any recipe site. Our AI will extract ingredients, instructions, and calculate the metabolic impact.
+                    </p>
+</div>
+<!-- URL Input Bar -->
+<div class="w-full bg-surface-dark rounded-xl p-2 border border-border-dark shadow-lg flex flex-col sm:flex-row gap-2">
+<div class="flex-1 relative flex items-center">
+<span class="material-symbols-outlined absolute left-4 text-text-secondary">link</span>
+<input class="w-full bg-surface-darker/50 text-white placeholder-text-secondary/50 rounded-lg py-3 pl-12 pr-4 focus:ring-2 focus:ring-primary focus:outline-none border-none h-12 lg:h-14 font-medium" placeholder="https://www.allrecipes.com/recipe/..." type="text" value="https://www.allrecipes.com/recipe/23600/spicy-garlic-salmon/"/>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-surface-darker font-bold rounded-lg px-8 h-12 lg:h-14 flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(19,236,91,0.2)] whitespace-nowrap">
+<span class="material-symbols-outlined">auto_fix_high</span>
+<span>Re-Analyze</span>
+</button>
+</div>
+</div>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+<!-- Left Column: Recipe Details & Ingredients (8 cols) -->
+<div class="lg:col-span-8 flex flex-col gap-6">
+<!-- Recipe Header Card -->
+<div class="bg-surface-dark rounded-xl overflow-hidden border border-border-dark shadow-sm">
+<div class="flex flex-col md:flex-row">
+<div class="md:w-1/3 h-48 md:h-auto bg-cover bg-center relative" data-alt="Close up of grilled spicy garlic salmon with herbs" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCZzCXITcioi4L4254QQuxawfPgrxA5VjCQTnYl8K3jClKfX7NsGse0XPA_4_iD3ZhlNz3IP7z7gxmD4XnvDbLTLqr2aGeXltLkLz9cA2UrfA3tY-o6mx9atebQQW0QLq6JBGNcIib5DyDn0u8wDr-odUXOP8OpNiJk8EFiii6Ja-EKje3afHa7DIbd4Vi1GLqFmdBHImMRYVj-t5b0YgfpXSCe5Z2cfeTni6_PRjT-IOYZzP3xmSB-SvH8DM3aqIc6YpSoC1y7PGXZ');">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dark to-transparent md:hidden"></div>
+</div>
+<div class="p-6 md:w-2/3 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-2xl font-bold text-white tracking-tight">Spicy Garlic Salmon</h3>
+<button class="text-text-secondary hover:text-white transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+<div class="flex items-center gap-2 text-text-secondary text-sm mb-4">
+<span class="material-symbols-outlined text-base">public</span>
+<span class="truncate">allrecipes.com</span>
+<span class="mx-1">•</span>
+<span class="text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">verified</span>
+                                            98% Confidence
+                                        </span>
+</div>
+<p class="text-gray-400 text-sm line-clamp-2">A quick and flavorful salmon dish with a spicy kick from chili powder and cayenne pepper, balanced with garlic and herbs.</p>
+</div>
+<div class="flex gap-4 mt-6">
+<div class="flex flex-col">
+<span class="text-xs text-text-secondary uppercase font-bold tracking-wider">Prep</span>
+<span class="text-white font-medium">10 min</span>
+</div>
+<div class="w-px bg-border-dark h-full"></div>
+<div class="flex flex-col">
+<span class="text-xs text-text-secondary uppercase font-bold tracking-wider">Cook</span>
+<span class="text-white font-medium">15 min</span>
+</div>
+<div class="w-px bg-border-dark h-full"></div>
+<div class="flex flex-col">
+<span class="text-xs text-text-secondary uppercase font-bold tracking-wider">Servings</span>
+<span class="text-white font-medium">4</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Ingredients Section -->
+<div class="bg-surface-dark rounded-xl border border-border-dark p-6">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xl font-bold text-white">Ingredients</h3>
+<div class="flex gap-2">
+<button class="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-lg">add</span> Add Item
+                                </button>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Header Row -->
+<div class="grid grid-cols-12 gap-4 text-xs font-bold text-text-secondary uppercase tracking-wider px-2 mb-1">
+<div class="col-span-2">Qty</div>
+<div class="col-span-3">Unit</div>
+<div class="col-span-6">Ingredient</div>
+<div class="col-span-1 text-right"></div>
+</div>
+<!-- Item 1 -->
+<div class="group grid grid-cols-12 gap-4 items-center bg-surface-darker/50 p-2 rounded-lg hover:bg-surface-darker transition-colors border border-transparent hover:border-border-dark">
+<div class="col-span-2">
+<input class="w-full bg-transparent text-white font-medium border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm text-center" type="text" value="1.5"/>
+</div>
+<div class="col-span-3">
+<select class="w-full bg-transparent text-text-secondary text-sm border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 cursor-pointer">
+<option>lbs</option>
+<option>oz</option>
+<option>g</option>
+</select>
+</div>
+<div class="col-span-6">
+<input class="w-full bg-transparent text-white border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm" type="text" value="Salmon Fillet"/>
+</div>
+<div class="col-span-1 flex justify-end">
+<button class="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="group grid grid-cols-12 gap-4 items-center bg-surface-darker/50 p-2 rounded-lg hover:bg-surface-darker transition-colors border border-transparent hover:border-border-dark">
+<div class="col-span-2">
+<input class="w-full bg-transparent text-white font-medium border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm text-center" type="text" value="2"/>
+</div>
+<div class="col-span-3">
+<select class="w-full bg-transparent text-text-secondary text-sm border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 cursor-pointer">
+<option>tbsp</option>
+<option>tsp</option>
+<option>cup</option>
+</select>
+</div>
+<div class="col-span-6">
+<input class="w-full bg-transparent text-white border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm" type="text" value="Olive Oil"/>
+</div>
+<div class="col-span-1 flex justify-end">
+<button class="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="group grid grid-cols-12 gap-4 items-center bg-surface-darker/50 p-2 rounded-lg hover:bg-surface-darker transition-colors border border-transparent hover:border-border-dark">
+<div class="col-span-2">
+<input class="w-full bg-transparent text-white font-medium border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm text-center" type="text" value="4"/>
+</div>
+<div class="col-span-3">
+<select class="w-full bg-transparent text-text-secondary text-sm border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 cursor-pointer">
+<option>cloves</option>
+<option>whole</option>
+</select>
+</div>
+<div class="col-span-6">
+<input class="w-full bg-transparent text-white border-0 border-b border-border-dark focus:border-primary focus:ring-0 p-1 text-sm" type="text" value="Garlic, minced"/>
+</div>
+<div class="col-span-1 flex justify-end">
+<button class="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Instructions -->
+<div class="bg-surface-dark rounded-xl border border-border-dark p-6">
+<h3 class="text-xl font-bold text-white mb-4">Instructions</h3>
+<div class="space-y-4">
+<div class="flex gap-4">
+<div class="flex-shrink-0 size-8 rounded-full bg-surface-darker border border-border-dark flex items-center justify-center text-primary font-bold">1</div>
+<p class="text-gray-300 text-sm leading-relaxed pt-1">Preheat oven to 375 degrees F (190 degrees C). Grease a baking sheet with cooking spray.</p>
+</div>
+<div class="flex gap-4">
+<div class="flex-shrink-0 size-8 rounded-full bg-surface-darker border border-border-dark flex items-center justify-center text-primary font-bold">2</div>
+<p class="text-gray-300 text-sm leading-relaxed pt-1">Mix brown sugar, chili powder, paprika, Italian seasoning, garlic powder, salt, and black pepper together in a small bowl.</p>
+</div>
+<div class="flex gap-4">
+<div class="flex-shrink-0 size-8 rounded-full bg-surface-darker border border-border-dark flex items-center justify-center text-primary font-bold">3</div>
+<p class="text-gray-300 text-sm leading-relaxed pt-1">Place salmon fillets skin-side down on the prepared baking sheet. Rub spice mixture over salmon fillets.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Nutrition & Actions (4 cols) -->
+<div class="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-24">
+<!-- Macro Card -->
+<div class="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-lg">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-white">Nutrition per Serving</h3>
+<button class="text-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+<div class="flex justify-center mb-6">
+<div class="relative size-40 rounded-full flex items-center justify-center bg-surface-darker" style="background: conic-gradient(#13ec5b 0% 45%, #ec4899 45% 60%, #eab308 60% 100%);">
+<div class="absolute inset-2 bg-surface-dark rounded-full flex flex-col items-center justify-center">
+<span class="text-3xl font-black text-white">340</span>
+<span class="text-xs text-text-secondary uppercase font-bold tracking-wider">Calories</span>
+</div>
+</div>
+</div>
+<div class="space-y-5">
+<!-- Protein -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="text-white font-medium">Protein</span>
+<span class="text-primary font-bold">34g</span>
+</div>
+<div class="w-full bg-surface-darker rounded-full h-2">
+<div class="bg-primary h-2 rounded-full" style="width: 45%"></div>
+</div>
+<div class="text-xs text-text-secondary mt-1">45% of daily goal</div>
+</div>
+<!-- Carbs -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="text-white font-medium">Carbs</span>
+<span class="text-pink-500 font-bold">12g</span>
+</div>
+<div class="w-full bg-surface-darker rounded-full h-2">
+<div class="bg-pink-500 h-2 rounded-full" style="width: 15%"></div>
+</div>
+<div class="text-xs text-text-secondary mt-1">15% of daily goal</div>
+</div>
+<!-- Fat -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="text-white font-medium">Fat</span>
+<span class="text-yellow-500 font-bold">18g</span>
+</div>
+<div class="w-full bg-surface-darker rounded-full h-2">
+<div class="bg-yellow-500 h-2 rounded-full" style="width: 40%"></div>
+</div>
+<div class="text-xs text-text-secondary mt-1">40% of daily goal</div>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-border-dark">
+<div class="flex items-center gap-2 text-text-secondary text-xs">
+<span class="material-symbols-outlined text-sm">info</span>
+<span>Calculated based on extracted ingredients.</span>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="bg-surface-dark rounded-xl border border-border-dark p-6">
+<div class="flex flex-col gap-3">
+<button class="w-full bg-primary hover:bg-primary/90 text-surface-darker font-bold rounded-lg h-12 flex items-center justify-center gap-2 transition-all shadow-md">
+<span class="material-symbols-outlined">save</span>
+                                Save to Library
+                            </button>
+<button class="w-full bg-transparent hover:bg-surface-darker text-white font-medium rounded-lg h-12 flex items-center justify-center gap-2 transition-all border border-border-dark">
+                                Cancel
+                            </button>
+</div>
+<div class="mt-4 flex items-center justify-center gap-2">
+<div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+<span class="text-xs text-text-secondary">AI Coach is ready to optimize</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="w-full border-t border-border-dark py-6 mt-12 bg-surface-darker">
+<div class="flex flex-col md:flex-row justify-center items-center gap-4 text-text-secondary text-sm">
+<span>© 2024 VioMacro Inc.</span>
+<span class="hidden md:inline">•</span>
+<a class="hover:text-white" href="#">Privacy Policy</a>
+<span class="hidden md:inline">•</span>
+<a class="hover:text-white" href="#">Terms of Service</a>
+</div>
+</footer>
+</body></html>
