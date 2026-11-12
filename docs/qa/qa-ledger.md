@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-11 VioMacro 1.0 G4 R4 fix round 2 latest Settings intent
+
+Settings compares a confirmation with the latest pending submission. Offline A=2300, B=2450, A=2300 now saves the final A. Older completions cannot clear the latest submission marker. Only Settings source changes in this round. [PR #1](https://github.com/sararh95/VioMacro-App/pull/1)
+
+- Red on pre-round `5c1a817`, `npm.cmd run test:e2e:emulator -- -g 1.0.G4.round.2.*last.confirmation` reported `1 failed`. Line 7606, `await expect.poll(storedTarget, { message: 'the server must keep the last confirmed target A' }).toBe(2300);`, reported `Expected: 2300`, `Received: 2450`.
+- The first red attempt went offline before the route was ready and timed out at the initial fill. Moving that initial fill before disconnection produced the stated failure. No assertion, timeout, wait or retry setting changed.
+- Green, `npm.cmd run test:e2e:emulator -- -g 1.0.G4.round.2`, reported `2 passed (14.7s)`. Restoring only Settings.tsx from `5c1a817` reproduced `1 failed` on the same 2300/2450 assertion. Restoring the committed source left a clean tree. Evidence uses the RUN `round-2-` prefix.
+- Required `npm.cmd run test:e2e:emulator -- -g <filter>` results were `1.0.G4` `9 passed (51.5s)` and `settings` `22 passed (1.7m)`. Infrastructure passed 4 per invocation. Desktop 1440 px and touch 390 px coverage passed.
+- The optional recipe regression uses a real rules-refused title. Its late rejection preserves a fresh form, names the failed recipe, reopens the captured title and 520 calories, and saves exactly one corrected recipe. This covers existing round-1 behavior and requires no recipe source change.
+- `npm.cmd run check` exited 0: lint 0 errors, app 293 passed, Functions 125 passed and both builds passed. Failed 0 and skipped 0. Saved record shapes, rules and indexes are unchanged. Full local browser/rules/concurrency suites remain assigned to CI.
+- The copied picture kit reported `1 passed (18.7s)`, `page errors=[]`. Both 390 px touch PNGs were opened: `C:/Users/sarar/viomacro-sol-runs/g4/g4-round-2-after-1-settings-last-confirmation-pending-390.png` and `g4-round-2-after-1-settings-last-confirmation-saved-390.png`. The pending note, target 2300 and Confirm/Discard are readable. After reconnect the server target is 2300 and the note/save bar disappear. The existing upper-content notice overlap is outside this round's Settings allowlist.
+- The prior 418,316 browser-test bytes are identical to `5c1a817`; the unit file is unchanged in this round. No older ledger line changed. Local Node is 24 and CI is Node 22. Required full CI floors are app 293 and emulator browser 219, total 708. All six required ports were free after shutdown. Physical phones and live data remain untested.
+
 ## 2026-11-11 VioMacro 1.0 G4 R4 fix round 1 responsive saves
 
 Water totals update immediately and each pending operation can roll back independently. Settings keeps its controls active and clears dirty state only when the latest submitted snapshot matches the current draft. Pending recipe, check-in and sleep sessions close through their parent, allowing a fresh form to open. Late completions preserve the fresh session. [PR #1](https://github.com/sararh95/VioMacro-App/pull/1)

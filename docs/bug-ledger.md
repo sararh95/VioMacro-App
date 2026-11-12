@@ -52,6 +52,23 @@ Required fields:
 
 ## Open Items
 
+### R4 (1.0 review, fix round 2) Final Settings confirmation is dropped
+
+- ID: R4 (1.0 review, fix round 2)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#1](https://github.com/sararh95/VioMacro-App/pull/1)
+- Severity: P1
+- Workflow/page: Settings, offline target confirmations.
+- Expected: After confirming A, B and A offline, the server keeps the last confirmed A after reconnecting.
+- Actual: The pre-round pending-snapshot Set drops final A because the first A is still pending. B remains the last server write.
+- User impact: The saved target silently differs from the user's final confirmation.
+- Evidence: Red and Settings-only control report Expected 2300, Received 2450. Both new browser cases pass, G4 passes 9, Settings passes 22 and check passes 293 app/125 Functions. Both phone pictures were opened. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g4-r4-fix-round-2-latest-settings-intent).
+- Suspected area: Settings pending-submission comparison and completion cleanup.
+- Next action: Coordinator review after full public CI proof.
+- Verification target: A/B/A server state, responsive controls, late recipe rejection recovery and full CI floors.
+- Revisit trigger: PR #1 fix-round review.
+- Date closed: Pending.
+
 ### R4 (1.0 review, fix round 1) Pending saves block controls and lose newer drafts
 
 - ID: R4 (1.0 review, fix round 1)
