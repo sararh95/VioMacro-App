@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-11 VioMacro 1.0 G6 R7 page recovery
+
+A route error now shows a short message and Reload. Dashboard skips malformed day dates, including impossible calendar dates, while retaining valid day cards and every saved record. [PR #3](https://github.com/sararh95/VioMacro-App/pull/3)
+
+- Red on BASE `25ed9b2`, `npm.cmd run test:e2e:emulator -- -g 1.0.G6`, reported `2 failed`. Line 7668 reported `Not a YYYY-MM-DD date key: "not-a-date"`, `Expected: 1`, `Received: 0`. Line 7694 expected `"We couldn't open this page."` and received `""` after a blocked lazy Settings request.
+- Green with the same command reported `2 passed (25.3s)`. The control restored only App.tsx and Dashboard.tsx from BASE, leaving the new component unused. It reported `2 failed` on the same assertions. Restoring committed source left a clean tree.
+- Required filters with `npm.cmd run test:e2e:emulator -- -g <filter>` passed Dashboard 14, G4.layout 16 and navigation 8. Infrastructure passed 4 per invocation. Desktop 1440 px and touch 390 px coverage passed. Failed 0, skipped 0 and flaky none.
+- `npm.cmd run check` exited 0 after G4: lint 0 errors, app 293 passed, Functions 125 passed and both builds passed. The preliminary check while waiting for the lock also passed. Existing Functions lint selects no source files. Local Node is 24; CI uses Node 22. Rules, concurrency and full browser suites remain CI-only under the gauntlet. Required emulator floor is 221, including both new cases; total floor is 710.
+- The copied picture kit reported `1 passed (16.0s)` and `R7 picture page errors=[]`. All four 390 px touch PNGs were opened: `C:/Users/sarar/viomacro-sol-runs/g6/g6-after-1-dashboard-top-390.png`, `g6-after-1-dashboard-bad-date-390.png`, `g6-after-1-reload-390.png` and `g6-after-1-render-error-390.png`. Valid meal text and both Reload screens are readable. Check-in closes, both Reload clicks restore working routes and the stored plan stays unchanged. The local emulator warning occupies the bottom strip and does not cover Reload.
+- The first red attempt hit an ambiguous Settings navigation selector. Only new test selectors were corrected. The prior 429,505 browser-test bytes are identical to BASE. No old assertion, timeout or retry changed; no older ledger line changed.
+- One initial G4 command was accidentally launched after lock acquisition failed. It was stopped before browser tests, is not green proof, left no own child process and did not modify the other group's lock or processes. The later green, control, filters and pictures all ran under group 6's lock. See RUN `lock-incident-1.txt`. All required ports were free before releasing the own lock.
+- No saved shape, rules, indexes, dependency, live data, AI/provider or deploy changes. Physical phones and a real deployment with an already-open tab remain untested.
+
 ## 2026-11-11 VioMacro 1.0 G4 R4 fix round 2 latest Settings intent
 
 Settings compares a confirmation with the latest pending submission. Offline A=2300, B=2450, A=2300 now saves the final A. Older completions cannot clear the latest submission marker. Only Settings source changes in this round. [PR #1](https://github.com/sararh95/VioMacro-App/pull/1)

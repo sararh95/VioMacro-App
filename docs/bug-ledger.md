@@ -52,6 +52,23 @@ Required fields:
 
 ## Open Items
 
+### R7 (1.0 review) Page errors leave a blank screen
+
+- ID: R7 (1.0 review)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#3](https://github.com/sararh95/VioMacro-App/pull/3)
+- Severity: P2
+- Workflow/page: Routes and Dashboard weekly day cards.
+- Expected: A page render or lazy-load error offers Reload. An invalid stored day date leaves the Dashboard and valid days usable.
+- Actual: BASE has no route error boundary. DayCard throws while parsing a bad date, unmounting the page.
+- User impact: A screen error leaves no visible recovery control; reloading is the workaround.
+- Evidence: Two BASE browser failures, matching source-only control and two passing new cases. Dashboard/layout/navigation pass 14/16/8. Check passes 293 app and 125 Functions tests. Four opened phone pictures show both error fallbacks and the bad-date Dashboard; both Reload paths recover. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g6-r7-page-recovery).
+- Suspected area: App route boundary and Dashboard DayCard date parsing.
+- Next action: Coordinator review after full CI proof.
+- Verification target: Both R7 browser cases, unchanged saved data, healthy navigation and CI floors.
+- Revisit trigger: PR #3 review.
+- Date closed: Pending.
+
 ### R4 (1.0 review, fix round 2) Final Settings confirmation is dropped
 
 - ID: R4 (1.0 review, fix round 2)
