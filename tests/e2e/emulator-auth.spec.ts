@@ -7639,3 +7639,68 @@ test.describe('1.0 G4 round 2 recipe recovery', () => {
     await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Recovered round 2 recipe']);
   });
 });
+
+test.describe('1.0 G6 R7 no blank page', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('a bad day date leaves the Dashboard and valid plan days usable', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r7-bad-date');
+    const planId = await seedCurrentMealPlan(client.db, uid, 'r7-valid-recipe', 'R7 Valid Dinner');
+    const planRef = doc(client.db, 'users', uid, 'mealPlans', planId);
+    const plan = (await getDoc(planRef)).data()!;
+    const validDay = plan.days[0];
+    plan.days = [
+      { ...validDay, date: 'not-a-date', meals: [{ ...validDay.meals[0], id: 'r7-bad-format', name: 'R7 Bad Format Dinner' }] },
+      { ...validDay, date: '2026-02-30', meals: [{ ...validDay.meals[0], id: 'r7-impossible-date', name: 'R7 Impossible Date Dinner' }] },
+      validDay,
+    ];
+    await setDoc(planRef, plan);
+    const before = await g4Snapshot(client.db, uid);
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const renderError = page.waitForEvent('pageerror');
+    await page.reload();
+    await Promise.race([
+      page.getByRole('heading', { name: /Weekly Planner/ }).waitFor(),
+      renderError,
+    ]);
+    expect(await page.getByRole('heading', { name: 'Hydration', exact: true }).count(),
+      `Dashboard must survive bad day dates; page errors: ${errors.join('; ')}`).toBe(1);
+    await expect(page.getByText('R7 Valid Dinner', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reload', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: /Start Check-In/ }).click();
+    await page.getByRole('button', { name: 'Close check-in', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Weekly Check-In', exact: true })).toBeHidden();
+    expect(errors).toEqual([]);
+    expect(await g4Snapshot(client.db, uid)).toEqual(before);
+  });
+
+  test('a failed lazy page load shows Reload and recovers after reloading', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r7-lazy-load');
+    const before = await g4Snapshot(client.db, uid);
+    await expect(page.getByRole('button', { name: 'Reload', exact: true })).toHaveCount(0);
+    const lazyPage = (url: URL) => url.pathname === '/src/features/settings/Settings.tsx';
+    await page.route(lazyPage, route => route.abort('failed'));
+    const failedRequest = page.waitForEvent('requestfailed', request => lazyPage(new URL(request.url())));
+    const renderError = page.waitForEvent('pageerror');
+    await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+    await page.locator('#mobile-navigation-drawer a[href="/settings"]').first().click();
+    await failedRequest;
+    await Promise.race([
+      page.getByRole('button', { name: 'Reload', exact: true }).waitFor(),
+      renderError,
+    ]);
+    expect(await page.locator('#root').innerText(), 'a failed lazy page must offer recovery instead of a blank page')
+      .toContain("We couldn't open this page.");
+    await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeEnabled();
+    await expect(page).toHaveURL('http://127.0.0.1:5173/settings');
+    await page.unroute(lazyPage);
+    await Promise.all([
+      page.waitForEvent('load'),
+      page.getByRole('button', { name: 'Reload', exact: true }).click(),
+    ]);
+    await expect(page.getByLabel('Daily Calorie Target', { exact: true })).toBeEditable();
+    await expect(page.getByRole('button', { name: 'Reload', exact: true })).toHaveCount(0);
+    expect(await g4Snapshot(client.db, uid)).toEqual(before);
+  });
+});
