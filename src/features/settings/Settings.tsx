@@ -3,7 +3,7 @@ import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import AiSpendSafetyPanel from './AiSpendSafetyPanel';
 import { type UserSettings } from '../../services/userService';
-import { formatRatePerWeek, weightSuffix, type MeasurementUnit } from '../../shared/units';
+import { formatRatePerWeek, fromKg, toKg, weightSuffix, type MeasurementUnit } from '../../shared/units';
 import { AVATAR_CHOICES, avatarGradientByName, initialsFrom } from '../../shared/visuals';
 import { trackSave } from '../../shared/pending-saves';
 
@@ -413,7 +413,10 @@ export default function Settings() {
                                                     // AUD-103: this silently assumed a 185 lb body when the
                                                     // user had not entered one. It is disabled until they have.
                                                     if (!localSettings.currentWeight) return;
-                                                    const maint = localSettings.currentWeight * 14;
+                                                    const weightLb = settingsUnit === 'imperial'
+                                                        ? localSettings.currentWeight
+                                                        : fromKg(toKg(localSettings.currentWeight, settingsUnit), 'imperial');
+                                                    const maint = weightLb * 14;
                                                     const deficit = getCalorieDeficit(localSettings.rateOfChange || 0);
                                                     handleLocalChange('dailyCalorieTarget', Math.round(maint - deficit));
                                                 }}

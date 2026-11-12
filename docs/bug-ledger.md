@@ -86,6 +86,23 @@ Required fields:
 - Revisit trigger: PR #4 review.
 - Date closed: Pending.
 
+### R8 (1.0 review, code part) Metric Auto-Update uses pound arithmetic
+
+- ID: R8 (1.0 review, code part)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#2](https://github.com/sararh95/VioMacro-App/pull/2)
+- Severity: P2
+- Workflow/page: Settings, Goals & Nutrition, Auto-Update.
+- Expected: Equivalent weights produce equivalent calorie targets in either measurement unit, with existing imperial rounding and deficit thresholds preserved.
+- Actual: BASE multiplies the entered weight by 14 without unit conversion. At the default deficit, 70 kg produces 730 kcal while rounded-equivalent 154 lb produces 1906 kcal.
+- User impact: Metric users receive an incorrect calorie target; manual target entry is a workaround.
+- Evidence: Red and source-only control reproduce both metric calculation failures. Four new unit cases pass; required browser filters pass 22/22/6; check passes 297 app and 125 Functions cases. Phone visual proof verifies 1911 kcal, Discard and save/reload. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g7-r8-weight-units).
+- Suspected area: Settings Auto-Update maintenance calculation.
+- Next action: Coordinator review after full public CI proof. The live stored-unit mismatch portion of R8 remains separately deferred.
+- Verification target: Unit equivalence, all deficit boundaries, missing-weight guard, fractional-pound rounding and full CI floors.
+- Revisit trigger: PR #2 review; stored-unit repair only with Sara's separate approval.
+- Date closed: Pending.
+
 ### R4 (1.0 review, fix round 2) Final Settings confirmation is dropped
 
 - ID: R4 (1.0 review, fix round 2)
