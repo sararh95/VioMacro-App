@@ -52,6 +52,40 @@ Required fields:
 
 ## Open Items
 
+### R5 (1.0 review) Recipe form discards unsaved typing
+
+- ID: R5 (1.0 review)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#4](https://github.com/sararh95/VioMacro-App/pull/4)
+- Severity: P2
+- Workflow/page: Recipes, new and edited recipe forms.
+- Expected: Dirty backdrop taps preserve the form. Cancel and X ask before discarding. Clean forms close immediately.
+- Actual: BASE close handlers discard the draft without checking changes.
+- User impact: A stray tap loses typed recipe content.
+- Evidence: Two BASE red cases, matching source-only control, green regressions and opened phone pictures. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g5-r5-r6-recipe-form-keeps-your-typing).
+- Suspected area: RecipeForm initial snapshot and close handlers.
+- Next action: Coordinator review after full public CI proof.
+- Verification target: Backdrop preservation, native question text, Keep editing, discard, import cleanup and full CI floors.
+- Revisit trigger: PR #4 review.
+- Date closed: Pending.
+
+### R6 (1.0 review) Recipe saves before its photo upload ends
+
+- ID: R6 (1.0 review)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#4](https://github.com/sararh95/VioMacro-App/pull/4)
+- Severity: P2
+- Workflow/page: Recipes, photo upload in the recipe form.
+- Expected: Uploading... is visible and Save waits for completion or failure. Cancel remains usable.
+- Actual: BASE upload has no pending state, so submission can capture an empty image URL.
+- User impact: The saved recipe can omit the selected photo.
+- Evidence: Held-upload BASE failure, matching source-only control, green saved-image regression and opened phone picture. Failure recovery and late completion preserve the next form. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g5-r5-r6-recipe-form-keeps-your-typing).
+- Suspected area: RecipeForm upload state, submit guard and form-session version.
+- Next action: Coordinator review after full public CI proof.
+- Verification target: Disabled Save, visible status, saved image URL, failure recovery, usable Cancel and full CI floors.
+- Revisit trigger: PR #4 review.
+- Date closed: Pending.
+
 ### R8 (1.0 review, code part) Metric Auto-Update uses pound arithmetic
 
 - ID: R8 (1.0 review, code part)
