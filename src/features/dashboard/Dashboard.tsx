@@ -10,7 +10,7 @@ import { ActivityCalendarWidget } from './components/ActivityCalendarWidget';
 import CheckInModal from './components/CheckInModal';
 import OnboardingWizard from '../auth/OnboardingWizard';
 import WeightHistoryWidget from './components/WeightHistoryWidget';
-import { parseLocalDateKey, toLocalDateKey } from '../../shared/date-utils';
+import { tryParseLocalDateKey, toLocalDateKey } from '../../shared/date-utils';
 import { mergeDailyLog } from '../progress/lib/daily-logs';
 import { createOptimisticSaves, trackSave } from '../../shared/pending-saves';
 import { weightSuffix } from '../../shared/units';
@@ -923,7 +923,14 @@ function MacroCard({ label, value, unit, consumed, progress, icon, color }: {
 
 function DayCard({ day, isToday }: { day: MealPlanDay; isToday: boolean }) {
   // AUD-099: day.date is a stored YYYY-MM-DD key, not a timestamp.
-  const date = parseLocalDateKey(day.date);
+  let date: Date | null;
+  try {
+    date = tryParseLocalDateKey(day.date);
+  } catch {
+    // The date helper also rejects impossible calendar dates.
+    return null;
+  }
+  if (!date) return null;
   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
   const dayNum = date.getDate();
 
