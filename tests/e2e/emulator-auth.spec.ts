@@ -7499,3 +7499,83 @@ test.describe('1.0 G4 R4 not saved yet', () => {
     await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
   });
 });
+
+test.describe('1.0 G4 round 1 responsive saves', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test.afterEach(async ({ context }) => { await context.setOffline(false); });
+  const note = (page: Page) => page.getByRole('status').filter({ hasText: 'Not saved yet. Keep this page open until your changes are saved.' });
+
+  test('offline water updates immediately and accepts a second tap', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round1-water');
+    const card = page.getByRole('heading', { name: 'Hydration', exact: true }).locator('xpath=ancestor::div[contains(@class,"group")][1]');
+    const add = card.getByRole('button', { name: '+250ml', exact: true });
+    const displayed = async () => Number((await card.textContent())?.match(/(\d+)\s*ml\s*Goal/)?.[1]);
+    await context.setOffline(true);
+    await add.click();
+    await expect.poll(async () => ({ enabled: await add.isEnabled(), water: await displayed() })).toEqual({ enabled: true, water: 250 });
+    await add.click();
+    await expect.poll(displayed).toBe(500);
+    await expect(add).toBeEnabled();
+    await expect(note(page)).toBeVisible();
+    expect((await getDocs(collection(client.db, 'users', uid, 'weightHistory'))).size).toBe(0);
+    await context.setOffline(false);
+    await expect(note(page)).toBeHidden();
+    await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'weightHistory'))).docs.map(item => item.data().waterMl)).toEqual([500]);
+    await expect.poll(displayed).toBe(500);
+  });
+
+  test('offline Settings releases Saving while the pending note remains', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round1-settings-button');
+    await page.goto('/settings');
+    await page.getByLabel('Daily Calorie Target', { exact: true }).fill('2300');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Confirm Targets', exact: true }).click();
+    await expect(note(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Saving...', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm Targets', exact: true })).toBeEnabled();
+    await context.setOffline(false);
+    await expect(note(page)).toBeHidden();
+    expect((await getDoc(doc(client.db, 'users', uid))).data()?.settings.dailyCalorieTarget).toBe(2300);
+  });
+
+  test('Settings preserves draft B when pending save A completes', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round1-settings-draft');
+    await page.goto('/settings');
+    const target = page.getByLabel('Daily Calorie Target', { exact: true });
+    await target.fill('2300');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Confirm Targets', exact: true }).click();
+    await expect(note(page)).toBeVisible();
+    await target.fill('2450');
+    await context.setOffline(false);
+    await expect(note(page)).toBeHidden();
+    await expect(target).toHaveValue('2450');
+    await expect(page.getByRole('button', { name: 'Confirm Targets', exact: true })).toBeEnabled();
+    expect((await getDoc(doc(client.db, 'users', uid))).data()?.settings.dailyCalorieTarget).toBe(2300);
+    await page.getByRole('button', { name: 'Confirm Targets', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Discard', exact: true })).toBeHidden();
+    expect((await getDoc(doc(client.db, 'users', uid))).data()?.settings.dailyCalorieTarget).toBe(2450);
+  });
+
+  test('offline recipe steps aside and New Recipe opens a fresh usable form', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round1-recipe-launch');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    const title = page.getByLabel('Recipe Name *', { exact: true });
+    await title.fill('Round 1 Pending Recipe');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'check Create Recipe', exact: true }).click();
+    await expect(note(page)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeHidden();
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeVisible();
+    await expect(title).toHaveValue('');
+    await title.fill('Round 1 Fresh Draft');
+    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+    await context.setOffline(false);
+    await expect(note(page)).toBeHidden();
+    await expect(title).toHaveValue('Round 1 Fresh Draft');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect((await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Round 1 Pending Recipe']);
+  });
+});
