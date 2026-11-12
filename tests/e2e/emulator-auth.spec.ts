@@ -7579,3 +7579,63 @@ test.describe('1.0 G4 round 1 responsive saves', () => {
     expect((await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Round 1 Pending Recipe']);
   });
 });
+
+test.describe('1.0 G4 round 2 latest Settings intent', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test.afterEach(async ({ context }) => { await context.setOffline(false); });
+
+  test('the last confirmation wins for offline A then B then A', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round2-latest-settings');
+    const profile = doc(client.db, 'users', uid);
+    const storedTarget = async () => (await getDoc(profile)).data()?.settings.dailyCalorieTarget;
+    await page.goto('/settings');
+    const target = page.getByLabel('Daily Calorie Target', { exact: true });
+    const confirm = page.getByRole('button', { name: 'Confirm Targets', exact: true });
+    const note = page.getByRole('status').filter({ hasText: 'Not saved yet. Keep this page open until your changes are saved.' });
+    await target.fill('2300');
+    await context.setOffline(true);
+    await confirm.click();
+    await expect(note).toBeVisible();
+    await target.fill('2450');
+    await confirm.click();
+    await target.fill('2300');
+    await confirm.click();
+    await expect(confirm).toBeEnabled();
+    await context.setOffline(false);
+    await expect(note).toBeHidden();
+    await expect.poll(storedTarget, { message: 'the server must keep the last confirmed target A' }).toBe(2300);
+    await expect(target).toHaveValue('2300');
+    await expect(page.getByRole('button', { name: 'Discard', exact: true })).toBeHidden();
+  });
+});
+
+test.describe('1.0 G4 round 2 recipe recovery', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test.afterEach(async ({ context }) => { await context.setOffline(false); });
+
+  test('a late recipe rejection identifies and reopens its captured draft', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-round2-recipe-recovery');
+    const rejectedTitle = 'Recover this recipe ' + 'x'.repeat(200);
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    const title = page.getByLabel('Recipe Name *', { exact: true });
+    await title.fill(rejectedTitle);
+    await page.getByPlaceholder('450').fill('520');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'check Create Recipe', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeHidden();
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await title.fill('Fresh recipe draft');
+    await context.setOffline(false);
+    await expect(page.getByRole('status').filter({ hasText: 'Not saved yet.' })).toBeHidden();
+    await expect(title).toHaveValue('Fresh recipe draft');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: rejectedTitle })).toContainText('Could not save recipe');
+    await page.getByRole('button', { name: 'Recover recipe ' + rejectedTitle, exact: true }).click();
+    await expect(title).toHaveValue(rejectedTitle);
+    await expect(page.getByPlaceholder('450')).toHaveValue('520');
+    await title.fill('Recovered round 2 recipe');
+    await page.getByRole('button', { name: 'check Save Changes', exact: true }).click();
+    await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Recovered round 2 recipe']);
+  });
+});
