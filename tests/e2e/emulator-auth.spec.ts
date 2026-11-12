@@ -2007,7 +2007,9 @@ test.describe('emulator authenticated smoke', () => {
       buffer: Buffer.from('mock-png-bytes'),
     });
     await expect(page.getByRole('heading', { name: 'Edit Recipe' })).toBeVisible();
+    const discardRecipe = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await discardRecipe;
 
     await page.goto('/recipes');
     await page.getByRole('button', { name: /AI Search/ }).click();
@@ -3314,7 +3316,9 @@ test.describe('emulator authenticated smoke', () => {
     await expect(page.getByRole('heading', { name: 'Edit Recipe' })).toBeVisible();
     await expect(page.getByPlaceholder('e.g., Mediterranean Chicken Bowl')).toHaveValue(recipeTitle);
 
+    const discardRecipe = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await discardRecipe;
     await expect(page.getByRole('heading', { name: 'Edit Recipe' })).toBeHidden();
 
     const folderRef = ref(client.storage, `users/${uid}/recipes`);
@@ -3867,7 +3871,9 @@ test.describe('emulator authenticated smoke', () => {
       await page.getByRole('button', { name: '+ Add Step', exact: true }).click();
       await page.getByLabel('Step 4', { exact: true }).fill('New labelled step');
       expect(await missingLabels()).toEqual([]);
+      const discardRecipe = acceptNextDialog(page);
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await discardRecipe;
       expect(failures).toEqual([]);
     });
   }
@@ -4267,7 +4273,9 @@ test.describe('G4 layout and copy', () => {
       await expect(page.getByLabel('Recipe Image', { exact: true })).toHaveValue('');
       await expect(modal.locator('form img')).toHaveCount(0);
       await page.getByLabel('Recipe Name *', { exact: true }).fill('Unsubmitted G4 title');
+      const discardRecipe = acceptNextDialog(page);
       await headerClose.click();
+      await discardRecipe;
       await expect(page.getByRole('heading', { name: 'Edit Recipe', exact: true })).toBeHidden();
       expect(await g4Snapshot(client.db, uid)).toEqual(before);
       await page.getByRole('button', { name: `Edit recipe: ${title}`, exact: true }).click();
@@ -4724,7 +4732,9 @@ test.describe('G3 recipe images', () => {
       }
       await imageUrl.fill('');
       await page.evaluate(url => URL.revokeObjectURL(url), blobImage);
+      const discardRecipe = acceptNextDialog(page);
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await discardRecipe;
       verifyGuard();
     });
 
@@ -5947,7 +5957,9 @@ test.describe('G10 VM042 admitted image recovery guards', () => {
       await g10Healthy(form, updatedTitle, healthyB, 'w-full h-full object-cover');
       await input.fill('');
       await expect(form.getByRole('img')).toHaveCount(0);
+      const discardRecipe = acceptNextDialog(page);
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await discardRecipe;
       expect(await g4Snapshot(client.db, uid)).toEqual(before);
       await http.attach('routed-preview-recovery-' + width);
       http.verify();
@@ -5997,7 +6009,9 @@ test.describe('G10 VM042 admitted image recovery guards', () => {
       await g10Healthy(form, title, healthyB);
       // Record cancellation versus delivery honestly. No obsolete event is dispatched.
       await http.attach('obsolete-request-' + width, { obsoleteTerminal: http.terminals.slice(terminalMark).filter(event => event.source === badC) });
+      const discardRecipe = acceptNextDialog(page);
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await discardRecipe;
       expect(await g4Snapshot(client.db, uid)).toEqual(before);
 
       // Repeat A-failure -> healthy B -> exact healthy A through real CSS-card
@@ -7243,7 +7257,9 @@ test.describe('1.0 G1 R1 touch controls', () => {
     await removePhoto.tap();
     await expect(photo).toHaveCount(0);
     await expect(form.getByLabel('Recipe Image', { exact: true })).toHaveValue('');
+    const discardRecipe = acceptNextDialog(page);
     await form.getByRole('button', { name: 'Cancel', exact: true }).tap();
+    await discardRecipe;
     await expect(page.getByRole('heading', { name: 'Edit Recipe', exact: true })).toBeHidden();
   });
 });
@@ -7487,7 +7503,9 @@ test.describe('1.0 G4 R4 not saved yet', () => {
     const form = page.getByRole('heading', { name: 'New Recipe', exact: true });
     if (await form.isVisible()) {
       await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+      const discardRecipe = acceptNextDialog(page);
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await discardRecipe;
     }
     await expect(form).toBeHidden();
     await expect(note(page)).toBeVisible();
@@ -7575,7 +7593,9 @@ test.describe('1.0 G4 round 1 responsive saves', () => {
     await context.setOffline(false);
     await expect(note(page)).toBeHidden();
     await expect(title).toHaveValue('Round 1 Fresh Draft');
+    const discardRecipe = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await discardRecipe;
     expect((await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Round 1 Pending Recipe']);
   });
 });
@@ -7629,7 +7649,9 @@ test.describe('1.0 G4 round 2 recipe recovery', () => {
     await context.setOffline(false);
     await expect(page.getByRole('status').filter({ hasText: 'Not saved yet.' })).toBeHidden();
     await expect(title).toHaveValue('Fresh recipe draft');
+    const discardRecipe = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await discardRecipe;
     await expect(page.getByRole('alert').filter({ hasText: rejectedTitle })).toContainText('Could not save recipe');
     await page.getByRole('button', { name: 'Recover recipe ' + rejectedTitle, exact: true }).click();
     await expect(title).toHaveValue(rejectedTitle);
@@ -7637,6 +7659,78 @@ test.describe('1.0 G4 round 2 recipe recovery', () => {
     await title.fill('Recovered round 2 recipe');
     await page.getByRole('button', { name: 'check Save Changes', exact: true }).click();
     await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Recovered round 2 recipe']);
+  });
+});
+
+test.describe('1.0 G5 R5 R6 recipe form', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('R5 backdrop preserves the typed recipe title', async ({ page }) => {
+    await g4Account(page, 390, 'g5-backdrop');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Keep my typed recipe');
+    await page.locator('.fixed.inset-0.z-50 > .absolute.inset-0').tap({ position: { x: 2, y: 2 } });
+    expect(await page.getByRole('heading', { name: 'New Recipe', exact: true }).isVisible(),
+      'R5 backdrop must keep the unsaved recipe form open').toBe(true);
+    await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveValue('Keep my typed recipe');
+  });
+
+  test('R5 Cancel asks before discarding and Keep editing preserves the title', async ({ page }) => {
+    await g4Account(page, 390, 'g5-cancel');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Keep editing this recipe');
+    const questions: string[] = [];
+    page.once('dialog', async dialog => {
+      questions.push(dialog.message());
+      await dialog.dismiss();
+    });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
+    expect(questions, 'R5 Cancel must ask before discarding the unsaved recipe').toEqual(['Discard this recipe?']);
+    await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveValue('Keep editing this recipe');
+    const discard = acceptNextDialog(page);
+    await page.getByRole('button', { name: 'Close recipe form', exact: true }).tap();
+    expect(await discard).toBe('Discard this recipe?');
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeHidden();
+  });
+
+  test('R6 photo upload blocks Save and shows Uploading until the photo appears', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g5-photo');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Recipe with uploaded photo');
+    let started!: () => void;
+    let release!: () => void;
+    const uploadStarted = new Promise<void>(resolve => { started = resolve; });
+    const uploadReleased = new Promise<void>(resolve => { release = resolve; });
+    await page.route(url => url.port === '9199', async route => {
+      if (route.request().method() === 'POST') {
+        started();
+        await uploadReleased;
+      }
+      await route.continue();
+    });
+    try {
+      await page.locator('.fixed input[type="file"]').setInputFiles({
+        name: 'g5-photo.png', mimeType: 'image/png', buffer: g10Png,
+      });
+      await uploadStarted;
+      await expect(page.getByRole('button', { name: 'check Create Recipe', exact: true })).toBeDisabled();
+      await expect(page.getByRole('status').filter({ hasText: 'Uploading...' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+      expect((await getDocs(collection(client.db, 'users', uid, 'recipes'))).size).toBe(0);
+    } finally {
+      release();
+    }
+    const image = page.locator('.fixed').getByRole('img', { name: 'Recipe with uploaded photo', exact: true });
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+    const uploadedUrl = await image.getAttribute('src');
+    await expect(page.getByRole('status').filter({ hasText: 'Uploading...' })).toBeHidden();
+    await page.getByRole('button', { name: 'check Create Recipe', exact: true }).click();
+    await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().imageUrl))
+      .toEqual([uploadedUrl]);
   });
 });
 

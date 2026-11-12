@@ -45,6 +45,8 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
     const { user } = useAuth();
     const formId = useId();
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [initialSnapshot, setInitialSnapshot] = useState('');
     const versionRef = useRef(0);
 
     // Form state
@@ -71,47 +73,57 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
     useEffect(() => {
         versionRef.current++;
         setSaving(false);
-        if (isOpen && editRecipe) {
-            setTitle(editRecipe.title);
-            setMealType(editRecipe.mealType);
-
-            setCookTime(String(editRecipe.cookTime ?? 30));
-            // Imported drafts use zero for an unknown yield; keep the existing four-serving default.
-            setServings(String(editRecipe.servings || 4));
-            setCalories(String(editRecipe.calories ?? 0));
-            setProtein(String(editRecipe.protein ?? 0));
-            setCarbs(String(editRecipe.carbs ?? 0));
-            setFat(String(editRecipe.fat ?? 0));
-            setMicronutrients({
-                vitaminA: String(editRecipe.micronutrients?.vitaminA ?? ''),
-                vitaminC: String(editRecipe.micronutrients?.vitaminC ?? ''),
-                calcium: String(editRecipe.micronutrients?.calcium ?? ''),
-                iron: String(editRecipe.micronutrients?.iron ?? '')
-            });
-            setImageUrl(editRecipe.imageUrl || '');
-            setSelectedTags(editRecipe.tags || []);
-            setSelectedFolders(editRecipe.folders || []);
-            setIngredients(editRecipe.ingredients || []);
-            setInstructions(editRecipe.instructions || []);
-        } else if (isOpen) {
-            // Reset for new recipe
-            setTitle('');
-            setMealType('dinner');
-            setCookTime('30');
-            setServings('4');
-            setCalories('');
-            setProtein('');
-            setCarbs('');
-            setFat('');
-            setMicronutrients({ vitaminA: '', vitaminC: '', calcium: '', iron: '' });
-            setImageUrl('');
-            setSelectedTags([]);
-            setSelectedFolders([]);
-            setIngredients([]);
-            setInstructions([]);
+        setUploading(false);
+        if (isOpen) {
+            const initialValues = {
+                title: editRecipe?.title ?? '',
+                mealType: editRecipe?.mealType ?? 'dinner',
+                cookTime: String(editRecipe?.cookTime ?? 30),
+                // Imported drafts use zero for an unknown yield; keep the existing four-serving default.
+                servings: String(editRecipe?.servings || 4),
+                calories: editRecipe ? String(editRecipe.calories ?? 0) : '',
+                protein: editRecipe ? String(editRecipe.protein ?? 0) : '',
+                carbs: editRecipe ? String(editRecipe.carbs ?? 0) : '',
+                fat: editRecipe ? String(editRecipe.fat ?? 0) : '',
+                micronutrients: {
+                    vitaminA: String(editRecipe?.micronutrients?.vitaminA ?? ''),
+                    vitaminC: String(editRecipe?.micronutrients?.vitaminC ?? ''),
+                    calcium: String(editRecipe?.micronutrients?.calcium ?? ''),
+                    iron: String(editRecipe?.micronutrients?.iron ?? '')
+                },
+                imageUrl: editRecipe?.imageUrl || '',
+                selectedTags: editRecipe?.tags || [],
+                selectedFolders: editRecipe?.folders || [],
+                ingredients: editRecipe?.ingredients || [],
+                instructions: editRecipe?.instructions || [],
+            };
+            setInitialSnapshot(JSON.stringify(initialValues));
+            setTitle(initialValues.title);
+            setMealType(initialValues.mealType);
+            setCookTime(initialValues.cookTime);
+            setServings(initialValues.servings);
+            setCalories(initialValues.calories);
+            setProtein(initialValues.protein);
+            setCarbs(initialValues.carbs);
+            setFat(initialValues.fat);
+            setMicronutrients(initialValues.micronutrients);
+            setImageUrl(initialValues.imageUrl);
+            setSelectedTags(initialValues.selectedTags);
+            setSelectedFolders(initialValues.selectedFolders);
+            setIngredients(initialValues.ingredients);
+            setInstructions(initialValues.instructions);
         }
         setActiveTab('details');
     }, [isOpen, editRecipe]);
+
+    const hasChanges = uploading || Boolean(editRecipe && !editRecipe.id) || JSON.stringify({
+        title, mealType, cookTime, servings, calories, protein, carbs, fat,
+        micronutrients, imageUrl, selectedTags, selectedFolders, ingredients, instructions,
+    }) !== initialSnapshot;
+
+    const handleClose = () => {
+        if (!hasChanges || window.confirm('Discard this recipe?')) onClose();
+    };
 
     const toggleTag = (tag: string) => {
         setSelectedTags(prev =>
@@ -173,7 +185,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !title.trim() || saving) return;
+        if (!user || !title.trim() || saving || uploading) return;
 
         setSaving(true);
         const version = versionRef.current;
@@ -249,7 +261,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                onClick={onClose}
+                onClick={() => { if (!hasChanges) onClose(); }}
             />
 
             {/* Modal */}
@@ -260,7 +272,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
                         {editRecipe ? 'Edit Recipe' : 'New Recipe'}
                     </h2>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         aria-label="Close recipe form"
                         className="text-text-secondary hover:text-white p-1"
                     >
@@ -494,19 +506,24 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
                                     <label className="flex items-center justify-center px-4 py-3 bg-surface-dark border border-surface-border rounded-lg cursor-pointer hover:border-primary hover:text-primary transition-all group">
                                         <input
                                             type="file"
+                                            disabled={uploading}
                                             className="hidden"
                                             accept="image/*"
                                             onChange={async (e) => {
                                                 const file = e.target.files?.[0];
                                                 if (file && user) {
+                                                    const version = versionRef.current;
+                                                    setUploading(true);
                                                     try {
                                                         // Reuse the service we refactored
                                                         const { uploadRecipeAsset } = await import('../recipeService');
                                                         const { url } = await uploadRecipeAsset(user.uid, file);
-                                                        setImageUrl(url);
+                                                        if (versionRef.current === version) setImageUrl(url);
                                                     } catch (err) {
                                                         console.error("Upload failed", err);
-                                                        alert("Failed to upload image");
+                                                        if (versionRef.current === version) alert("Failed to upload image");
+                                                    } finally {
+                                                        if (versionRef.current === version) setUploading(false);
                                                     }
                                                 }
                                             }}
@@ -514,6 +531,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
                                         <span className="material-symbols-outlined text-text-secondary group-hover:text-primary">cloud_upload</span>
                                     </label>
                                 </div>
+                                {uploading && <p role="status" className="text-sm text-text-secondary">Uploading...</p>}
                                 {imageUrl && (
                                     <div className="mt-2 w-full h-48 rounded-lg overflow-hidden bg-surface-dark relative group">
                                         <RecipeThumb
@@ -766,14 +784,14 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
                     <div className="flex justify-end gap-3 pt-4 border-t border-surface-border">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="px-6 py-3 rounded-lg text-white font-medium hover:bg-surface-dark transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={saving || !title.trim()}
+                            disabled={saving || uploading || !title.trim()}
                             className="px-6 py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-[0_0_15px_rgba(167,139,250,0.2)] disabled:opacity-50 flex items-center gap-2"
                         >
                             {saving ? (
