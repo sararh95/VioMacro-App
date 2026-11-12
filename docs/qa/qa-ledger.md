@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-11 VioMacro 1.0 G5 R5 R6 recipe form keeps your typing
+
+RecipeForm compares editable values with the opened draft. Dirty backdrop taps keep the form open. Cancel and X use the existing native confirmation with the question "Discard this recipe?". Photo uploads expose Uploading... and guard both the submit handler and Save button. Upload completion checks the form-session version. [PR #4](https://github.com/sararh95/VioMacro-App/pull/4)
+
+- Red on BASE `25ed9b2`, `npm.cmd run test:e2e:emulator -- -g 1.0.G5` reported `3 failed`. Backdrop line 7653 expected true and received false. Cancel line 7668 expected `["Discard this recipe?"]` and received `[]`. Upload line 7697 expected disabled and received enabled.
+- Green with the same command reported `3 passed (32.3s)`. The control restored only RecipeForm.tsx from BASE and reported `3 failed` on the same assertions at lines 7675, 7690 and 7719. Restoring the committed file left a clean tree.
+- Required filters with `npm.cmd run test:e2e:emulator -- -g <filter>` passed recipe 69, G10 12, import 8 and 1.0.G3 3. Infrastructure passed 4 per invocation. Existing desktop 1440 px and touch 390 px coverage includes import-cancel cleanup, image recovery and pending-save recovery.
+- Formal G5 `npm.cmd run check` exited 0 with lint 0 errors, app 293 passed, Functions 125 passed and both builds passed. Failed 0 and skipped 0. Saved record shapes, rules and indexes are unchanged. Full browser, rules and concurrency suites are assigned to CI.
+- The existing dialog-order unit file is unchanged and its eight cases pass. Old browser-test content is identical after removing the eleven permitted discard-answer pairs at BASE lines 2010, 3317, 3870, 4270, 4727, 5950, 6000, 7246, 7490, 7578 and 7632. All previous assertions, timeouts and retries remain intact.
+- The copied picture kit reported `1 passed (9.0s)`. All three 390 px touch PNGs were opened in `C:/Users/sarar/viomacro-sol-runs/g5/`. Files are `g5-resume-1-keep-editing-390.png`, `g5-resume-1-backdrop-390.png` and `g5-resume-1-uploading-390.png`. The first two retain the title. The third shows readable Uploading..., disabled Create Recipe and visible Cancel together. The emulator warning sits below the controls.
+- The first session stopped after bundled headed Chromium could not launch and a PowerShell screenshot helper was blocked by script policy. Coordinator-1 clarified that the native question is proved by the dialog-message assertion. The resumed kit photographs the page after Keep editing, after backdrop and during upload. It runs through installed Chrome, with console/network gates removed. The helper stayed unused and script policy was unchanged.
+- An earlier browser scenario verified upload failure feedback, Save recovery, Cancel during upload and preservation of a fresh form after late completion. Local Node is 24.18.0 and CI uses Node 22. Required full-suite floors are app 293 and emulator browser 222, including the three new cases. Physical phones and live data remain untested.
+
 ## 2026-11-11 VioMacro 1.0 G4 R4 fix round 2 latest Settings intent
 
 Settings compares a confirmation with the latest pending submission. Offline A=2300, B=2450, A=2300 now saves the final A. Older completions cannot clear the latest submission marker. Only Settings source changes in this round. [PR #1](https://github.com/sararh95/VioMacro-App/pull/1)
