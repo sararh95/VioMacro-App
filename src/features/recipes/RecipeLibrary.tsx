@@ -300,12 +300,23 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
         }
     };
 
-    const handleRecipePending = (recipe: Recipe) => {
+    const handleRecipeSaveStarted = (recipe: Recipe) => {
         if (pendingImportAssetPathRef.current === recipe.originalAssetPath) {
             pendingImportAssetPathRef.current = null;
         }
+    };
+
+    const handleRecipePending = () => {
         setIsFormOpen(false);
         setEditingRecipe(null);
+    };
+
+    const handleRecipeSaveFailed = (recipe: Recipe, active: boolean) => {
+        if (active) {
+            if (!recipe.id) pendingImportAssetPathRef.current = recipe.originalAssetPath || null;
+        } else {
+            setFailedRecipeDrafts(previous => [...previous, recipe]);
+        }
     };
 
     const handleRecipeFormClose = () => {
@@ -939,7 +950,8 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
                 onClose={handleRecipeFormClose}
                 onSaved={handleRecipeSaved}
                 onPending={handleRecipePending}
-                onSaveFailed={recipe => setFailedRecipeDrafts(previous => [...previous, recipe])}
+                onSaveStarted={handleRecipeSaveStarted}
+                onSaveFailed={handleRecipeSaveFailed}
                 editRecipe={editingRecipe}
             />
 

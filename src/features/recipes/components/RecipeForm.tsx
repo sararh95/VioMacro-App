@@ -11,7 +11,8 @@ interface RecipeFormProps {
     onClose: () => void;
     onSaved: (recipe: Recipe) => void;
     onPending?: (recipe: Recipe) => void;
-    onSaveFailed?: (recipe: Recipe) => void;
+    onSaveStarted?: (recipe: Recipe) => void;
+    onSaveFailed?: (recipe: Recipe, active: boolean) => void;
     editRecipe?: Recipe | null;
 }
 
@@ -40,7 +41,7 @@ function readRecipeNumber(value: string, fallback: number, name: string, max: nu
     return number;
 }
 
-export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSaveFailed, editRecipe }: RecipeFormProps) {
+export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSaveStarted, onSaveFailed, editRecipe }: RecipeFormProps) {
     const { user } = useAuth();
     const formId = useId();
     const [saving, setSaving] = useState(false);
@@ -216,6 +217,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
 
             const submitted: Recipe = { ...recipeData, id: editRecipe?.id };
             draft = submitted;
+            onSaveStarted?.(submitted);
             const save = editRecipe?.id
                 ? updateRecipe(user.uid, editRecipe.id, recipeData)
                 : addRecipe(user.uid, recipeData);
@@ -230,9 +232,9 @@ export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSave
             if (versionRef.current === version) onClose();
         } catch (error) {
             console.error('Failed to save recipe:', error);
-            if (draft && versionRef.current !== version && onSaveFailed) {
-                onSaveFailed(draft);
-            } else {
+            const active = versionRef.current === version;
+            if (draft) onSaveFailed?.(draft, active);
+            if (active || !onSaveFailed) {
                 alert("Failed to save recipe. Please try again.");
             }
         } finally {
