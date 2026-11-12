@@ -73,3 +73,8 @@ test('R8: Settings Auto-Update leaves the target alone without a current weight'
         assert.equal(autoUpdate(0, unit), undefined);
     }
 });
+
+test('R8: Settings Auto-Update preserves rounding for fractional pounds', () => {
+    assert.equal(autoUpdate(180.75, 'imperial'), 2281);
+    assert.equal(autoUpdate(78.25, 'imperial'), 846);
+});

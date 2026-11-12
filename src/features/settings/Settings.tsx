@@ -413,7 +413,10 @@ export default function Settings() {
                                                     // AUD-103: this silently assumed a 185 lb body when the
                                                     // user had not entered one. It is disabled until they have.
                                                     if (!localSettings.currentWeight) return;
-                                                    const maint = fromKg(toKg(localSettings.currentWeight, settingsUnit), 'imperial') * 14;
+                                                    const weightLb = settingsUnit === 'imperial'
+                                                        ? localSettings.currentWeight
+                                                        : fromKg(toKg(localSettings.currentWeight, settingsUnit), 'imperial');
+                                                    const maint = weightLb * 14;
                                                     const deficit = getCalorieDeficit(localSettings.rateOfChange || 0);
                                                     handleLocalChange('dailyCalorieTarget', Math.round(maint - deficit));
                                                 }}
