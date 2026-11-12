@@ -52,6 +52,23 @@ Required fields:
 
 ## Open Items
 
+### R4 (1.0 review) Untracked saves omit the pending warning
+
+- ID: R4 (1.0 review)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#1](https://github.com/sararh95/VioMacro-App/pull/1)
+- Severity: P2
+- Workflow/page: Recipes, Groceries, Dashboard, Settings, Onboarding and Pantry.
+- Expected: Every listed save shows the existing pending note and leave warning while offline. Rapid grocery or pantry submissions create one item. Cancel remains usable and reconnection saves each record once.
+- Actual: BASE awaits these writes without trackSave and has no synchronous add guard. Offline grocery and recipe saves omit the note. Double Enter creates two groceries.
+- User impact: Unconfirmed saves can be lost when the page closes, and a rapid submission can create duplicates.
+- Evidence: Three browser regressions fail on BASE and in the source-only control, then pass after the fix. Required filters pass 10/5/26/64/3/19/8. Check passes 289 app and 125 Functions tests. Nine opened phone pictures verify offline saves and reconnection. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g4-r4-pending-saves).
+- Suspected area: Save handlers, grocery/pantry in-flight guards and shared pending-save tracking.
+- Next action: Coordinator review after full CI proof. Review the existing notice overlap with route headings separately.
+- Verification target: Three R4 browser regressions, pending-save unit cases, VM-054, required feature filters and full CI floors.
+- Revisit trigger: PR #1 review.
+- Date closed: Pending.
+
 ### R3 (1.0 review, fix round 1) Recipe recovery keeps a stale load error
 
 - ID: R3 (1.0 review, fix round 1)

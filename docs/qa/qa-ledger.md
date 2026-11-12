@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-11 VioMacro 1.0 G4 R4 pending saves
+
+Recipe create/edit, grocery add, water add/correction, sleep, weight check-in, settings, onboarding and pantry add now register pending saves. Grocery and pantry add use synchronous in-flight guards and preserve the next typed draft. Water Cancel stays usable. A small optional 1.5-second callback in trackSave temporarily hides waiting modal overlays so the existing shell note is readable. Component drafts remain available for rejection recovery. [PR #1](https://github.com/sararh95/VioMacro-App/pull/1)
+
+- Red on BASE `17ff4c3`, `npm.cmd run test:e2e:emulator -- -g 1.0.G4.R4` reported `3 failed`. Grocery line 7443 and recipe line 7486, `await expect(note(page)).toBeVisible();`, reported `Expected: visible` and `Error: element(s) not found`. Double Enter line 7469 reported `Error: two Enter presses must create exactly one item` and returned two `R4 Double Pears` records.
+- Green with the same command reported `3 passed (20.6s)`. Reconnection, exact record counts and reload passed. The recipe form closed while its save waited. The source-only BASE control reported `3 failed` on the same assertions. Restoring the committed sources left a clean tree.
+- Required `npm.cmd run test:e2e:emulator -- -g <filter>` results were `VM-054` 10, `G-B` 5, `grocery` 26, `recipe` 64, `pantry` 3, `settings` 19 and `onboarding` 8 passed. Each command exited 0. Infrastructure passed 4 in every invocation. These filters include 1440 px and 390 px coverage.
+- `npm.cmd run check` exited 0. Lint had 0 errors, app tests reported `289` passed and Functions reported `125` passed. Both builds passed. Failed 0 and skipped 0. Three appended unit cases cover the waiting callback, fast fulfillment and rejection. Existing Functions lint selects no source files.
+- The copied picture kit verified nine offline paths at 390 px with touch. Eight cases passed in the first run. Correcting the water-correction selector to include its icon text produced `1 passed (7.8s)` for that case. All nine PNGs were opened. Grocery and pantry double submission saved one item, next drafts survived, water Cancel and Settings Discard worked, and all submitted values reached the emulator after reconnection. Each scenario recorded `page errors=[]` with the AI guard installed.
+- Pictures are in `C:/Users/sarar/viomacro-sol-runs/g4/`, named `g4-after-1-<path>-pending-390.png`, with water correction in `g4-after-2-water-correction-pending-390.png`. The note is readable. The existing absolute notice overlaps the Grocery and Recipes headings at 390 px. AppLayout owns that presentation outside W4's source allowlist.
+- The first G1 attempt used a desktop-only navigation helper in the new phone tests. Only the new test navigation was corrected. The prior 409,187 browser-test bytes and 3,985 unit-test bytes are unchanged. Assertions, timeouts and retries in prior tests are unchanged.
+- Local Node was 24. Full browser, rules, concurrency and built-app suites are assigned to Node 22 CI. The required CI floors are app 289 and emulator browser 213 after the six new cases. Physical phones and live data remain untested. All six required ports were free after shutdown.
+
 ## 2026-11-11 VioMacro 1.0 G3 R3 fix round 1 recipe recovery
 
 Successful recipe reads and save refreshes clear the previous load error. If a full-library read fails after a nonempty server confirmation, the confirmed page remains available. The coordinator assigns the full local run to its own lane while GitHub billing blocks CI. [PR #35](https://github.com/sararh95/VioMacro/pull/35)
