@@ -7422,3 +7422,80 @@ test.describe('1.0 G3 R3 honest loading', () => {
     await expect(page.getByText('No recipes found', { exact: true })).toBeVisible();
   });
 });
+
+test.describe('1.0 G4 R4 not saved yet', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test.afterEach(async ({ context }) => { await context.setOffline(false); });
+
+  const note = (page: Page) => page.getByRole('status').filter({
+    hasText: 'Not saved yet. Keep this page open until your changes are saved.',
+  });
+
+  test('offline grocery add shows the note and saves exactly once after reconnecting', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-grocery-offline');
+    const name = 'R4 Offline Apples';
+    const stored = async () => (await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(item => item.data().name);
+    await page.goto('/grocery');
+    const input = page.getByPlaceholder('Quick add item (e.g. 2 avocados)...');
+    await input.fill(name);
+    await context.setOffline(true);
+    await input.press('Enter');
+    await expect(note(page)).toBeVisible();
+    await expect(input).toBeEditable();
+    await expect(page.getByRole('button', { name: 'Add grocery item', exact: true })).toBeEnabled();
+    expect(await stored()).toEqual([]);
+    await input.press('Enter');
+    await context.setOffline(false);
+    await expect(input).toHaveValue('');
+    await expect(note(page)).toBeHidden();
+    expect(await stored()).toEqual([name]);
+    await page.reload();
+    await expect(page.getByRole('button', { name: `Mark as purchased: ${name}`, exact: true })).toHaveCount(1);
+  });
+
+  test('pressing Enter twice online adds exactly one grocery item', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-grocery-double');
+    const name = 'R4 Double Pears';
+    await page.goto('/grocery');
+    const input = page.getByPlaceholder('Quick add item (e.g. 2 avocados)...');
+    await input.fill(name);
+    // Deliver the two real key events before either server acknowledgement.
+    await input.evaluate(element => {
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    await expect(input).toHaveValue('');
+    const stored = await getDocs(collection(client.db, 'users', uid, 'groceryItems'));
+    expect(stored.docs.map(item => item.data().name), 'two Enter presses must create exactly one item').toEqual([name]);
+    await page.reload();
+    await expect(page.getByRole('button', { name: `Mark as purchased: ${name}`, exact: true })).toHaveCount(1);
+    await expect(note(page)).toBeHidden();
+  });
+
+  test('offline recipe save shows the note, allows Cancel, and saves exactly once after reconnecting', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r4-recipe-offline');
+    const title = 'R4 Offline Recipe';
+    const stored = async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title);
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill(title);
+    await page.getByPlaceholder('450').fill('520');
+    await page.getByPlaceholder('35').fill('42');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'check Create Recipe', exact: true }).click();
+    await expect(note(page)).toBeVisible();
+    const form = page.getByRole('heading', { name: 'New Recipe', exact: true });
+    if (await form.isVisible()) {
+      await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    }
+    await expect(form).toBeHidden();
+    await expect(note(page)).toBeVisible();
+    expect(await stored()).toEqual([]);
+    await context.setOffline(false);
+    await expect(note(page)).toBeHidden();
+    await expect.poll(stored).toEqual([title]);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
+  });
+});
