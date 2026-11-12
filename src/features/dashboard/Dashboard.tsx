@@ -401,7 +401,7 @@ export default function Dashboard() {
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {userSettings && !userSettings.onboardingCompleted && <OnboardingWizard />}
       <CheckInModal
-        key={checkInVersion}
+        key={`check-in-${checkInVersion}`}
         isOpen={isCheckInOpen}
         onClose={() => {
           setIsCheckInOpen(false);
@@ -829,7 +829,7 @@ export default function Dashboard() {
       </div>
 
       <SleepLogModal
-        key={sleepVersion}
+        key={`sleep-${sleepVersion}`}
         isOpen={isSleepModalOpen}
         onClose={closeSleepForm}
         onSave={handleSaveSleep}
