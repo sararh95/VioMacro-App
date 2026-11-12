@@ -52,6 +52,23 @@ Required fields:
 
 ## Open Items
 
+### R4 (1.0 review, fix round 1) Pending saves block controls and lose newer drafts
+
+- ID: R4 (1.0 review, fix round 1)
+- Date opened: 2026-11-11
+- Status: Fix in PR [#1](https://github.com/sararh95/VioMacro-App/pull/1)
+- Severity: P1
+- Workflow/page: Dashboard water, Settings and recipe/check-in/sleep forms.
+- Expected: Offline controls stay usable, water totals update immediately, late save A preserves draft B, and each launcher opens a fresh form. A rejected save identifies its item and retains a recoverable payload.
+- Actual: Pre-round source holds water and Settings state until acknowledgement, clears Settings dirty state unconditionally and hides mounted forms while parent open flags stay active.
+- User impact: Offline saves block further input and can erase a newer Settings draft.
+- Evidence: Four pre-round failures, matching source-only control and four passing new browser cases. Required filters pass 7/10/5/21/13/65. Check passes 293 app and 125 Functions cases. Five phone browser scenarios verify pictures, independent form sessions and failure recovery. See the [QA ledger](qa/qa-ledger.md#2026-11-11-viomacro-10-g4-r4-fix-round-1-responsive-saves).
+- Suspected area: Water optimistic state, Settings draft comparisons and parent-owned modal sessions/recovery.
+- Next action: Coordinator review after full public CI proof.
+- Verification target: Four round regressions, four optimistic queue unit cases, original G4 cases, required feature filters and full CI floors.
+- Revisit trigger: PR #1 fix-round review.
+- Date closed: Pending.
+
 ### R4 (1.0 review) Untracked saves omit the pending warning
 
 - ID: R4 (1.0 review)
