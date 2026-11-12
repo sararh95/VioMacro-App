@@ -416,7 +416,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!user) return false;
 
         try {
-            await shoppingService.addGroceryItem(user.uid, item);
+            await trackSave(shoppingService.addGroceryItem(user.uid, item));
             await refreshGrocery();
             return true;
         } catch (err) {

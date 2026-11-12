@@ -1,5 +1,5 @@
 import { parsePantryLines } from './pantry-parse';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../app/providers/auth-context';
 import { trackSave } from '../../shared/pending-saves';
 import {
@@ -36,6 +36,7 @@ export default function Pantry() {
     const [activeCategory, setActiveCategory] = useState('All Items');
     const [searchTerm, setSearchTerm] = useState('');
     const [quickAddText, setQuickAddText] = useState('');
+    const addingRef = useRef(false);
     const [quickAddError, setQuickAddError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export default function Pantry() {
     }, [user, loadItems]);
 
     const handleQuickAdd = async () => {
-        if (!user) return;
+        if (!user || addingRef.current) return;
 
         // AUD-098: parse everything first, then write once.
         //
@@ -88,9 +89,10 @@ export default function Pantry() {
         setQuickAddError(null);
         setLoadError(null);
 
+        addingRef.current = true;
         try {
-            await addPantryItems(user.uid, items);
-            setQuickAddText('');
+            await trackSave(addPantryItems(user.uid, items));
+            setQuickAddText(current => current === quickAddText ? '' : current);
         } catch (err) {
             console.error('Failed to add pantry items:', err);
             // Atomic, so this really does mean none of them saved. Keeping the
@@ -98,7 +100,11 @@ export default function Pantry() {
             setLoadError('Could not save those pantry items. Nothing was added, so you can try again.');
         }
 
-        void loadItems();
+        try {
+            await loadItems();
+        } finally {
+            addingRef.current = false;
+        }
     };
 
     const handleDelete = async (id: string) => {

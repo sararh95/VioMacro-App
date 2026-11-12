@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useAppStore } from '../../app/providers/store';
+import { trackSave } from '../../shared/pending-saves';
 import {
     calculateTdee,
     cmToFeetInches,
@@ -17,6 +18,7 @@ export default function OnboardingWizard() {
     const { userSettings, updateSettings } = useAppStore();
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [waiting, setWaiting] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         currentWeight: userSettings?.currentWeight || 0,
@@ -39,15 +41,16 @@ export default function OnboardingWizard() {
         setError('');
 
         try {
-            await updateSettings({
+            await trackSave(updateSettings({
                 ...(settings || {}),
                 onboardingCompleted: true
-            });
+            }), () => setWaiting(true));
         } catch (error) {
             console.error('Failed to save onboarding', error);
             setError('We could not save onboarding yet. Please retry before leaving this screen.');
         } finally {
             setSaving(false);
+            setWaiting(false);
         }
     };
 
@@ -144,6 +147,8 @@ export default function OnboardingWizard() {
 
     // Common Allergens List
     const allergenList = ['Peanuts', 'Tree Nuts', 'Dairy', 'Eggs', 'Gluten', 'Soy', 'Shellfish', 'Fish'];
+
+    if (waiting) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background-dark/95 backdrop-blur-md">

@@ -74,6 +74,7 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
     // Recipe form modal state
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+    const [failedRecipeDrafts, setFailedRecipeDrafts] = useState<Recipe[]>([]);
 
     // Delete Confirmation State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -284,8 +285,10 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
         }
     };
 
-    const handleRecipeSaved = async () => {
-        pendingImportAssetPathRef.current = null;
+    const handleRecipeSaved = async (recipe: Recipe) => {
+        if (pendingImportAssetPathRef.current === recipe.originalAssetPath) {
+            pendingImportAssetPathRef.current = null;
+        }
         // Reload recipes from Firestore
         if (!user) return;
         try {
@@ -294,6 +297,25 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
             setLoadError(false);
         } catch (error) {
             console.error('Failed to reload recipes:', error);
+        }
+    };
+
+    const handleRecipeSaveStarted = (recipe: Recipe) => {
+        if (pendingImportAssetPathRef.current === recipe.originalAssetPath) {
+            pendingImportAssetPathRef.current = null;
+        }
+    };
+
+    const handleRecipePending = () => {
+        setIsFormOpen(false);
+        setEditingRecipe(null);
+    };
+
+    const handleRecipeSaveFailed = (recipe: Recipe, active: boolean) => {
+        if (active) {
+            if (!recipe.id) pendingImportAssetPathRef.current = recipe.originalAssetPath || null;
+        } else {
+            setFailedRecipeDrafts(previous => [...previous, recipe]);
         }
     };
 
@@ -518,6 +540,17 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
                     </button>
                 </div>
             )}
+
+            {failedRecipeDrafts.map((recipe, index) => (
+                <div key={index} role="alert" className="mx-4 mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-200">
+                    <p>Could not save recipe &quot;{recipe.title}&quot;. Your draft is available to recover.</p>
+                    <button className="mt-2 underline" onClick={() => {
+                        setFailedRecipeDrafts(previous => previous.filter(item => item !== recipe));
+                        if (!recipe.id) pendingImportAssetPathRef.current = recipe.originalAssetPath || null;
+                        openEditRecipe(recipe);
+                    }}>Recover recipe {recipe.title}</button>
+                </div>
+            ))}
 
             {/* Drag Overlay */}
             {(isDragging || isParsing) && (
@@ -916,6 +949,9 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
                 isOpen={isFormOpen}
                 onClose={handleRecipeFormClose}
                 onSaved={handleRecipeSaved}
+                onPending={handleRecipePending}
+                onSaveStarted={handleRecipeSaveStarted}
+                onSaveFailed={handleRecipeSaveFailed}
                 editRecipe={editingRecipe}
             />
 

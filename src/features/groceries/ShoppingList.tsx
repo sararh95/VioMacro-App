@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
@@ -17,6 +17,7 @@ export default function ShoppingList() {
         deleteGroceryItem
     } = useAppStore();
     const [quickAddText, setQuickAddText] = useState('');
+    const addingRef = useRef(false);
     const [listError, setListError] = useState<string | null>(null);
     const plannedMealsCount = activePlan?.days.reduce((sum, day) => sum + day.meals.length, 0) || 0;
     const dailyTarget = activePlan?.dailyTargets?.calories;
@@ -25,7 +26,7 @@ export default function ShoppingList() {
         : 'Manual list';
 
     const handleQuickAdd = async () => {
-        if (!user) return;
+        if (!user || addingRef.current) return;
 
         const parsed = parseGroceryInput(quickAddText);
         if (!parsed) {
@@ -34,6 +35,7 @@ export default function ShoppingList() {
         }
         const { name, quantity, unit, aisle } = parsed;
 
+        addingRef.current = true;
         try {
             const newItem: Omit<GroceryItem, 'id'> = {
                 name,
@@ -52,13 +54,15 @@ export default function ShoppingList() {
             const saved = await addGroceryItem(newItem);
             if (saved) {
                 setListError(null);
-                setQuickAddText('');
+                setQuickAddText(current => current === quickAddText ? '' : current);
             } else {
                 setListError('Could not add that grocery item. Please try again.');
             }
         } catch (error) {
             console.error("Error adding item:", error);
             setListError('Could not add that grocery item. Please try again.');
+        } finally {
+            addingRef.current = false;
         }
     };
 

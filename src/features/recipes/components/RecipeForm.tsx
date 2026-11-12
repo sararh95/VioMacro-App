@@ -1,14 +1,18 @@
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import RecipeThumb from './RecipeThumb';
 import { addRecipe, updateRecipe, type Recipe, type Ingredient } from '../recipeService';
 import { useAuth } from '../../../app/providers/auth-context';
 import { recipeFolders } from '../../../dev/mock/mock-data';
 import { ALL_UNITS } from '../../../shared/constants';
+import { trackSave } from '../../../shared/pending-saves';
 
 interface RecipeFormProps {
     isOpen: boolean;
     onClose: () => void;
-    onSaved: () => void;
+    onSaved: (recipe: Recipe) => void;
+    onPending?: (recipe: Recipe) => void;
+    onSaveStarted?: (recipe: Recipe) => void;
+    onSaveFailed?: (recipe: Recipe, active: boolean) => void;
     editRecipe?: Recipe | null;
 }
 
@@ -37,10 +41,11 @@ function readRecipeNumber(value: string, fallback: number, name: string, max: nu
     return number;
 }
 
-export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: RecipeFormProps) {
+export default function RecipeForm({ isOpen, onClose, onSaved, onPending, onSaveStarted, onSaveFailed, editRecipe }: RecipeFormProps) {
     const { user } = useAuth();
     const formId = useId();
     const [saving, setSaving] = useState(false);
+    const versionRef = useRef(0);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -64,6 +69,8 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
 
     // Reset form when opening or editing
     useEffect(() => {
+        versionRef.current++;
+        setSaving(false);
         if (isOpen && editRecipe) {
             setTitle(editRecipe.title);
             setMealType(editRecipe.mealType);
@@ -166,9 +173,11 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !title.trim()) return;
+        if (!user || !title.trim() || saving) return;
 
         setSaving(true);
+        const version = versionRef.current;
+        let draft: Recipe | undefined;
         try {
             const recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'> = {
                 title: title.trim(),
@@ -206,19 +215,30 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
                 instructions: instructions.filter(i => i.step.trim()).map(i => ({ ...i })),
             };
 
-            if (editRecipe?.id) {
-                await updateRecipe(user.uid, editRecipe.id, recipeData);
-            } else {
-                await addRecipe(user.uid, recipeData);
-            }
+            const submitted: Recipe = { ...recipeData, id: editRecipe?.id };
+            draft = submitted;
+            onSaveStarted?.(submitted);
+            const save = editRecipe?.id
+                ? updateRecipe(user.uid, editRecipe.id, recipeData)
+                : addRecipe(user.uid, recipeData);
+            await trackSave<void | string>(save, () => {
+                if (versionRef.current === version) {
+                    if (onPending) onPending(submitted);
+                    else onClose();
+                }
+            });
 
-            onSaved();
-            onClose();
+            onSaved(draft);
+            if (versionRef.current === version) onClose();
         } catch (error) {
             console.error('Failed to save recipe:', error);
-            alert("Failed to save recipe. Please try again.");
+            const active = versionRef.current === version;
+            if (draft) onSaveFailed?.(draft, active);
+            if (active || !onSaveFailed) {
+                alert("Failed to save recipe. Please try again.");
+            }
         } finally {
-            setSaving(false);
+            if (versionRef.current === version) setSaving(false);
         }
     };
 
