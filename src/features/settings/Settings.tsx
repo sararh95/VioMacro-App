@@ -47,7 +47,7 @@ export default function Settings() {
     const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({});
     const [hasChanges, setHasChanges] = useState(false);
     const hasChangesRef = useRef(false);
-    const pendingDraftsRef = useRef(new Set<string>());
+    const latestPendingDraftRef = useRef<string | null>(null);
     const latestSaveRef = useRef(0);
     const draftRef = useRef({ settings: localSettings, profileName, profileAvatar });
 
@@ -143,8 +143,8 @@ export default function Settings() {
 
     const saveChanges = async () => {
         const snapshot = JSON.stringify({ settings: localSettings, profileName, profileAvatar });
-        if (pendingDraftsRef.current.has(snapshot)) return;
-        pendingDraftsRef.current.add(snapshot);
+        if (latestPendingDraftRef.current === snapshot) return;
+        latestPendingDraftRef.current = snapshot;
         const save = ++latestSaveRef.current;
         setSaveError(null);
         try {
@@ -175,7 +175,7 @@ export default function Settings() {
             setSaveError("We couldn't save your settings. Your draft is still here, so you can try again.");
             alert("Failed to save settings. Please try again.");
         } finally {
-            pendingDraftsRef.current.delete(snapshot);
+            if (save === latestSaveRef.current) latestPendingDraftRef.current = null;
         }
     };
 
