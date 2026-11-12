@@ -7639,3 +7639,75 @@ test.describe('1.0 G4 round 2 recipe recovery', () => {
     await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().title)).toEqual(['Recovered round 2 recipe']);
   });
 });
+
+test.describe('1.0 G5 R5 R6 recipe form', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('R5 backdrop preserves the typed recipe title', async ({ page }) => {
+    await g4Account(page, 390, 'g5-backdrop');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Keep my typed recipe');
+    await page.locator('.fixed.inset-0.z-50 > .absolute.inset-0').tap({ position: { x: 2, y: 2 } });
+    expect(await page.getByRole('heading', { name: 'New Recipe', exact: true }).isVisible(),
+      'R5 backdrop must keep the unsaved recipe form open').toBe(true);
+    await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveValue('Keep my typed recipe');
+  });
+
+  test('R5 Cancel asks before discarding and Keep editing preserves the title', async ({ page }) => {
+    await g4Account(page, 390, 'g5-cancel');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Keep editing this recipe');
+    const questions: string[] = [];
+    page.once('dialog', async dialog => {
+      questions.push(dialog.message());
+      await dialog.dismiss();
+    });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
+    expect(questions, 'R5 Cancel must ask before discarding the unsaved recipe').toEqual(['Discard this recipe?']);
+    await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveValue('Keep editing this recipe');
+    const discard = acceptNextDialog(page);
+    await page.getByRole('button', { name: 'Close recipe form', exact: true }).tap();
+    expect(await discard).toBe('Discard this recipe?');
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeHidden();
+  });
+
+  test('R6 photo upload blocks Save and shows Uploading until the photo appears', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g5-photo');
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByLabel('Recipe Name *', { exact: true }).fill('Recipe with uploaded photo');
+    let started!: () => void;
+    let release!: () => void;
+    const uploadStarted = new Promise<void>(resolve => { started = resolve; });
+    const uploadReleased = new Promise<void>(resolve => { release = resolve; });
+    await page.route(url => url.port === '9199', async route => {
+      if (route.request().method() === 'POST') {
+        started();
+        await uploadReleased;
+      }
+      await route.continue();
+    });
+    try {
+      await page.locator('.fixed input[type="file"]').setInputFiles({
+        name: 'g5-photo.png', mimeType: 'image/png', buffer: g10Png,
+      });
+      await uploadStarted;
+      await expect(page.getByRole('button', { name: 'check Create Recipe', exact: true })).toBeDisabled();
+      await expect(page.getByRole('status').filter({ hasText: 'Uploading...' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+      expect((await getDocs(collection(client.db, 'users', uid, 'recipes'))).size).toBe(0);
+    } finally {
+      release();
+    }
+    const image = page.locator('.fixed').getByRole('img', { name: 'Recipe with uploaded photo', exact: true });
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+    const uploadedUrl = await image.getAttribute('src');
+    await expect(page.getByRole('status').filter({ hasText: 'Uploading...' })).toBeHidden();
+    await page.getByRole('button', { name: 'check Create Recipe', exact: true }).click();
+    await expect.poll(async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs.map(recipe => recipe.data().imageUrl))
+      .toEqual([uploadedUrl]);
+  });
+});
