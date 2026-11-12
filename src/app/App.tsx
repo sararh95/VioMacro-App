@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import AppLayout from './AppLayout'
+import ErrorBoundary from './ErrorBoundary'
 
 /**
  * AUD-109: the app shipped as one 1.24 MB chunk, so every visitor downloaded the
@@ -123,7 +124,9 @@ function App() {
     <AuthProvider>
       <AppProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
         </BrowserRouter>
       </AppProvider>
     </AuthProvider>
