@@ -136,3 +136,45 @@ test('a refused save cancels the waiting callback and preserves the error', asyn
     t.mock.timers.tick(1500);
     assert.equal(waiting, false);
 });
+
+test('optimistic increments count each offline tap once before and after confirmation', async () => {
+    const { createOptimisticSaves } = await import('../../src/shared/pending-saves.ts');
+    const saves = createOptimisticSaves(0);
+    const first = saves.add(value => value + 250);
+    const second = saves.add(value => value + 250);
+    assert.equal(saves.value(), 500);
+    assert.equal(saves.settle(first, true), 500);
+    assert.equal(saves.settle(second, true), 500);
+    assert.equal(saves.pending(), false);
+});
+
+test('a refused optimistic increment preserves a later waiting tap', async () => {
+    const { createOptimisticSaves } = await import('../../src/shared/pending-saves.ts');
+    const saves = createOptimisticSaves(100);
+    const first = saves.add(value => value + 250);
+    const second = saves.add(value => value + 500);
+    assert.equal(saves.settle(first, false), 600);
+    assert.equal(saves.settle(second, true), 600);
+    assert.equal(saves.pending(), false);
+});
+
+test('out-of-order replies preserve correction and increment submission order', async () => {
+    const { createOptimisticSaves } = await import('../../src/shared/pending-saves.ts');
+    const saves = createOptimisticSaves(500);
+    const correction = saves.add(() => 100);
+    const increment = saves.add(value => value + 250);
+    assert.equal(saves.settle(increment, true), 350);
+    assert.equal(saves.pending(), true);
+    assert.equal(saves.settle(correction, false), 750);
+    assert.equal(saves.pending(), false);
+});
+
+test('rejecting every optimistic write restores the confirmed value', async () => {
+    const { createOptimisticSaves } = await import('../../src/shared/pending-saves.ts');
+    const saves = createOptimisticSaves(500);
+    const first = saves.add(value => value + 250);
+    const correction = saves.add(() => 100);
+    assert.equal(saves.settle(correction, false), 750);
+    assert.equal(saves.settle(first, false), 500);
+    assert.equal(saves.pending(), false);
+});

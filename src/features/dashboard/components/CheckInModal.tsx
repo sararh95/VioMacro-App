@@ -1,17 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '../../../app/providers/auth-context';
 import { useAppStore } from '../../../app/providers/store';
 import { toLocalDateKey } from '../../../shared/date-utils';
 import { weightSuffix } from '../../../shared/units';
 import { trackSave } from '../../../shared/pending-saves';
+import type { WeightCheckIn } from '../../../services/userService';
 
 interface CheckInModalProps {
     isOpen: boolean;
     onClose: () => void;
     mode?: 'full' | 'quick';
+    onSaveFailed?: (data: WeightCheckIn) => void;
 }
 
-export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckInModalProps) {
+export default function CheckInModal({ isOpen, onClose, mode = 'full', onSaveFailed }: CheckInModalProps) {
     const { user } = useAuth();
     const { userSettings, saveCheckIn, activePlan } = useAppStore();
     // AUD-122: the stored weight is in the user's own unit, so only the label changes.
@@ -22,7 +24,11 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
     const [step, setStep] = useState(mode === 'quick' ? 2 : 0);
     const [weight, setWeight] = useState(userSettings?.currentWeight?.toString() || '');
     const [saving, setSaving] = useState(false);
-    const [waiting, setWaiting] = useState(false);
+    const activeRef = useRef(true);
+    useEffect(() => {
+        activeRef.current = true;
+        return () => { activeRef.current = false; };
+    }, []);
     const [error, setError] = useState('');
 
     // Biofeedback state
@@ -49,7 +55,7 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
         }
     }, [isOpen, mode]);
 
-    if (!isOpen || waiting) return null;
+    if (!isOpen) return null;
 
     const handleNext = () => setStep(p => p + 1);
     const handleBack = () => setStep(p => p - 1);
@@ -82,21 +88,20 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
 
         setSaving(true);
         setError('');
+        const data = { weight: weightNum, date: toLocalDateKey(new Date()), energy, hunger };
         try {
-            await trackSave(saveCheckIn({
-                weight: weightNum,
-                date: toLocalDateKey(new Date()),
-                energy,
-                hunger
-            }), () => setWaiting(true));
+            await trackSave(saveCheckIn(data), () => { if (activeRef.current) onClose(); });
 
-            onClose();
+            if (activeRef.current) onClose();
         } catch (error) {
             console.error("Failed to save check-in:", error);
-            setError('We could not save your check-in. Your entries are still here; please retry.');
+            if (activeRef.current) {
+                setError('We could not save your check-in. Your entries are still here; please retry.');
+            } else {
+                onSaveFailed?.(data);
+            }
         } finally {
-            setSaving(false);
-            setWaiting(false);
+            if (activeRef.current) setSaving(false);
         }
     };
 

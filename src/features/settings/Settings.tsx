@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import AiSpendSafetyPanel from './AiSpendSafetyPanel';
@@ -37,7 +37,6 @@ export default function Settings() {
     const { user, updateUserProfile } = useAuth();
     const { userSettings, updateSettings, loading } = useAppStore();
     const [activeTab, setActiveTab] = useState('coaching');
-    const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
     // Profile State
@@ -48,6 +47,13 @@ export default function Settings() {
     const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({});
     const [hasChanges, setHasChanges] = useState(false);
     const hasChangesRef = useRef(false);
+    const pendingDraftsRef = useRef(new Set<string>());
+    const latestSaveRef = useRef(0);
+    const draftRef = useRef({ settings: localSettings, profileName, profileAvatar });
+
+    useLayoutEffect(() => {
+        draftRef.current = { settings: localSettings, profileName, profileAvatar };
+    }, [localSettings, profileName, profileAvatar]);
 
     /**
      * AUD-103 / AUD-105: this used to pre-fill 185 lb current, 170 lb goal and
@@ -136,7 +142,10 @@ export default function Settings() {
     };
 
     const saveChanges = async () => {
-        setSaving(true);
+        const snapshot = JSON.stringify({ settings: localSettings, profileName, profileAvatar });
+        if (pendingDraftsRef.current.has(snapshot)) return;
+        pendingDraftsRef.current.add(snapshot);
+        const save = ++latestSaveRef.current;
         setSaveError(null);
         try {
             const profileChanged = Boolean(user && (profileName !== (userSettings?.profileName || user.displayName || '') || profileAvatar !== (userSettings?.profileAvatar || user.photoURL || AVATARS[0])));
@@ -147,7 +156,7 @@ export default function Settings() {
             if (hasChanges || profileChanged) {
                 await trackSave(updateSettings(settingsToSave));
             }
-            if (profileChanged) {
+            if (profileChanged && save === latestSaveRef.current) {
                 try {
                     await updateUserProfile({ displayName: profileName, photoURL: profileAvatar });
                 } catch (error) {
@@ -155,14 +164,18 @@ export default function Settings() {
                     console.warn('Profile saved, but Firebase Auth profile sync failed:', error);
                 }
             }
-            hasChangesRef.current = false;
-            setHasChanges(false);
+            if (save === latestSaveRef.current && JSON.stringify(draftRef.current) === snapshot) {
+                hasChangesRef.current = false;
+                setHasChanges(false);
+            }
         } catch (error) {
             console.error(error);
+            hasChangesRef.current = true;
+            setHasChanges(true);
             setSaveError("We couldn't save your settings. Your draft is still here, so you can try again.");
             alert("Failed to save settings. Please try again.");
         } finally {
-            setSaving(false);
+            pendingDraftsRef.current.delete(snapshot);
         }
     };
 
@@ -642,10 +655,9 @@ export default function Settings() {
                             </button>
                             <button
                                 onClick={saveChanges}
-                                disabled={saving}
                                 className="flex-1 sm:flex-none px-6 py-3 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-[0_0_15px_rgba(167,139,250,0.2)] transition-all flex items-center justify-center gap-2"
                             >
-                                {saving ? 'Saving...' : 'Confirm Targets'}
+                                Confirm Targets
                             </button>
                         </div>
                     </div>

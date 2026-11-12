@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import type { FormEvent } from 'react';
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import { type MealPlanDay, type MealPlanMeal } from '../meal-planning/planService';
-import { addWaterMl, getWeightHistory, type DailyLog, logDailyMetric } from '../../services/userService';
+import { addWaterMl, getWeightHistory, type DailyLog, logDailyMetric, type WeightCheckIn } from '../../services/userService';
 import { SleepLogModal } from './components/SleepLogModal';
 import { ActivityCalendarWidget } from './components/ActivityCalendarWidget';
 import CheckInModal from './components/CheckInModal';
@@ -12,22 +12,29 @@ import OnboardingWizard from '../auth/OnboardingWizard';
 import WeightHistoryWidget from './components/WeightHistoryWidget';
 import { parseLocalDateKey, toLocalDateKey } from '../../shared/date-utils';
 import { mergeDailyLog } from '../progress/lib/daily-logs';
-import { trackSave } from '../../shared/pending-saves';
+import { createOptimisticSaves, trackSave } from '../../shared/pending-saves';
+import { weightSuffix } from '../../shared/units';
 
 const MAX_DAILY_WATER_ML = 10000;
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { activePlan, userSettings, updateSettings, loading } = useAppStore(); // Destructure updateSettings
+  const { activePlan, userSettings, updateSettings, saveCheckIn, loading } = useAppStore(); // Destructure updateSettings
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [checkInMode, setCheckInMode] = useState<'full' | 'quick'>('full');
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
-  const [isSleepSavePending, setIsSleepSavePending] = useState(false);
+  const [checkInVersion, setCheckInVersion] = useState(0);
+  const [sleepVersion, setSleepVersion] = useState(0);
+  const sleepVersionRef = useRef(0);
+  const pendingWaterRef = useRef(new Map<string, ReturnType<typeof createOptimisticSaves<number>>>());
+  const [failedSaves, setFailedSaves] = useState<{ id: number; label: string; retry: () => Promise<void> }[]>([]);
+  const failedSaveIdRef = useRef(0);
+  const retryingSavesRef = useRef(new Set<number>());
   const [bottleSize, setBottleSize] = useState(500); // Default 500ml
-  const [isLoggingWater, setIsLoggingWater] = useState(false);
   const [isCorrectingWater, setIsCorrectingWater] = useState(false);
   const [waterCorrectionValue, setWaterCorrectionValue] = useState('');
   const [waterCorrectionError, setWaterCorrectionError] = useState<string | null>(null);
+  const waterCorrectionVersionRef = useRef(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   /**
@@ -47,6 +54,8 @@ export default function Dashboard() {
   const [weightHistory, setWeightHistory] = useState<DailyLog[]>([]);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
+  useEffect(() => { pendingWaterRef.current.clear(); }, [user]);
+
   // AUD-050 / AUD-015: a fetch in an effect with no cleanup can land after the
   // user has changed, writing one account's data into another's screen. Same
   // guard as RecipePicker, which already had it.
@@ -58,7 +67,11 @@ export default function Dashboard() {
     getWeightHistory(user.uid)
       .then((history) => {
         if (cancelled) return;
-        setWeightHistory(history);
+        let current = history;
+        for (const [date, saves] of pendingWaterRef.current) {
+          current = mergeDailyLog(current, date, { waterMl: saves.value() });
+        }
+        setWeightHistory(current);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -201,34 +214,48 @@ export default function Dashboard() {
   const sleepDuration = todayLog.sleepHours || 0;
   const sleepQuality = todayLog.sleepQuality || 0;
 
+  const queueWaterUpdate = (date: string, update: (value: number) => number) => {
+    let saves = pendingWaterRef.current.get(date);
+    if (!saves) {
+      saves = createOptimisticSaves(todayLog.waterMl || 0);
+      pendingWaterRef.current.set(date, saves);
+    }
+    const write = saves.add(update);
+    applyDayLog(date, { waterMl: saves.value() });
+    return (accepted: boolean) => {
+      const waterMl = saves.settle(write, accepted);
+      if (pendingWaterRef.current.get(date) !== saves) return;
+      applyDayLog(date, { waterMl });
+      if (!saves.pending()) pendingWaterRef.current.delete(date);
+    };
+  };
+
   const handleLogWater = async (amount: number) => {
     if (!user) return;
-    setIsLoggingWater(true);
+    const today = toLocalDateKey(new Date());
+    const current = pendingWaterRef.current.get(today)?.value() ?? todayLog.waterMl ?? 0;
+    const allowed = Math.max(0, Math.min(MAX_DAILY_WATER_ML - current, amount));
+    if (allowed <= 0) {
+      setDashboardError(`You have already logged the daily maximum of ${MAX_DAILY_WATER_ML.toLocaleString()} ml.`);
+      return;
+    }
+    const settle = queueWaterUpdate(today, value => value + allowed);
     try {
       // AUD-048: clamp to the same 0-10000 range the correction form enforces,
       // so hitting the cap says so instead of surfacing a rules rejection as a
       // connection error.
-      const current = todayLog.waterMl || 0;
-      const allowed = Math.max(0, Math.min(MAX_DAILY_WATER_ML - current, amount));
-      if (allowed <= 0) {
-        setDashboardError(`You have already logged the daily maximum of ${MAX_DAILY_WATER_ML.toLocaleString()} ml.`);
-        return;
-      }
-
       // AUD-047: increment() is applied server-side, so two fast taps both count.
-      const today = toLocalDateKey(new Date());
       await trackSave(addWaterMl(user.uid, allowed, today));
-      // AUD-049: the new total is known, so no refetch is needed.
-      applyDayLog(today, { waterMl: current + allowed });
+      settle(true);
     } catch (error) {
+      settle(false);
       console.error("Failed to log water", error);
       alert("Failed to log water. Please check your connection.");
-    } finally {
-      setIsLoggingWater(false);
     }
   };
 
   const openWaterCorrection = () => {
+    waterCorrectionVersionRef.current++;
     setWaterCorrectionValue(String(todayLog.waterMl || 0));
     setWaterCorrectionError(null);
     setIsCorrectingWater(true);
@@ -244,23 +271,25 @@ export default function Dashboard() {
       return;
     }
 
-    setIsLoggingWater(true);
+    const version = waterCorrectionVersionRef.current;
+    const localDate = toLocalDateKey(new Date());
+    const waterMl = Math.round(correctedAmount);
+    const settle = queueWaterUpdate(localDate, () => waterMl);
     setWaterCorrectionError(null);
     try {
-      const localDate = toLocalDateKey(new Date());
-      const waterMl = Math.round(correctedAmount);
       await trackSave(logDailyMetric(user.uid, 'water', {
         date: localDate,
         waterMl
       }));
-      setIsCorrectingWater(false);
-      // AUD-049: this is an exact value, not a delta.
-      applyDayLog(localDate, { waterMl });
+      settle(true);
+      if (waterCorrectionVersionRef.current === version) setIsCorrectingWater(false);
     } catch (error) {
+      settle(false);
       console.error("Failed to correct water", error);
-      setWaterCorrectionError("Couldn't save the corrected water total. Please try again.");
-    } finally {
-      setIsLoggingWater(false);
+      setDashboardError("Couldn't save the corrected water total. Please try again.");
+      if (waterCorrectionVersionRef.current === version) {
+        setWaterCorrectionError("Couldn't save the corrected water total. Please try again.");
+      }
     }
   };
 
@@ -285,8 +314,39 @@ export default function Dashboard() {
     }
   };
 
+  const closeSleepForm = () => {
+    setIsSleepModalOpen(false);
+    setSleepVersion(++sleepVersionRef.current);
+  };
+
+  const keepFailedSave = (label: string, retry: () => Promise<void>) => {
+    const id = ++failedSaveIdRef.current;
+    setFailedSaves(previous => [...previous, { id, label, retry }]);
+  };
+
+  const retryFailedSave = async (save: typeof failedSaves[number]) => {
+    if (retryingSavesRef.current.has(save.id)) return;
+    retryingSavesRef.current.add(save.id);
+    try {
+      await trackSave(save.retry());
+      setFailedSaves(previous => previous.filter(item => item.id !== save.id));
+      setRefreshTrigger(previous => previous + 1);
+    } catch (error) {
+      console.error('Failed to retry save', error);
+      setDashboardError(`Could not save ${save.label}. Your draft is available below.`);
+    } finally {
+      retryingSavesRef.current.delete(save.id);
+    }
+  };
+
+  const keepFailedCheckIn = (data: WeightCheckIn) => {
+    const label = `weight check-in ${data.weight} ${weightSuffix(userSettings?.measurementUnit ?? 'metric')} for ${data.date}, energy ${data.energy}, hunger ${data.hunger}`;
+    keepFailedSave(label, () => saveCheckIn(data));
+  };
+
   const handleSaveSleep = async (data: { date: string; sleepHours: number; sleepQuality: number; sleepNotes: string }) => {
     if (!user) return;
+    const version = sleepVersionRef.current;
     try {
       // Normalize the date to ISO string if it's just YYYY-MM-DD, or keep as is if already ISO logic handled in service
       // Service expects YYYY-MM-DD or ISO. Let's ensure consistency.
@@ -298,9 +358,9 @@ export default function Dashboard() {
         sleepHours: data.sleepHours,
         sleepQuality: data.sleepQuality,
         sleepNotes: data.sleepNotes
-      }), () => setIsSleepSavePending(true));
+      }), () => { if (sleepVersionRef.current === version) closeSleepForm(); });
 
-      setIsSleepModalOpen(false); // Close modal on success
+      if (sleepVersionRef.current === version) closeSleepForm();
       // AUD-049: the sleep modal can log a previous night, so patch that date
       // rather than assuming today.
       applyDayLog(data.date, {
@@ -317,9 +377,12 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Failed to save sleep", error);
-      alert("Failed to save sleep log. Check console for details.");
-    } finally {
-      setIsSleepSavePending(false);
+      if (sleepVersionRef.current === version) {
+        alert("Failed to save sleep log. Check console for details.");
+      } else {
+        const label = `sleep log for ${data.date}, ${data.sleepHours} hours, quality ${data.sleepQuality}/5, ${data.sleepNotes}`;
+        keepFailedSave(label, () => logDailyMetric(user.uid, 'sleep', data));
+      }
     }
   };
 
@@ -338,9 +401,11 @@ export default function Dashboard() {
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {userSettings && !userSettings.onboardingCompleted && <OnboardingWizard />}
       <CheckInModal
+        key={checkInVersion}
         isOpen={isCheckInOpen}
         onClose={() => {
           setIsCheckInOpen(false);
+          setCheckInVersion(previous => previous + 1);
           // AUD-049: this one keeps the refetch on purpose. The modal writes its
           // own weight record and does not report back what it saved, so the
           // Dashboard genuinely does not know what changed. It is also a weekly
@@ -348,7 +413,15 @@ export default function Dashboard() {
           setRefreshTrigger(prev => prev + 1);
         }}
         mode={checkInMode}
+        onSaveFailed={keepFailedCheckIn}
       />
+
+      {failedSaves.map(save => (
+        <div key={save.id} role="alert" className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-200">
+          <p>Could not save {save.label}. Your draft is available to retry.</p>
+          <button onClick={() => void retryFailedSave(save)} className="mt-2 underline">Retry {save.label}</button>
+        </div>
+      ))}
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -542,14 +615,12 @@ export default function Dashboard() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleLogWater(250)}
-                  disabled={isLoggingWater}
                   className="px-2 py-1 bg-surface-border hover:bg-blue-500/20 hover:text-blue-400 text-text-secondary text-xs font-bold rounded-lg transition-all border border-transparent hover:border-blue-500/30"
                 >
                   +250ml
                 </button>
                 <button
                   onClick={() => handleLogWater(bottleSize)}
-                  disabled={isLoggingWater}
                   className="px-2 py-1 bg-surface-border hover:bg-blue-500/20 hover:text-blue-400 text-text-secondary text-xs font-bold rounded-lg transition-all border border-transparent hover:border-blue-500/30 flex items-center gap-1"
                 >
                   +{bottleSize}ml
@@ -634,20 +705,25 @@ export default function Dashboard() {
                     step="1"
                     inputMode="numeric"
                     value={waterCorrectionValue}
-                    onChange={(event) => setWaterCorrectionValue(event.target.value)}
+                    onChange={(event) => {
+                      waterCorrectionVersionRef.current++;
+                      setWaterCorrectionValue(event.target.value);
+                    }}
                     className="min-w-0 flex-1 rounded-lg border border-surface-border bg-surface-darker px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-400"
                   />
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      disabled={isLoggingWater}
                       className="rounded-lg bg-blue-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Save
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsCorrectingWater(false)}
+                      onClick={() => {
+                        waterCorrectionVersionRef.current++;
+                        setIsCorrectingWater(false);
+                      }}
                       className="rounded-lg border border-surface-border px-3 py-2 text-xs font-bold text-text-secondary transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Cancel
@@ -753,8 +829,9 @@ export default function Dashboard() {
       </div>
 
       <SleepLogModal
-        isOpen={isSleepModalOpen && !isSleepSavePending}
-        onClose={() => setIsSleepModalOpen(false)}
+        key={sleepVersion}
+        isOpen={isSleepModalOpen}
+        onClose={closeSleepForm}
         onSave={handleSaveSleep}
       />
 
