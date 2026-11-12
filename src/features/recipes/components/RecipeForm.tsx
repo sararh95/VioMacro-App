@@ -4,6 +4,7 @@ import { addRecipe, updateRecipe, type Recipe, type Ingredient } from '../recipe
 import { useAuth } from '../../../app/providers/auth-context';
 import { recipeFolders } from '../../../dev/mock/mock-data';
 import { ALL_UNITS } from '../../../shared/constants';
+import { trackSave } from '../../../shared/pending-saves';
 
 interface RecipeFormProps {
     isOpen: boolean;
@@ -41,6 +42,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
     const { user } = useAuth();
     const formId = useId();
     const [saving, setSaving] = useState(false);
+    const [waiting, setWaiting] = useState(false);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -166,7 +168,7 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !title.trim()) return;
+        if (!user || !title.trim() || saving) return;
 
         setSaving(true);
         try {
@@ -207,9 +209,9 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
             };
 
             if (editRecipe?.id) {
-                await updateRecipe(user.uid, editRecipe.id, recipeData);
+                await trackSave(updateRecipe(user.uid, editRecipe.id, recipeData), () => setWaiting(true));
             } else {
-                await addRecipe(user.uid, recipeData);
+                await trackSave(addRecipe(user.uid, recipeData), () => setWaiting(true));
             }
 
             onSaved();
@@ -219,10 +221,11 @@ export default function RecipeForm({ isOpen, onClose, onSaved, editRecipe }: Rec
             alert("Failed to save recipe. Please try again.");
         } finally {
             setSaving(false);
+            setWaiting(false);
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || waiting) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

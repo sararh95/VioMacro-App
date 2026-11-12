@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [checkInMode, setCheckInMode] = useState<'full' | 'quick'>('full');
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
+  const [isSleepSavePending, setIsSleepSavePending] = useState(false);
   const [bottleSize, setBottleSize] = useState(500); // Default 500ml
   const [isLoggingWater, setIsLoggingWater] = useState(false);
   const [isCorrectingWater, setIsCorrectingWater] = useState(false);
@@ -216,7 +217,7 @@ export default function Dashboard() {
 
       // AUD-047: increment() is applied server-side, so two fast taps both count.
       const today = toLocalDateKey(new Date());
-      await addWaterMl(user.uid, allowed, today);
+      await trackSave(addWaterMl(user.uid, allowed, today));
       // AUD-049: the new total is known, so no refetch is needed.
       applyDayLog(today, { waterMl: current + allowed });
     } catch (error) {
@@ -248,10 +249,10 @@ export default function Dashboard() {
     try {
       const localDate = toLocalDateKey(new Date());
       const waterMl = Math.round(correctedAmount);
-      await logDailyMetric(user.uid, 'water', {
+      await trackSave(logDailyMetric(user.uid, 'water', {
         date: localDate,
         waterMl
-      });
+      }));
       setIsCorrectingWater(false);
       // AUD-049: this is an exact value, not a delta.
       applyDayLog(localDate, { waterMl });
@@ -292,12 +293,12 @@ export default function Dashboard() {
       // The modal returns YYYY-MM-DD from the input[type=date].
       // logDailyMetric splits by 'T' so YYYY-MM-DD works fine.
 
-      await logDailyMetric(user.uid, 'sleep', {
+      await trackSave(logDailyMetric(user.uid, 'sleep', {
         date: data.date,
         sleepHours: data.sleepHours,
         sleepQuality: data.sleepQuality,
         sleepNotes: data.sleepNotes
-      });
+      }), () => setIsSleepSavePending(true));
 
       setIsSleepModalOpen(false); // Close modal on success
       // AUD-049: the sleep modal can log a previous night, so patch that date
@@ -317,6 +318,8 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to save sleep", error);
       alert("Failed to save sleep log. Check console for details.");
+    } finally {
+      setIsSleepSavePending(false);
     }
   };
 
@@ -645,7 +648,6 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => setIsCorrectingWater(false)}
-                      disabled={isLoggingWater}
                       className="rounded-lg border border-surface-border px-3 py-2 text-xs font-bold text-text-secondary transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Cancel
@@ -751,7 +753,7 @@ export default function Dashboard() {
       </div>
 
       <SleepLogModal
-        isOpen={isSleepModalOpen}
+        isOpen={isSleepModalOpen && !isSleepSavePending}
         onClose={() => setIsSleepModalOpen(false)}
         onSave={handleSaveSleep}
       />

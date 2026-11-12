@@ -15,9 +15,15 @@ function notify() {
     }
 }
 
-export function trackSave<T>(promise: Promise<T>): Promise<T> {
+export function trackSave<T>(promise: Promise<T>, onPending?: () => void): Promise<T> {
     pending++;
-    const settled = () => { pending--; notify(); };
+    // Let a waiting modal uncover the shell notice without losing its draft.
+    const timer = onPending ? setTimeout(onPending, 1500) : undefined;
+    const settled = () => {
+        clearTimeout(timer);
+        pending--;
+        notify();
+    };
     // Two handlers avoid the unhandled rejected promise that finally() creates.
     void promise.then(settled, settled);
     notify();

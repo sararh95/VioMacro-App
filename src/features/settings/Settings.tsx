@@ -5,6 +5,7 @@ import AiSpendSafetyPanel from './AiSpendSafetyPanel';
 import { type UserSettings } from '../../services/userService';
 import { formatRatePerWeek, weightSuffix, type MeasurementUnit } from '../../shared/units';
 import { AVATAR_CHOICES, avatarGradientByName, initialsFrom } from '../../shared/visuals';
+import { trackSave } from '../../shared/pending-saves';
 
 const settingsTabs = [
     { id: 'profile', label: 'Profile' },
@@ -144,7 +145,7 @@ export default function Settings() {
                 : localSettings;
 
             if (hasChanges || profileChanged) {
-                await updateSettings(settingsToSave);
+                await trackSave(updateSettings(settingsToSave));
             }
             if (profileChanged) {
                 try {

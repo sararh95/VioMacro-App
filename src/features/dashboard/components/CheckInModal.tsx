@@ -3,6 +3,7 @@ import { useAuth } from '../../../app/providers/auth-context';
 import { useAppStore } from '../../../app/providers/store';
 import { toLocalDateKey } from '../../../shared/date-utils';
 import { weightSuffix } from '../../../shared/units';
+import { trackSave } from '../../../shared/pending-saves';
 
 interface CheckInModalProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
     const [step, setStep] = useState(mode === 'quick' ? 2 : 0);
     const [weight, setWeight] = useState(userSettings?.currentWeight?.toString() || '');
     const [saving, setSaving] = useState(false);
+    const [waiting, setWaiting] = useState(false);
     const [error, setError] = useState('');
 
     // Biofeedback state
@@ -47,7 +49,7 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
         }
     }, [isOpen, mode]);
 
-    if (!isOpen) return null;
+    if (!isOpen || waiting) return null;
 
     const handleNext = () => setStep(p => p + 1);
     const handleBack = () => setStep(p => p - 1);
@@ -81,12 +83,12 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
         setSaving(true);
         setError('');
         try {
-            await saveCheckIn({
+            await trackSave(saveCheckIn({
                 weight: weightNum,
                 date: toLocalDateKey(new Date()),
                 energy,
                 hunger
-            });
+            }), () => setWaiting(true));
 
             onClose();
         } catch (error) {
@@ -94,6 +96,7 @@ export default function CheckInModal({ isOpen, onClose, mode = 'full' }: CheckIn
             setError('We could not save your check-in. Your entries are still here; please retry.');
         } finally {
             setSaving(false);
+            setWaiting(false);
         }
     };
 
