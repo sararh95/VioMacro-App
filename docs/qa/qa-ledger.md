@@ -1,5 +1,15 @@
 # VioMacro QA Ledger
 
+## 2026-11-11 VioMacro 1.0 G6 R7 after main merge
+
+Merged main `21448f9` (R8, PR #2) into the R7 branch. The first CI run `43160160703` had all three jobs green before main advanced. Both ledger conflicts preserve every main entry and the R7 additions. R7 source and tests are unchanged. [PR #3](https://github.com/sararh95/VioMacro-App/pull/3)
+
+- Fresh green, `npm.cmd run test:e2e:emulator -- -g 1.0.G6`, reported `2 passed (17.0s)`. The control restored only App.tsx and Dashboard.tsx from new BASE `21448f9` and reported `2 failed`: line 7668 Expected 1/Received 0 with `Not a YYYY-MM-DD date key: "not-a-date"`; line 7694 expected the recovery message and received `""`. Restoring committed source left a clean tree. Current evidence uses the RUN `merge-` prefix.
+- Fresh required filters passed G4.layout `16 passed (2.6m)` and navigation `8 passed (1.2m)`. Dashboard initially reported `1 failed`, `13 passed (1.5m)`. The existing hydration persistence test failed line 2735, `await expect.poll(visibleWaterMl).toBe(125)`, with Expected 125/Received 250 after reload. The sole unchanged rerun, `-g dashboard.hydration.quick-add.saves.and.persists.after.reload`, reported `1 passed (16.4s)`. Record this existing test as flaky; no source, assertion, wait, timeout or retry changed. Both results and the first screenshot/trace are in RUN `flaky-proof-1.txt` and its linked files. Neither new R7 case is flaky.
+- Fresh `npm.cmd run check` exited 0: lint 0 errors, app 297 passed, Functions 125 passed and both builds passed. Failed 0 and skipped 0. Local Node is 24; CI uses Node 22. Current minimum is app 297 and emulator browser 221, total 714. Rules, concurrency and full browser suites remain CI-only; saved shapes, rules and indexes are unchanged.
+- Fresh picture kit reported `1 passed (11.5s)` and `R7 picture page errors=[]`. All four new 390 px touch PNGs were opened under `C:/Users/sarar/viomacro-sol-runs/g6/g6-after-merge-1-`: `dashboard-top-390.png`, `dashboard-bad-date-390.png`, `reload-390.png` and `render-error-390.png`. Dashboard and both Reload screens remain readable; check-in closes, both Reload clicks recover and the saved plan is unchanged. The two fallback captures are byte-identical, as expected for the same UI. The emulator warning does not cover Reload.
+- All 429,505 prior browser-test bytes match the new BASE checkout exactly (RUN `test-prefix-proof-2.txt`). The branch diff remains six allowed files. No older ledger line changed. All repeated port runs held the own test lock; all seven required ports were free before releasing it. The earlier interrupted G4 command remains recorded in the prior section.
+
 ## 2026-11-11 VioMacro 1.0 G6 R7 page recovery
 
 A route error now shows a short message and Reload. Dashboard skips malformed day dates, including impossible calendar dates, while retaining valid day cards and every saved record. [PR #3](https://github.com/sararh95/VioMacro-App/pull/3)
