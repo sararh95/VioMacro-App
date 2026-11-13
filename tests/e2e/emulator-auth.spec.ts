@@ -3237,6 +3237,7 @@ test.describe('emulator authenticated smoke', () => {
   });
 
   test('recipe import rejects unsupported file types before upload', async ({ page }) => {
+    await enableMockAi(page);
     const failures = collectConsoleFailures(page);
     const email = `qa-import-unsupported-${Date.now()}@example.com`;
     const filename = `qa-import-unsupported-${Date.now()}.txt`;
