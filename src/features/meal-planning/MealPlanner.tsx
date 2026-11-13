@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import { getRecipes, getRecipe, type Recipe } from '../recipes/recipeService';
@@ -12,7 +12,8 @@ import { PlanGenerationWizard } from './components/PlanGenerationWizard';
 import { PlanSettingsModal } from './components/PlanSettingsModal';
 import { PlanPromptModal } from './components/PlanPromptModal';
 import { GapSolverModal } from './components/GapSolverModal';
-import { getMealPlanByDate, saveMealPlan, type MealPlan, type MealPlanMeal } from './planService';
+import { getMealPlanByDate, type MealPlan, type MealPlanMeal } from './planService';
+import { PlanDraftConflictError, type PlanDraftOptions, type SavedPlanVersion } from './plan-drafts';
 import { addDays, formatDateKey, getStartOfWeek, getWeekStartKey, toLocalDateKey } from '../../shared/date-utils';
 import { recipeInitial, recipeTint } from '../../shared/visuals';
 import RecipeImage from '../../shared/recipe-image';
@@ -63,12 +64,36 @@ function isBatchMealType(value: string): value is BatchMealType {
     return ['breakfast', 'lunch', 'dinner', 'snack'].includes(value);
 }
 
+function getPlanMacroTotals(plan: MealPlan | null) {
+    const days = plan?.days.filter(day => day.meals.length > 0) ?? [];
+    const totals = days.flatMap(day => day.meals).reduce((sum, meal) => ({
+        calories: sum.calories + meal.calories,
+        protein: sum.protein + meal.protein,
+        carbs: sum.carbs + meal.carbs,
+        fat: sum.fat + meal.fat,
+    }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    const count = days.length || 1;
+    return {
+        calories: totals.calories / count,
+        protein: totals.protein / count,
+        carbs: totals.carbs / count,
+        fat: totals.fat / count,
+        dayCount: days.length,
+    };
+}
+
 export default function MealPlanner() {
     const { user } = useAuth();
     const {
         userSettings,
         draftPlan,
-        setDraftPlan,
+        planDrafts,
+        draftMetadata,
+        draftStorageError,
+        confirmingPlanWeeks,
+        planSaveRevision,
+        setDraftPlan: setStoredDraftPlan,
+        confirmPlan,
         activePlan: contextActivePlan,
         toggleMealCompletion,
         refreshPlan,
@@ -91,6 +116,7 @@ export default function MealPlanner() {
         const targetWeekStart = getWeekStartKey(viewDate);
 
         // 1. Check Draft
+        if (planDrafts[targetWeekStart]) return planDrafts[targetWeekStart];
         if (draftPlan && draftPlan.weekStart === targetWeekStart) return draftPlan;
 
         // 2. Check Fetched
@@ -100,7 +126,20 @@ export default function MealPlanner() {
         if (contextActivePlan && contextActivePlan.weekStart === targetWeekStart) return contextActivePlan;
 
         return null;
-    }, [draftPlan, fetchedPlan, contextActivePlan, viewDate]);
+    }, [planDrafts, draftPlan, fetchedPlan, contextActivePlan, viewDate]);
+
+    const setDraftPlan = useCallback((plan: MealPlan | null, options: PlanDraftOptions = {}) => {
+        const week = options.weekStart ?? plan?.weekStart;
+        const basePlan = fetchedPlan?.weekStart === week ? fetchedPlan
+            : contextActivePlan?.weekStart === week ? contextActivePlan : null;
+        setStoredDraftPlan(plan, { ...options, basePlan, sourceMetadata: week ? draftMetadata[week] : undefined });
+    }, [setStoredDraftPlan, fetchedPlan, contextActivePlan, draftMetadata]);
+    const displayPlanRef = useRef(displayPlan);
+    const viewWeekRef = useRef(getWeekStartKey(viewDate));
+    const cloneRequestRef = useRef(0);
+    displayPlanRef.current = displayPlan;
+    viewWeekRef.current = getWeekStartKey(viewDate);
+    useEffect(() => () => { cloneRequestRef.current += 1; }, []);
 
     // Prompt State
     const [promptModalOpen, setPromptModalOpen] = useState(false);
@@ -118,10 +157,11 @@ export default function MealPlanner() {
     const [weekLoadAttempt, setWeekLoadAttempt] = useState(0);
 
 
-    const [saving, setSaving] = useState(false);
+    const saving = !!confirmingPlanWeeks[getWeekStartKey(viewDate)];
+    const [conflict, setConflict] = useState<{ week: string; version: SavedPlanVersion | null } | null>(null);
     const [addingToList, setAddingToList] = useState(false);
     const [saved, setSaved] = useState(false);
-    const [isDirty, setIsDirty] = useState(false); // Track structural changes for Save button
+    const isDirty = !!planDrafts[getWeekStartKey(viewDate)];
     const [plannerNotice, setPlannerNotice] = useState<PlannerNotice>(null);
 
     // Batch State
@@ -139,7 +179,7 @@ export default function MealPlanner() {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [wizardOpen, setWizardOpen] = useState(false);
     const [batchPickerOpen, setBatchPickerOpen] = useState(false);
-    const [activeSlot, setActiveSlot] = useState<{ dayIndex: number, type: string, mealId?: string } | null>(null);
+    const [activeSlot, setActiveSlot] = useState<{ dayIndex: number, type: MealPlanMeal['type'], mealId?: string } | null>(null);
     const [gapSolverOpen, setGapSolverOpen] = useState(false);
     const [gapSolverData, setGapSolverData] = useState<{ dayIndex: number, dayName: string, current: MacroTotals } | null>(null);
     const [batchCookLunch, setBatchCookLunch] = useState(false);
@@ -158,11 +198,22 @@ export default function MealPlanner() {
     // Clone Last Week Function
     const handleCloneLastWeek = async () => {
         if (!user) return;
+        const request = ++cloneRequestRef.current;
+        const startingPlan = displayPlan;
+        const startingWeek = getWeekStartKey(viewDate);
         setPlannerNotice(null);
         try {
             const targetStartDate = getStartOfWeek(viewDate);
             const previousWeekStart = addDays(targetStartDate, -7);
             const previousPlan = await getMealPlanByDate(user.uid, getWeekStartKey(previousWeekStart));
+
+            if (request !== cloneRequestRef.current || viewWeekRef.current !== startingWeek
+                || displayPlanRef.current !== startingPlan) {
+                if (request === cloneRequestRef.current) setPlannerNotice({
+                    tone: 'info', message: 'Clone cancelled. Your newer edits are still here.',
+                });
+                return;
+            }
 
             if (!previousPlan) {
                 setPlannerNotice({
@@ -171,6 +222,9 @@ export default function MealPlanner() {
                 });
                 return;
             }
+
+            if ((isDirty || startingPlan?.days.some(day => day.meals.length > 0))
+                && !window.confirm('Replace this week with last week’s plan? Your current changes will be replaced.')) return;
 
             const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const clonedDays = Array.from({ length: 7 }, (_, i) => {
@@ -200,12 +254,10 @@ export default function MealPlanner() {
             };
 
             setDraftPlan(clonedPlan);
-            setIsDirty(true);
             setPlannerNotice({
                 tone: 'success',
                 message: 'Previous saved plan cloned into this week. Review it, then confirm the plan when it looks right.'
             });
-            console.log("Cloned plan:", clonedPlan);
 
         } catch (error) {
             console.error("Clone failed:", error);
@@ -222,13 +274,12 @@ export default function MealPlanner() {
             ...displayPlan,
             dailyTargets: newTargets
         } : null);
-        setIsDirty(true);
     };
 
     const handleBatchSelect = (recipe: Recipe) => {
         if (!displayPlan) return;
 
-        const newPlan = { ...displayPlan };
+        const newPlan = { ...displayPlan, days: displayPlan.days.map(day => ({ ...day, meals: [...day.meals] })) };
         const targetType = batchMealType || 'lunch';
 
         // Update ALL slots for the valid type
@@ -259,7 +310,6 @@ export default function MealPlanner() {
             day.totalCalories = meals.reduce((sum, m) => sum + m.calories, 0);
         });
 
-        setIsDirty(true);
         setDraftPlan(newPlan);
         setBatchPickerOpen(false);
     };
@@ -342,7 +392,7 @@ export default function MealPlanner() {
         };
 
         fetchPlan();
-    }, [user, viewDate, viewMode, contextActivePlan, weekLoadAttempt]);
+    }, [user, viewDate, viewMode, contextActivePlan, weekLoadAttempt, planSaveRevision]);
 
     // Auto-Prompt for Plan Creation
     useEffect(() => {
@@ -471,7 +521,6 @@ export default function MealPlanner() {
             };
 
             console.log("AI Plan generated:", hydratedPlan);
-            setIsDirty(true);
             setDraftPlan(hydratedPlan);
             setWizardOpen(false);
             setPlannerNotice({
@@ -489,6 +538,11 @@ export default function MealPlanner() {
     };
 
     const handleWizardEmpty = () => {
+        if (displayPlan?.days.some(day => day.meals.length > 0)
+            && !window.confirm('Start from scratch? Your current meals will be replaced in the draft.')) {
+            setWizardOpen(false);
+            return;
+        }
         setWizardOpen(false);
         setPlannerNotice(null);
         const newPlan = createEmptyPlan(viewDate, userSettings);
@@ -532,20 +586,7 @@ export default function MealPlanner() {
         setViewDate(newDate);
     };
 
-    // Calculate macro totals from plan
-    const macroTotals = useMemo(() => {
-        if (!displayPlan || !displayPlan.days || displayPlan.days.length === 0) {
-            return { protein: 0, carbs: 0, fat: 0, calories: 0 };
-        }
-        const avgDay = displayPlan.days[0];
-        const meals = avgDay?.meals || [];
-        return {
-            protein: meals.reduce((sum, m) => sum + m.protein, 0),
-            carbs: meals.reduce((sum, m) => sum + m.carbs, 0),
-            fat: meals.reduce((sum, m) => sum + m.fat, 0),
-            calories: avgDay?.totalCalories || 0,
-        };
-    }, [displayPlan]);
+    const macroTotals = useMemo(() => getPlanMacroTotals(displayPlan), [displayPlan]);
 
     // Dynamic Plan Analysis
     const planAnalysis = useMemo(() => {
@@ -574,92 +615,29 @@ export default function MealPlanner() {
         };
     }, [displayPlan, macroTotals]);
 
-    const handleConfirmPlan = async () => {
-        if (!user || !displayPlan) return;
+    const handleConfirmPlan = async (replacementVersion?: SavedPlanVersion | null) => {
+        if (!user || !displayPlan || saving) return;
         setPlannerNotice(null);
-        setSaving(true);
         try {
-            const startDate = getStartOfWeek(viewDate);
-            const savedPlanId = await saveMealPlan(user.uid, {
-                weekStart: getWeekStartKey(viewDate),
-                weekEnd: toLocalDateKey(addDays(startDate, 6)),
-                goal: displayPlan.goal,
-                days: displayPlan.days.map(d => ({
-                    date: d.date,
-                    dayName: d.dayName,
-                    totalCalories: d.totalCalories,
-                    meals: d.meals.map(m => {
-                        const mealData: MealPlanMeal = {
-                            id: m.id,
-                            type: m.type,
-                            name: m.name,
-                            calories: m.calories || 0,
-                            protein: m.protein || 0,
-                            carbs: m.carbs || 0,
-                            fat: m.fat || 0,
-                            isEaten: m.isEaten || false
-                        };
-
-                        // Sanitize optional fields for Firestore
-                        if (m.recipeId) mealData.recipeId = m.recipeId;
-
-                        if (m.imageUrl) mealData.imageUrl = m.imageUrl;
-
-                        if (m.tag) mealData.tag = m.tag;
-
-                        return mealData;
-                    })
-                })),
-                // AUD-082: isAiGenerated is declared on MealPlan and permitted by
-                // the rules, but it was never included in the save payload -- so
-                // Firestore never received it, while local state was set to false
-                // immediately afterwards. After any reload it was undefined for
-                // every plan, and nothing could tell an AI plan from a manual one.
-                isAiGenerated: displayPlan.isAiGenerated ?? false,
-                ...(displayPlan.dailyTargets && {
-                    dailyTargets: {
-                        calories: displayPlan.dailyTargets.calories || 0,
-                        protein: displayPlan.dailyTargets.protein || 0,
-                        carbs: displayPlan.dailyTargets.carbs || 0,
-                        fat: displayPlan.dailyTargets.fat || 0
-                    }
-                })
-            });
-            // Also update the store optimistically ? No, just refresh or let store handle success
-            // If we used a store action for saving, it would be cleaner.
-            // But for now, let's just trigger a reload or update
-            // Ideally we call a refresh action.
-            // window.location.reload(); // Too harsh.
-            // We can rely on AppContext refresh?
-            // updatePlan(displayPlan); // This might assume it's already saved with ID?
-
+            const savedPlan = await confirmPlan(displayPlan, replacementVersion);
+            if (!savedPlan) return;
+            setConflict(null);
             setSaved(true);
-
-            // Critical: Update local fetched state immediately so UI doesn't flash empty
-            // We know what we just saved, so we can treat it as 'fetched'
-            setFetchedPlan({
-                ...displayPlan,
-                id: savedPlanId,
-                weekStart: getWeekStartKey(viewDate),
-                weekEnd: toLocalDateKey(addDays(startDate, 6)),
-                isAiGenerated: displayPlan.isAiGenerated ?? false
-            });
-
-            setIsDirty(false);
-            setDraftPlan(null); // Clear draft
-
+            setFetchedPlan(savedPlan);
             setTimeout(() => {
                 setSaved(false);
                 refreshPlan?.();
             }, 1000);
         } catch (error) {
+            if (error instanceof PlanDraftConflictError) {
+                setConflict({ week: displayPlan.weekStart, version: error.savedVersion });
+                return;
+            }
             console.error('Failed to save meal plan:', error);
             setPlannerNotice({
                 tone: 'error',
                 message: 'Could not save this plan. Your changes are still here. Please try again.'
             });
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -703,7 +681,7 @@ export default function MealPlanner() {
         }
     };
 
-    const handleOpenPicker = (dayIndex: number, mealType: string, mealId?: string) => {
+    const handleOpenPicker = (dayIndex: number, mealType: MealPlanMeal['type'], mealId?: string) => {
         setActiveSlot({ dayIndex, type: mealType, mealId });
         setPickerOpen(true);
     };
@@ -712,7 +690,7 @@ export default function MealPlanner() {
         if (!activeSlot || !displayPlan) return;
 
         const { dayIndex, type, mealId } = activeSlot;
-        const newPlan = { ...displayPlan };
+        const newPlan = { ...displayPlan, days: displayPlan.days.map(day => ({ ...day, meals: [...day.meals] })) };
         const day = newPlan.days[dayIndex];
 
         // Prepare meals array
@@ -752,7 +730,6 @@ export default function MealPlanner() {
         day.meals = meals;
         day.totalCalories = meals.reduce((sum, m) => sum + m.calories, 0);
 
-        setIsDirty(true); // Mark as modified
         setDraftPlan(newPlan);
         setPickerOpen(false);
         setActiveSlot(null);
@@ -819,7 +796,6 @@ export default function MealPlanner() {
         };
 
         setDraftPlan({ ...displayPlan, days: newDays });
-        setIsDirty(true);
         setGapSolverOpen(false);
         setGapSolverData(null);
     };
@@ -850,16 +826,19 @@ export default function MealPlanner() {
                         ),
                     },
             );
-            setDraftPlan({ ...displayPlan, days: newDays });
+            setDraftPlan({ ...displayPlan, days: newDays }, {
+                transient: !!displayPlan.id && !isDirty,
+                localTick: meal.id,
+            });
 
             // AUD-132: save for whichever SAVED plan is on screen, not only the
             // current week. A draft that has never been saved has no id and
             // nothing to write to, so it stays local until Confirm Plan.
-            if (displayPlan.id) {
+            if (displayPlan.id && !isDirty) {
                 // G-B: a refused tick is undone by the store, draft included.
                 // Say so, as the grocery list does for its ticks.
                 const failed = `Could not save your change to ${meal.name}. Please try again.`;
-                const saved = await toggleMealCompletion(displayPlan.id, meal.id, newStatus);
+                const saved = await toggleMealCompletion(displayPlan.id, meal.id, newStatus, displayPlan);
                 setPlannerNotice(current => saved
                     ? (current?.message === failed ? null : current)
                     : { tone: 'error', message: failed });
@@ -912,6 +891,43 @@ export default function MealPlanner() {
         }
     };
 
+
+    const plannerActions = displayPlan ? (
+        <div className="flex flex-wrap gap-3 w-full md:w-auto flex-shrink-0">
+            <button
+                onClick={handleAddToShoppingList}
+                aria-label="Add to List"
+                disabled={addingToList}
+                className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span className="material-symbols-outlined text-lg">shopping_cart</span>
+                <span className="hidden sm:inline">{addingToList ? 'Adding…' : 'Add to List'}</span>
+            </button>
+            <button
+                onClick={() => setSettingsOpen(true)}
+                aria-label={isDirty ? "tune Preferences" : undefined}
+                className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2"
+            >
+                <span className="material-symbols-outlined text-lg">tune</span>
+                <span className={isDirty ? "hidden sm:inline" : undefined}>Preferences</span>
+            </button>
+            <button
+                onClick={() => handleConfirmPlan()}
+                disabled={saving || (!!displayPlan.id && !isDirty)}
+                className={`flex-1 md:flex-none h-10 px-6 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(167,139,250,0.3)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${saved && !isDirty ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover active:scale-95'}`}
+            >
+                {saving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : saved && !isDirty ? (
+                    <span className="material-symbols-outlined text-lg">check</span>
+                ) : (
+                    <span className="material-symbols-outlined text-lg">check_circle</span>
+                )}
+                {saving ? 'Saving...' : saved && !isDirty ? 'Saved!' : 'Confirm Plan'}
+            </button>
+        </div>
+    ) : null;
+
     const isDayView = viewMode === 'day';
     const isMonthView = viewMode === 'month';
 
@@ -924,6 +940,7 @@ export default function MealPlanner() {
                     viewDate={viewDate}
                     onNavigate={handleNavigate}
                 />
+                {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
                 {plannerNotice && (
                     <PlannerNoticeBanner
                         notice={plannerNotice}
@@ -978,6 +995,7 @@ export default function MealPlanner() {
                     viewDate={viewDate}
                     onNavigate={handleNavigate}
                 />
+                {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
                 {plannerNotice && (
                     <PlannerNoticeBanner
                         notice={plannerNotice}
@@ -1035,12 +1053,50 @@ export default function MealPlanner() {
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            {isDirty && (
+                <div role="status" className="sticky top-0 z-20 mb-4 rounded-xl border border-primary/50 bg-surface-dark p-3 shadow-lg">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-white">Not saved yet</p>
+                            <p className="text-xs text-text-secondary">{draftStorageError || 'Draft kept on this device. Confirm to save your plan.'}</p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                if (saving) return;
+                                const weekStart = getWeekStartKey(viewDate);
+                                setDraftPlan(null, { weekStart });
+                                setConflict(null);
+                                setSaved(false);
+                                setPlannerNotice(null);
+                                setDismissedPromptWeek(weekStart);
+                                setWeekLoadAttempt(attempt => attempt + 1);
+                            }}
+                            disabled={saving}
+                            className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border disabled:cursor-wait disabled:opacity-50"
+                        >
+                            Discard changes
+                        </button>
+                    </div>
+                    {conflict?.week === getWeekStartKey(viewDate) && (
+                        <div className="mt-3 rounded-lg border border-amber-300/50 p-3 text-sm text-white">
+                            <p>This week was changed on another device since this draft.</p>
+                            <p className="mt-1 text-xs text-text-secondary">Replace the saved week, or discard these changes to keep it.</p>
+                            <button onClick={() => handleConfirmPlan(conflict.version)} disabled={saving}
+                                className="mt-2 min-h-10 rounded-lg bg-primary px-3 font-bold text-background-dark disabled:opacity-50">
+                                Replace saved week
+                            </button>
+                        </div>
+                    )}
+                    <div className="mt-3">{plannerActions}</div>
+                </div>
+            )}
             <PlannerHeader
                 viewMode={viewMode}
                 setViewMode={setViewMode}
                 viewDate={viewDate}
                 onNavigate={handleNavigate}
             />
+            {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
             {plannerNotice && (
                 <PlannerNoticeBanner
                     notice={plannerNotice}
@@ -1065,41 +1121,11 @@ export default function MealPlanner() {
                         Goal: {displayPlan.goal}
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-3 w-full md:w-auto flex-shrink-0">
-                    <button
-                        onClick={handleAddToShoppingList}
-                        aria-label="Add to List"
-                        disabled={addingToList}
-                        className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span className="material-symbols-outlined text-lg">shopping_cart</span>
-                        <span className="hidden sm:inline">{addingToList ? 'Adding…' : 'Add to List'}</span>
-                    </button>
-                    <button
-                        onClick={() => setSettingsOpen(true)}
-                        className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <span className="material-symbols-outlined text-lg">tune</span>
-                        Preferences
-                    </button>
-                    <button
-                        onClick={handleConfirmPlan}
-                        disabled={saving || (!!displayPlan.id && !isDirty)}
-                        className={`flex-1 md:flex-none h-10 px-6 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(167,139,250,0.3)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${saved ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover active:scale-95'}`}
-                    >
-                        {saving ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : saved ? (
-                            <span className="material-symbols-outlined text-lg">check</span>
-                        ) : (
-                            <span className="material-symbols-outlined text-lg">check_circle</span>
-                        )}
-                        {saving ? 'Saving...' : saved ? 'Saved!' : 'Confirm Plan'}
-                    </button>
-                </div>
+                {!isDirty && plannerActions}
             </div>
 
             {/* Macro Cards - Real-Time Orchestration */}
+            <p className="mb-2 text-xs text-text-secondary">Average per day with meals ({macroTotals.dayCount} {macroTotals.dayCount === 1 ? 'day' : 'days'})</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <MacroCard
                     label="Daily Calories"
@@ -1290,6 +1316,7 @@ export default function MealPlanner() {
                         </div>
                         <div>
                             <h4 className="text-lg font-bold text-white">Plan Analysis</h4>
+                            <p className="text-xs text-text-secondary">Average per day with meals ({macroTotals.dayCount} {macroTotals.dayCount === 1 ? 'day' : 'days'})</p>
                             <p className="text-sm text-text-secondary max-w-2xl mt-1">
                                 This plan creates a <span className="text-primary font-bold">{planAnalysis.diffLabel}</span>. {planAnalysis.message}
                             </p>
@@ -1393,7 +1420,7 @@ export default function MealPlanner() {
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleRecipeSelect}
                 title={activeSlot ? `Select ${activeSlot.type.charAt(0).toUpperCase() + activeSlot.type.slice(1)}` : 'Select Meal'}
-                filterMealType={activeSlot ? activeSlot.type : undefined}
+                filterMealType={activeSlot ? toRecipeMealType(activeSlot.type) : undefined}
             />
         </div>
     );
@@ -1550,7 +1577,7 @@ function DayColumn({ day, dayIndex, dailyTargets, onMealClick, onAddMeal, onTogg
     dayIndex: number;
     dailyTargets: { calories: number; protein: number; carbs: number; fat: number };
     onMealClick: (meal: MealPlanMeal) => void;
-    onAddMeal: (dayIndex: number, type: string, mealId?: string) => void;
+    onAddMeal: (dayIndex: number, type: MealPlanMeal['type'], mealId?: string) => void;
     onToggleStatus: (mealId: string) => void;
     includeSmoothie?: boolean;
     includeTea?: boolean;

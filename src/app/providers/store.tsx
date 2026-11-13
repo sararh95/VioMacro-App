@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import { auth } from '../../services/firebase/firebase';
 import { useAuth } from './auth-context';
 import * as userService from '../../services/userService';
@@ -9,7 +10,13 @@ import type { MealPlan } from '../../features/meal-planning/planService';
 import type { GroceryItem } from '../../features/groceries/shoppingService';
 import { getWeekStartKey, toLocalDateKey } from '../../shared/date-utils';
 import { trackSave } from '../../shared/pending-saves';
-import { settleMealTick, startMealTick, withMealEaten, type PendingMealTicks } from '../../features/meal-planning/lib/meal-status';
+import { settleMealTick, startMealTick, withMealEaten, extractMealStatus, type PendingMealTicks } from '../../features/meal-planning/lib/meal-status';
+import {
+    readPlanDraftState, patchPlanDraftWeek, planDraftStorageKey, getSavedPlanVersion, sameSavedPlanVersion,
+    samePlanStructure, matchesOwnSavedTicks, applyDraftTicks, planSaveInput,
+    type PlanDrafts, type PlanDraftOptions, type PlanDraftMetadata, type PlanDraftState,
+    type LocalPlanDraft, type SavedPlanVersion, type CommittedPlanVersion,
+} from '../../features/meal-planning/plan-drafts';
 
 // --- State Definition ---
 interface AppState {
@@ -24,6 +31,12 @@ interface AppState {
     error: string | null;
     selectedDay: string | null; // ISO Date YYYY-MM-DD
     draftPlan: MealPlan | null; // For persisting unsaved work
+    planDrafts: PlanDrafts;
+    draftMetadata: Record<string, PlanDraftMetadata>;
+    draftStorageError: string | null;
+    unkeptDrafts: boolean;
+    confirmingPlanWeeks: Record<string, boolean>;
+    planSaveRevision: number;
 }
 
 const initialState: AppState = {
@@ -38,6 +51,12 @@ const initialState: AppState = {
     error: null,
     selectedDay: toLocalDateKey(new Date()),
     draftPlan: null,
+    planDrafts: {},
+    draftMetadata: {},
+    draftStorageError: null,
+    unkeptDrafts: false,
+    confirmingPlanWeeks: {},
+    planSaveRevision: 0,
 };
 
 const INITIAL_DATA_TIMEOUT_MS = 10000;
@@ -82,6 +101,9 @@ type Action =
     | { type: 'SET_LOADING_PLAN'; payload: boolean }
     | { type: 'SET_LOADING_GROCERY'; payload: boolean }
     | { type: 'SET_DRAFT_PLAN'; payload: MealPlan | null }
+    | { type: 'SET_PLAN_DRAFTS'; payload: { drafts: PlanDrafts; metadata: Record<string, PlanDraftMetadata>; error: string | null; unkept: boolean } }
+    | { type: 'SET_CONFIRMING_PLAN'; payload: { week: string; saving: boolean } }
+    | { type: 'SET_PLAN_SAVED'; payload: MealPlan }
     // AUD-015: signing out must empty the store, not merely stop loading.
     | { type: 'RESET_FOR_NEW_USER' };
 
@@ -136,6 +158,19 @@ function appReducer(state: AppState, action: Action): AppState {
             return { ...state, loading: { ...state.loading, grocery: action.payload } };
         case 'SET_DRAFT_PLAN':
             return { ...state, draftPlan: action.payload };
+        case 'SET_PLAN_DRAFTS': {
+            const week = state.draftPlan?.weekStart;
+            return {
+                ...state, planDrafts: action.payload.drafts, draftMetadata: action.payload.metadata,
+                draftStorageError: action.payload.error, unkeptDrafts: action.payload.unkept,
+                draftPlan: week && state.planDrafts[week] ? action.payload.drafts[week] ?? null : state.draftPlan,
+            };
+        }
+        case 'SET_CONFIRMING_PLAN':
+            return { ...state, confirmingPlanWeeks: { ...state.confirmingPlanWeeks, [action.payload.week]: action.payload.saving } };
+        case 'SET_PLAN_SAVED':
+            return { ...state, planSaveRevision: state.planSaveRevision + 1,
+                activePlan: action.payload.weekStart === getWeekStartKey() ? action.payload : state.activePlan };
         default:
             return state;
     }
@@ -147,7 +182,7 @@ interface AppContextType extends AppState {
     refreshGrocery: () => Promise<void>;
     updatePlan: (updates: Partial<MealPlan>) => Promise<void>;
     /** Resolves false when the server refused the tick and it has been undone. */
-    toggleMealCompletion: (planId: string, mealId: string, isEaten: boolean) => Promise<boolean>;
+    toggleMealCompletion: (planId: string, mealId: string, isEaten: boolean, before?: MealPlan) => Promise<boolean>;
     toggleGroceryCheck: (itemId: string, isChecked: boolean) => Promise<boolean>;
     addGroceryItem: (item: Omit<GroceryItem, 'id'>) => Promise<boolean>;
     deleteGroceryItem: (itemId: string) => Promise<boolean>;
@@ -155,10 +190,20 @@ interface AppContextType extends AppState {
     updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
     saveCheckIn: (data: userService.WeightCheckIn) => Promise<void>;
     retrySavedData: () => void;
-    setDraftPlan: (plan: MealPlan | null) => void;
+    setDraftPlan: (plan: MealPlan | null, options?: PlanDraftOptions) => void;
+    confirmPlan: (plan: MealPlan, replacement?: SavedPlanVersion | null) => Promise<MealPlan | null>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+type OwnPlanVersion = {
+    version: SavedPlanVersion;
+    ancestors: (SavedPlanVersion | null)[];
+    plan: MealPlan;
+    ticks: ReadonlyMap<string, boolean>;
+    serial: number;
+    kind: 'tick' | 'confirm';
+};
 
 // --- Provider ---
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -168,10 +213,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const sessionRef = useRef(user);
     sessionRef.current = user;
     const retrySavedData = useCallback(() => setLoadAttempt(attempt => attempt + 1), []);
+    const planDraftsRef = useRef<PlanDrafts>({});
+    const draftMetadataRef = useRef<Record<string, PlanDraftMetadata>>({});
+    const unkeptDraftsRef = useRef<Record<string, LocalPlanDraft>>({});
+    const unkeptStoredRevisionsRef = useRef<Record<string, string | null>>({});
+    const draftWriteErrorRef = useRef<string | null>(null);
+    const storageWarningRef = useRef<string | null>(null);
+    const pendingPlanConfirmsRef = useRef(new Map<string, { revisions: Set<string> }>());
+    const planTickTasksRef = useRef(new Map<string, Set<Promise<boolean>>>());
+    const planTickBasesRef = useRef(new Map<string, MealPlan>());
+    const ownTicksRef = useRef(new Map<string, Map<string, boolean>>());
+    const ownVersionsRef = useRef(new Map<string, OwnPlanVersion>());
+    const ownVersionSerialRef = useRef(0);
+
+    const publishDraftState = useCallback((stored: PlanDraftState, error: string | null = null) => {
+        const drafts = { ...stored.drafts };
+        const metadata = { ...stored.metadata };
+        for (const [week, local] of Object.entries(unkeptDraftsRef.current)) {
+            drafts[week] = local.plan;
+            metadata[week] = local.metadata;
+        }
+        planDraftsRef.current = drafts;
+        draftMetadataRef.current = metadata;
+        storageWarningRef.current = stored.warning;
+        dispatch({ type: 'SET_PLAN_DRAFTS', payload: {
+            drafts, metadata, error: draftWriteErrorRef.current || error || stored.warning,
+            unkept: Object.keys(unkeptDraftsRef.current).length > 0,
+        } });
+    }, []);
 
     useEffect(() => {
         dispatch({ type: 'RESET_FOR_NEW_USER' });
-    }, [user]);
+        unkeptDraftsRef.current = {};
+        unkeptStoredRevisionsRef.current = {};
+        draftWriteErrorRef.current = null;
+        pendingPlanConfirmsRef.current.clear();
+        planTickTasksRef.current.clear();
+        planTickBasesRef.current.clear();
+        ownTicksRef.current.clear();
+        ownVersionsRef.current.clear();
+        let stored: PlanDraftState = { drafts: {}, metadata: {}, warning: null };
+        let error: string | null = null;
+        if (user) {
+            try { stored = readPlanDraftState(user.uid); }
+            catch { error = 'Could not restore local plan drafts. Check your browser storage.'; }
+        }
+        publishDraftState(stored, error);
+    }, [user, publishDraftState]);
+
+    useEffect(() => {
+        if (!user) return;
+        const sync = (event: StorageEvent) => {
+            if (event.key !== null && event.key !== planDraftStorageKey(user.uid)) return;
+            try { publishDraftState(readPlanDraftState(user.uid)); }
+            catch {
+                publishDraftState({ drafts: planDraftsRef.current, metadata: draftMetadataRef.current, warning: storageWarningRef.current },
+                    'Could not restore local plan drafts. Check your browser storage.');
+            }
+        };
+        window.addEventListener('storage', sync);
+        return () => window.removeEventListener('storage', sync);
+    }, [user, publishDraftState]);
+
+    useEffect(() => {
+        if (!state.unkeptDrafts) return;
+        const warn = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [state.unkeptDrafts]);
 
     /**
      * AUD-014: the single biggest performance defect in the audit.
@@ -196,6 +308,94 @@ export function AppProvider({ children }: { children: ReactNode }) {
      */
     const stateRef = useRef(state);
     stateRef.current = state;
+    const persistDraftWeek = useCallback((
+        week: string,
+        update: (current: LocalPlanDraft | null, stored: LocalPlanDraft | null) => LocalPlanDraft | null | undefined,
+    ): boolean => {
+        if (!user || sessionRef.current !== user) return false;
+        let chosen: LocalPlanDraft | null | undefined;
+        let inspected = false;
+        let storedRevision: string | null = null;
+        let skipped = false;
+        try {
+            const stored = patchPlanDraftWeek(user.uid, week, current => {
+                inspected = true;
+                storedRevision = current?.metadata.revision ?? null;
+                chosen = update(unkeptDraftsRef.current[week] ?? current, current);
+                skipped = chosen === undefined;
+                return skipped ? current : chosen ?? null;
+            });
+            if (!skipped) {
+                delete unkeptDraftsRef.current[week];
+                delete unkeptStoredRevisionsRef.current[week];
+                if (Object.keys(unkeptDraftsRef.current).length === 0) draftWriteErrorRef.current = null;
+            }
+            publishDraftState(stored);
+            return true;
+        } catch {
+            if (!inspected) {
+                const memory = planDraftsRef.current[week]
+                    ? { plan: planDraftsRef.current[week], metadata: draftMetadataRef.current[week] } : null;
+                chosen = update(unkeptDraftsRef.current[week] ?? memory, null);
+            }
+            if (chosen) {
+                if (inspected || !Object.hasOwn(unkeptStoredRevisionsRef.current, week)) {
+                    unkeptStoredRevisionsRef.current[week] = inspected ? storedRevision : draftMetadataRef.current[week]?.revision ?? null;
+                }
+                unkeptDraftsRef.current[week] = chosen;
+                draftWriteErrorRef.current = 'Could not keep a local copy. Keep this page open until you confirm your plan.';
+            } else {
+                draftWriteErrorRef.current = chosen === null
+                    ? 'Could not discard the local copy. Your draft is still here. Please try again.'
+                    : 'Could not update local drafts. Check your browser storage.';
+            }
+            publishDraftState({ drafts: planDraftsRef.current, metadata: draftMetadataRef.current, warning: storageWarningRef.current });
+            return false;
+        }
+    }, [user, publishDraftState]);
+
+    const resolveSavedVersion = useCallback((plan: MealPlan | null): SavedPlanVersion | null => {
+        // Firestore reads can expose the optimistic updatedAt of our pending tick.
+        // A new draft starts from the saved version before that write, then advances
+        // only when acknowledgeOwnTicks verifies what the server actually kept.
+        const baseline = plan?.id ? planTickBasesRef.current.get(plan.id) ?? plan : plan;
+        const version = getSavedPlanVersion(baseline);
+        const own = baseline?.id ? ownVersionsRef.current.get(baseline.id) : undefined;
+        if (version && own && baseline && samePlanStructure(baseline, own.plan)
+            && (sameSavedPlanVersion(version, own.version) || own.ancestors.some(old => sameSavedPlanVersion(old, version)))) {
+            return own.version;
+        }
+        return version;
+    }, []);
+
+    const acknowledgeOwnTicks = useCallback(async (planId: string, before?: MealPlan) => {
+        if (!user || !before || sessionRef.current !== user) return;
+        try {
+            const saved = await planService.getMealPlan(user.uid, planId);
+            if (!saved || sessionRef.current !== user) return;
+            const ticks = new Map(ownTicksRef.current.get(planId));
+            if (!matchesOwnSavedTicks(before, saved, ticks)) return;
+            const version = getSavedPlanVersion(saved);
+            if (!version) return;
+            const startingVersion = resolveSavedVersion(before);
+            const prior = ownVersionsRef.current.get(planId);
+            const ancestors = prior?.kind === 'tick' && samePlanStructure(before, prior.plan)
+                && (sameSavedPlanVersion(startingVersion, prior.version) || prior.ancestors.some(old => sameSavedPlanVersion(old, startingVersion)))
+                ? [...prior.ancestors, prior.version, startingVersion] : [startingVersion];
+            const own: OwnPlanVersion = { version, ancestors, plan: saved, ticks,
+                serial: ++ownVersionSerialRef.current, kind: 'tick' };
+            ownVersionsRef.current.set(planId, own);
+            for (const week of Object.keys(planDraftsRef.current)) {
+                persistDraftWeek(week, current => {
+                    if (!current || !own.ancestors.some(old => sameSavedPlanVersion(old, current.metadata.baseVersion))) return undefined;
+                    return { plan: applyDraftTicks(current.plan, ticks, current.metadata.tickIntents),
+                        metadata: { ...current.metadata, baseVersion: version } };
+                });
+            }
+        } catch {
+            // An unverified version stays unchanged; a later Confirm asks before replacing it.
+        }
+    }, [user, persistDraftWeek, resolveSavedVersion]);
     // G-B: meal taps the server has not answered yet. See toggleMealCompletion.
     const mealTapRef = useRef(0);
     const pendingMealTicksRef = useRef<PendingMealTicks>(new Map());
@@ -347,8 +547,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [user, refreshPlan]);
 
-    const toggleMealCompletion = useCallback(async (planId: string, mealId: string, isEaten: boolean) => {
+    const performMealTick = useCallback(async (planId: string, mealId: string, isEaten: boolean, before?: MealPlan) => {
         if (!user || !planId) return false;
+        const ownTicks = ownTicksRef.current.get(planId) ?? new Map<string, boolean>();
+        ownTicks.set(mealId, isEaten);
+        ownTicksRef.current.set(planId, ownTicks);
 
         /**
          * AUD-132: the write follows the plan on screen, not the store's
@@ -376,12 +579,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
          * simply has not finished, so nothing is undone.
          */
         const key = `${planId}/${mealId}`;
+        const localTick = before ? draftMetadataRef.current[before.weekStart]?.tickIntents[mealId] : undefined;
         const tap = ++mealTapRef.current;
         startMealTick(pendingMealTicksRef.current, key, tap, !isEaten);
         try {
             // AUD-022: one key of the mealStatus map, no day index needed.
             await trackSave(planService.toggleMealStatus(user.uid, planId, mealId, isEaten));
             settleMealTick(pendingMealTicksRef.current, key, tap, true, isEaten);
+            await acknowledgeOwnTicks(planId, before);
             return true;
         } catch (err) {
             console.error(err);
@@ -390,10 +595,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // AUD-015: never write a late answer into the next account's state.
             if (sessionRef.current === user) {
                 dispatch({ type: 'SET_MEAL_EATEN', payload: { planId, mealId, isEaten: saved } });
+                ownTicks.set(mealId, saved);
+                // Persist the rollback only when no newer local tap, in any tab, owns it.
+                for (const [week, plan] of Object.entries(planDraftsRef.current)) {
+                    if (plan.id !== planId) continue;
+                    persistDraftWeek(week, current => {
+                        if (!current || current.plan.id !== planId || current.metadata.tickIntents[mealId] !== localTick) return undefined;
+                        return { ...current, plan: withMealEaten(current.plan, mealId, saved) };
+                    });
+                }
+                await acknowledgeOwnTicks(planId, before ? withMealEaten(before, mealId, saved) : undefined);
             }
             return false;
         }
-    }, [user]);
+    }, [user, persistDraftWeek, acknowledgeOwnTicks]);
+
+    const toggleMealCompletion = useCallback((planId: string, mealId: string, isEaten: boolean, before?: MealPlan) => {
+        const tasks = planTickTasksRef.current.get(planId) ?? new Set<Promise<boolean>>();
+        if (tasks.size === 0 && before) planTickBasesRef.current.set(planId, before);
+        const task = performMealTick(planId, mealId, isEaten, before);
+        tasks.add(task);
+        planTickTasksRef.current.set(planId, tasks);
+        const settled = () => {
+            tasks.delete(task);
+            if (tasks.size === 0 && planTickTasksRef.current.get(planId) === tasks) {
+                planTickTasksRef.current.delete(planId);
+                planTickBasesRef.current.delete(planId);
+            }
+        };
+        void task.then(settled, settled);
+        return task;
+    }, [performMealTick]);
 
     const toggleGroceryCheck = useCallback(async (itemId: string, isChecked: boolean) => {
         if (!user) return false;
@@ -445,9 +677,88 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_SELECTED_DAY', payload: date });
     }, []);
 
-    const setDraftPlan = useCallback((plan: MealPlan | null) => {
+    const setDraftPlan = useCallback((plan: MealPlan | null, options: PlanDraftOptions = {}) => {
+        if (!user || sessionRef.current !== user) return;
+        if (!options.transient) {
+            const week = options.weekStart ?? plan?.weekStart ?? stateRef.current.draftPlan?.weekStart;
+            if (!week) return;
+            const lease = pendingPlanConfirmsRef.current.get(`${user.uid}/${week}`);
+            if (!plan && lease) return;
+            if (options.expectedPlan && planDraftsRef.current[week] !== options.expectedPlan) return;
+            const previous = Object.hasOwn(options, 'sourceMetadata') ? options.sourceMetadata : draftMetadataRef.current[week];
+            const revision = crypto.randomUUID();
+            if (lease && previous && lease.revisions.has(previous.revision)) lease.revisions.add(revision);
+            const next = plan ? {
+                plan,
+                metadata: {
+                    baseVersion: previous ? previous.baseVersion : resolveSavedVersion(options.basePlan ?? plan),
+                    revision,
+                    tickIntents: { ...previous?.tickIntents, ...(options.localTick && { [options.localTick]: crypto.randomUUID() }) },
+                },
+            } : null;
+            const kept = persistDraftWeek(week, () => next);
+            if (!plan && !kept) return;
+        }
         dispatch({ type: 'SET_DRAFT_PLAN', payload: plan });
-    }, []);
+    }, [user, persistDraftWeek, resolveSavedVersion]);
+
+    const confirmPlan = useCallback(async (snapshot: MealPlan, replacement?: SavedPlanVersion | null): Promise<MealPlan | null> => {
+        if (!user || sessionRef.current !== user) return null;
+        const week = snapshot.weekStart;
+        const key = `${user.uid}/${week}`;
+        const metadata = draftMetadataRef.current[week];
+        if (!metadata || pendingPlanConfirmsRef.current.has(key)) return null;
+        const lease = { revisions: new Set([metadata.revision]) };
+        pendingPlanConfirmsRef.current.set(key, lease);
+        dispatch({ type: 'SET_CONFIRMING_PLAN', payload: { week, saving: true } });
+        const planId = metadata.baseVersion?.id ?? snapshot.id ?? '';
+        const ticks = [...(planTickTasksRef.current.get(planId) ?? [])];
+        const startingSerial = ownVersionSerialRef.current;
+        try {
+            await Promise.allSettled(ticks);
+            if (sessionRef.current !== user) return null;
+            let plan = snapshot;
+            let expectedVersion = replacement === undefined ? metadata.baseVersion : replacement;
+            if (ticks.length) {
+                plan = applyDraftTicks(plan, ownTicksRef.current.get(planId) ?? new Map(), metadata.tickIntents);
+                const own = ownVersionsRef.current.get(planId);
+                if (own?.kind === 'tick' && own.serial > startingSerial
+                    && own.ancestors.some(old => sameSavedPlanVersion(old, expectedVersion))) expectedVersion = own.version;
+            }
+            const input = planSaveInput(plan);
+            const result: { version?: CommittedPlanVersion } = {};
+            // This draft is durable locally; only failed local writes need the leave guard.
+            const id = await planService.saveMealPlan(user.uid, input, {
+                expectedVersion, onCommitted: version => { result.version = version; },
+            });
+            if (sessionRef.current !== user) return null;
+            const version = result.version;
+            if (!version) throw new Error('The saved plan version was not returned');
+            const savedPlan: MealPlan = { ...plan, ...input, id,
+                mealStatus: extractMealStatus(input).mealStatus,
+                updatedAt: new Timestamp(version.seconds, version.nanoseconds) };
+            ownVersionsRef.current.set(id, {
+                version, ancestors: [metadata.baseVersion, expectedVersion], plan: savedPlan, ticks: new Map(),
+                serial: ++ownVersionSerialRef.current, kind: 'confirm',
+            });
+            persistDraftWeek(week, (current, stored) => {
+                if (!current) return undefined;
+                if (current.metadata.revision === metadata.revision) {
+                    const memory = unkeptDraftsRef.current[week];
+                    if (memory && stored && stored.metadata.revision !== metadata.revision
+                        && stored.metadata.revision !== unkeptStoredRevisionsRef.current[week]) return stored;
+                    return null;
+                }
+                if (!lease.revisions.has(current.metadata.revision)) return undefined;
+                return { plan: { ...current.plan, id }, metadata: { ...current.metadata, baseVersion: version } };
+            });
+            dispatch({ type: 'SET_PLAN_SAVED', payload: savedPlan });
+            return savedPlan;
+        } finally {
+            if (pendingPlanConfirmsRef.current.get(key) === lease) pendingPlanConfirmsRef.current.delete(key);
+            if (sessionRef.current === user) dispatch({ type: 'SET_CONFIRMING_PLAN', payload: { week, saving: false } });
+        }
+    }, [user, persistDraftWeek]);
 
     const updateSettings = useCallback(async (settings: Partial<UserSettings>) => {
         const assertSession = () => {
@@ -487,6 +798,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteGroceryItem,
         setSelectedDay,
         setDraftPlan,
+        confirmPlan,
         updateSettings,
         saveCheckIn,
         retrySavedData,
@@ -501,6 +813,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteGroceryItem,
         setSelectedDay,
         setDraftPlan,
+        confirmPlan,
         updateSettings,
         saveCheckIn,
         retrySavedData,
