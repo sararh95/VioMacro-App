@@ -919,6 +919,43 @@ export default function MealPlanner() {
         }
     };
 
+
+    const plannerActions = displayPlan ? (
+        <div className="flex flex-wrap gap-3 w-full md:w-auto flex-shrink-0">
+            <button
+                onClick={handleAddToShoppingList}
+                aria-label="Add to List"
+                disabled={addingToList}
+                className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span className="material-symbols-outlined text-lg">shopping_cart</span>
+                <span className="hidden sm:inline">{addingToList ? 'Adding…' : 'Add to List'}</span>
+            </button>
+            <button
+                onClick={() => setSettingsOpen(true)}
+                aria-label={isDirty ? "tune Preferences" : undefined}
+                className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2"
+            >
+                <span className="material-symbols-outlined text-lg">tune</span>
+                <span className={isDirty ? "hidden sm:inline" : undefined}>Preferences</span>
+            </button>
+            <button
+                onClick={handleConfirmPlan}
+                disabled={saving || (!!displayPlan.id && !isDirty)}
+                className={`flex-1 md:flex-none h-10 px-6 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(167,139,250,0.3)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${saved && !isDirty ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover active:scale-95'}`}
+            >
+                {saving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : saved && !isDirty ? (
+                    <span className="material-symbols-outlined text-lg">check</span>
+                ) : (
+                    <span className="material-symbols-outlined text-lg">check_circle</span>
+                )}
+                {saving ? 'Saving...' : saved && !isDirty ? 'Saved!' : 'Confirm Plan'}
+            </button>
+        </div>
+    ) : null;
+
     const isDayView = viewMode === 'day';
     const isMonthView = viewMode === 'month';
 
@@ -932,7 +969,7 @@ export default function MealPlanner() {
                     onNavigate={handleNavigate}
                 />
                 {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
-            {plannerNotice && (
+                {plannerNotice && (
                     <PlannerNoticeBanner
                         notice={plannerNotice}
                         onDismiss={() => setPlannerNotice(null)}
@@ -987,7 +1024,7 @@ export default function MealPlanner() {
                     onNavigate={handleNavigate}
                 />
                 {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
-            {plannerNotice && (
+                {plannerNotice && (
                     <PlannerNoticeBanner
                         notice={plannerNotice}
                         onDismiss={() => setPlannerNotice(null)}
@@ -1046,17 +1083,11 @@ export default function MealPlanner() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
             {isDirty && (
                 <div role="status" className="sticky top-0 z-20 mb-4 rounded-xl border border-primary/50 bg-surface-dark p-3 shadow-lg">
-                    <p className="text-sm font-bold text-white">Not saved yet</p>
-                    <p className="mb-2 text-xs text-text-secondary">{draftStorageError || 'Draft kept on this device. Confirm to save your plan.'}</p>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={handleConfirmPlan}
-                            disabled={saving}
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50"
-                        >
-                            <span className="material-symbols-outlined text-lg">check_circle</span>
-                            {saving ? 'Saving...' : 'Confirm Plan'}
-                        </button>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-white">Not saved yet</p>
+                            <p className="text-xs text-text-secondary">{draftStorageError || 'Draft kept on this device. Confirm to save your plan.'}</p>
+                        </div>
                         <button
                             onClick={() => {
                                 const weekStart = getWeekStartKey(viewDate);
@@ -1066,11 +1097,12 @@ export default function MealPlanner() {
                                 setDismissedPromptWeek(weekStart);
                                 setWeekLoadAttempt(attempt => attempt + 1);
                             }}
-                            className="h-10 flex-1 rounded-lg border border-surface-border px-3 text-sm font-bold text-white hover:bg-surface-border"
+                            className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border"
                         >
                             Discard changes
                         </button>
                     </div>
+                    <div className="mt-3">{plannerActions}</div>
                 </div>
             )}
             <PlannerHeader
@@ -1104,38 +1136,7 @@ export default function MealPlanner() {
                         Goal: {displayPlan.goal}
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-3 w-full md:w-auto flex-shrink-0">
-                    <button
-                        onClick={handleAddToShoppingList}
-                        aria-label="Add to List"
-                        disabled={addingToList}
-                        className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span className="material-symbols-outlined text-lg">shopping_cart</span>
-                        <span className="hidden sm:inline">{addingToList ? 'Adding…' : 'Add to List'}</span>
-                    </button>
-                    <button
-                        onClick={() => setSettingsOpen(true)}
-                        className="flex-1 md:flex-none h-10 px-4 rounded-lg border border-surface-border text-white font-bold text-sm hover:bg-surface-border/50 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <span className="material-symbols-outlined text-lg">tune</span>
-                        Preferences
-                    </button>
-                    {!isDirty && <button
-                        onClick={handleConfirmPlan}
-                        disabled={saving || (!!displayPlan.id && !isDirty)}
-                        className={`flex-1 md:flex-none h-10 px-6 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(167,139,250,0.3)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${saved ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover active:scale-95'}`}
-                    >
-                        {saving ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : saved ? (
-                            <span className="material-symbols-outlined text-lg">check</span>
-                        ) : (
-                            <span className="material-symbols-outlined text-lg">check_circle</span>
-                        )}
-                        {saving ? 'Saving...' : saved ? 'Saved!' : 'Confirm Plan'}
-                    </button>}
-                </div>
+                {!isDirty && plannerActions}
             </div>
 
             {/* Macro Cards - Real-Time Orchestration */}
