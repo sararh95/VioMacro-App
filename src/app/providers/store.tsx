@@ -221,6 +221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const storageWarningRef = useRef<string | null>(null);
     const pendingPlanConfirmsRef = useRef(new Map<string, { revisions: Set<string> }>());
     const planTickTasksRef = useRef(new Map<string, Set<Promise<boolean>>>());
+    const planTickBasesRef = useRef(new Map<string, MealPlan>());
     const ownTicksRef = useRef(new Map<string, Map<string, boolean>>());
     const ownVersionsRef = useRef(new Map<string, OwnPlanVersion>());
     const ownVersionSerialRef = useRef(0);
@@ -248,6 +249,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         draftWriteErrorRef.current = null;
         pendingPlanConfirmsRef.current.clear();
         planTickTasksRef.current.clear();
+        planTickBasesRef.current.clear();
         ownTicksRef.current.clear();
         ownVersionsRef.current.clear();
         let stored: PlanDraftState = { drafts: {}, metadata: {}, warning: null };
@@ -353,9 +355,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [user, publishDraftState]);
 
     const resolveSavedVersion = useCallback((plan: MealPlan | null): SavedPlanVersion | null => {
-        const version = getSavedPlanVersion(plan);
-        const own = plan?.id ? ownVersionsRef.current.get(plan.id) : undefined;
-        if (version && own && plan && samePlanStructure(plan, own.plan)
+        // Firestore reads can expose the optimistic updatedAt of our pending tick.
+        // A new draft starts from the saved version before that write, then advances
+        // only when acknowledgeOwnTicks verifies what the server actually kept.
+        const baseline = plan?.id ? planTickBasesRef.current.get(plan.id) ?? plan : plan;
+        const version = getSavedPlanVersion(baseline);
+        const own = baseline?.id ? ownVersionsRef.current.get(baseline.id) : undefined;
+        if (version && own && baseline && samePlanStructure(baseline, own.plan)
             && (sameSavedPlanVersion(version, own.version) || own.ancestors.some(old => sameSavedPlanVersion(old, version)))) {
             return own.version;
         }
@@ -605,13 +611,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [user, persistDraftWeek, acknowledgeOwnTicks]);
 
     const toggleMealCompletion = useCallback((planId: string, mealId: string, isEaten: boolean, before?: MealPlan) => {
-        const task = performMealTick(planId, mealId, isEaten, before);
         const tasks = planTickTasksRef.current.get(planId) ?? new Set<Promise<boolean>>();
+        if (tasks.size === 0 && before) planTickBasesRef.current.set(planId, before);
+        const task = performMealTick(planId, mealId, isEaten, before);
         tasks.add(task);
         planTickTasksRef.current.set(planId, tasks);
         const settled = () => {
             tasks.delete(task);
-            if (tasks.size === 0 && planTickTasksRef.current.get(planId) === tasks) planTickTasksRef.current.delete(planId);
+            if (tasks.size === 0 && planTickTasksRef.current.get(planId) === tasks) {
+                planTickTasksRef.current.delete(planId);
+                planTickBasesRef.current.delete(planId);
+            }
         };
         void task.then(settled, settled);
         return task;
