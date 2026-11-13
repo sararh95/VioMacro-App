@@ -7881,32 +7881,46 @@ test.describe('1.0 G9 plan edits are kept', () => {
 test.describe('1.0 G9 draft recovery controls', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  test('draft warns on leaving from another tab and reopens in the same browser', async ({ page, context }) => {
+  test('G9 R2 C8 draft warns from another tab only when local storage fails and recovers', async ({ page, context }) => {
     const { client, uid } = await g4Account(page, 390, 'g9-reopen');
     await page.goto('/plan');
     await settlePlanner(page);
-    await page.getByRole('button', { name: 'add_circle Create New Plan', exact: true }).click();
-    await page.getByRole('button', { name: 'auto_fix_high Open Plan Wizard', exact: true }).click();
-    await page.getByRole('button', { name: 'grid_on Start from Scratch (Empty Grid)', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeVisible();
-    await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
-    await page.locator('#mobile-navigation-drawer a[href="/recipes"]').first().click();
-    await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      const state = window as typeof window & { g9R2SetItem?: typeof Storage.prototype.setItem };
+      state.g9R2SetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith('viomacro:plan-drafts:')) throw new DOMException('Storage full', 'QuotaExceededError');
+        return state.g9R2SetItem!.call(this, key, value);
+      };
+    });
+    await g9R2CreateDraft(page);
+    await g9R2Navigate(page, '/recipes');
     const warned = page.waitForEvent('dialog');
     await page.close({ runBeforeUnload: true });
     const warning = await warned;
     expect(warning.type()).toBe('beforeunload');
     await warning.dismiss();
     expect(page.isClosed()).toBe(false);
-    await page.close();
+    await page.evaluate(() => {
+      const state = window as typeof window & { g9R2SetItem?: typeof Storage.prototype.setItem };
+      Storage.prototype.setItem = state.g9R2SetItem!;
+      delete state.g9R2SetItem;
+    });
+    await g9R2Navigate(page, '/plan');
+    await settlePlanner(page);
+    await page.getByRole('button', { name: /Preferences/ }).first().click();
+    await page.getByRole('spinbutton').first().fill('2300');
+    await page.getByRole('button', { name: 'Save Targets', exact: true }).click();
+    await g9R2Navigate(page, '/recipes');
+    await g9R2CloseKeptDraft(page);
     const reopened = await context.newPage();
     await installAiCallableGuard(reopened);
     await reopened.goto('/plan');
     await settlePlanner(reopened);
-    await expect(reopened.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeVisible();
+    await expect(g9R2Bar(reopened)).toBeVisible();
     expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size).toBe(0);
     await reopened.getByRole('button', { name: 'Discard changes', exact: true }).click();
-    await expect(reopened.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeHidden();
+    await expect(g9R2Bar(reopened)).toBeHidden();
     await expect(reopened.getByText('No plan found for this week. Create a new one or check other weeks!', { exact: true })).toBeVisible();
     assertNoUnexpectedAiCalls(reopened);
     await reopened.close();
@@ -7984,5 +7998,244 @@ test.describe('1.0 G9 latest draft tick', () => {
       release();
       await page.unroute(pattern, handler);
     }
+  });
+});
+
+const g9R2Bar = (page: Page) => page.getByRole('status').filter({
+  has: page.getByRole('button', { name: 'Discard changes', exact: true }),
+});
+
+async function g9R2CreateDraft(page: Page) {
+  await page.getByRole('button', { name: 'add_circle Create New Plan', exact: true }).click();
+  await page.getByRole('button', { name: 'auto_fix_high Open Plan Wizard', exact: true }).click();
+  await page.getByRole('button', { name: 'grid_on Start from Scratch (Empty Grid)', exact: true }).click();
+  await expect(g9R2Bar(page)).toBeVisible();
+}
+
+async function g9R2Add(page: Page, slot: string, title: string) {
+  await g4Day(page, 'Monday').getByText(`Add ${slot}`, { exact: true }).click();
+  await page.getByRole('heading', { name: title, exact: true }).click();
+  await expect(g4Day(page, 'Monday').getByRole('heading', { name: title, exact: true })).toBeVisible();
+}
+
+async function g9R2Navigate(page: Page, route: '/plan' | '/recipes') {
+  await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+  await page.locator(`#mobile-navigation-drawer a[href="${route}"]`).first().click();
+  if (route === '/recipes') await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+}
+
+async function g9R2CloseKeptDraft(page: Page) {
+  const dialogs: string[] = [];
+  page.on('dialog', async dialog => { dialogs.push(dialog.type()); await dialog.dismiss(); });
+  await page.close({ runBeforeUnload: true });
+  await expect.poll(() => ({ closed: page.isClosed(), dialogs }),
+    'C8 a kept draft must not warn after storage recovers').toEqual({ closed: true, dialogs: [] });
+}
+
+async function g9R2Hold(page: Page, kind: 'save' | 'query') {
+  const pattern = kind === 'save' ? /(?:Commit|:commit|Firestore\/Write)/ : /(?:Firestore\/Listen|:runQuery)/;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let held = 0;
+  let released = false;
+  const handler = async (route: Route) => { held++; await gate; await route.continue(); };
+  await page.route(pattern, handler);
+  return { count: () => held, release: async () => {
+    if (released) return;
+    released = true;
+    release();
+    if (!page.isClosed()) await page.unroute(pattern, handler);
+  } };
+}
+
+async function g9R2SavedDraft(page: Page, label: string) {
+  const { client, uid } = await g4Account(page, 390, label);
+  await seedRecipe(client.db, uid, 'R2 Breakfast', { mealType: 'breakfast', folders: ['breakfast'] });
+  await seedRecipe(client.db, uid, 'R2 Lunch', { mealType: 'lunch', folders: ['lunch'] });
+  const planId = await seedLegacyShapePlan(client.db, uid, getMondayWeekStart(), [
+    { id: 'r2-dinner', name: 'R2 Saved Dinner', type: 'dinner', isEaten: false },
+  ]);
+  await page.goto('/plan');
+  await settlePlanner(page);
+  await g9R2Add(page, 'Breakfast', 'R2 Breakfast');
+  return { client, uid, planId, ref: doc(client.db, 'users', uid, 'mealPlans', planId) };
+}
+
+test.describe('1.0 G9 R2 review', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('C1 two tabs keep independent weeks and receive storage changes', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'r2-two-tabs');
+    await seedRecipe(client.db, uid, 'R2 Tab A Dinner');
+    await seedRecipe(client.db, uid, 'R2 Tab B Dinner');
+    await page.goto('/plan');
+    await settlePlanner(page);
+    const second = await context.newPage();
+    await installAiCallableGuard(second);
+    await second.goto('/plan');
+    await settlePlanner(second);
+    try {
+      await g9R2CreateDraft(page);
+      await g9R2Add(page, 'Dinner', 'R2 Tab A Dinner');
+      await second.getByRole('button', { name: 'Next week', exact: true }).click();
+      await settlePlanner(second);
+      await g9R2CreateDraft(second);
+      await g9R2Add(second, 'Dinner', 'R2 Tab B Dinner');
+      for (const tab of [page, second]) tab.on('dialog', async dialog => { await dialog.accept(); });
+      await page.reload();
+      await second.reload();
+      await settlePlanner(page);
+      await settlePlanner(second);
+      expect(await page.getByRole('heading', { name: 'R2 Tab A Dinner', exact: true }).count(),
+        'C1 writing week B in another tab must retain week A').toBe(1);
+      await expect(second.getByRole('heading', { name: 'R2 Tab B Dinner', exact: true })).toBeVisible();
+      await second.getByRole('button', { name: 'Previous week', exact: true }).click();
+      await settlePlanner(second);
+      await page.getByRole('button', { name: 'Mark as eaten: R2 Tab A Dinner', exact: true }).click();
+      await expect(second.getByRole('button', { name: 'Mark as not eaten: R2 Tab A Dinner', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size).toBe(0);
+      assertNoUnexpectedAiCalls(second);
+    } finally { await second.close(); }
+  });
+
+  test('C2 stale draft asks and Discard keeps the newer saved week byte for byte', async ({ page }) => {
+    const fixture = await g9R2SavedDraft(page, 'r2-conflict');
+    const stored = (await getDoc(fixture.ref)).data()!;
+    stored.days[0].meals[0].name = 'R2 Newer Remote Dinner';
+    await setDoc(fixture.ref, { ...stored, updatedAt: Timestamp.now() });
+    const newer = (await getDoc(fixture.ref)).data();
+    await g9R2Bar(page).getByRole('button', { name: /Confirm Plan/ }).click();
+    await expect(page.getByText('This week was changed on another device since this draft.', { exact: true }),
+      'C2 Confirm must ask before replacing a newer saved week').toHaveCount(1);
+    expect((await getDoc(fixture.ref)).data()).toEqual(newer);
+    await g9R2Bar(page).getByRole('button', { name: 'Discard changes', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'R2 Newer Remote Dinner', exact: true })).toBeVisible();
+    expect((await getDoc(fixture.ref)).data()).toEqual(newer);
+  });
+
+  test('C3 Confirm stays serialized across navigation and the last confirmed edits win', async ({ page }) => {
+    const fixture = await g9R2SavedDraft(page, 'r2-overlap');
+    const hold = await g9R2Hold(page, 'save');
+    try {
+      await g9R2Bar(page).getByRole('button', { name: /Confirm Plan/ }).click();
+      await expect.poll(hold.count).toBeGreaterThan(0);
+      await g9R2Navigate(page, '/recipes');
+      await g9R2Navigate(page, '/plan');
+      await settlePlanner(page);
+      await page.getByRole('button', { name: /Preferences/ }).first().click();
+      await page.getByRole('spinbutton').first().fill('2333');
+      await page.getByRole('button', { name: 'Save Targets', exact: true }).click();
+      const confirm = g9R2Bar(page).getByRole('button', { name: /Confirm Plan|Saving/ });
+      await expect(confirm, 'C3 a pending Confirm must remain busy after Planner remounts').toBeDisabled();
+      expect(hold.count()).toBe(1);
+      await hold.release();
+      await expect(confirm).toBeEnabled();
+      const expected = (await getDoc(fixture.ref)).data()!;
+      expected.dailyTargets.calories = 2333;
+      delete expected.updatedAt;
+      await confirm.click();
+      await expect(g9R2Bar(page)).toBeHidden();
+      const saved = (await getDoc(fixture.ref)).data()!;
+      delete saved.updatedAt;
+      expect(saved).toEqual(expected);
+      expect((await getDocs(collection(fixture.client.db, 'users', fixture.uid, 'mealPlans'))).size).toBe(1);
+    } finally { await hold.release(); }
+  });
+
+  test('C4 Clone asks first and Cancel keeps the current draft unchanged', async ({ page }) => {
+    const fixture = await g9R2SavedDraft(page, 'r2-clone-cancel');
+    const previous = getMondayWeekStart(); previous.setDate(previous.getDate() - 7);
+    await seedLegacyShapePlan(fixture.client.db, fixture.uid, previous, [
+      { id: 'r2-old', name: 'R2 Prior Dinner', type: 'dinner', isEaten: false },
+    ]);
+    const before = await page.evaluate(uid => localStorage.getItem(`viomacro:plan-drafts:${uid}`), fixture.uid);
+    const questions: string[] = [];
+    page.on('dialog', async dialog => { questions.push(dialog.message()); await dialog.dismiss(); });
+    await page.getByRole('button', { name: /Clone Last Week/ }).click();
+    expect(questions.length, 'C4 Clone must ask before replacing the current draft or meals').toBe(1);
+    await expect(page.getByRole('heading', { name: 'R2 Breakfast', exact: true })).toBeVisible();
+    expect(await page.evaluate(uid => localStorage.getItem(`viomacro:plan-drafts:${uid}`), fixture.uid)).toBe(before);
+  });
+
+  test('C4 a slow Clone cannot replace edits made while it loads', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r2-clone-slow');
+    await seedLegacyShapePlan(client.db, uid, getMondayWeekStart(), [
+      { id: 'r2-current', name: 'R2 Current Dinner', type: 'dinner', isEaten: false },
+    ]);
+    const previous = getMondayWeekStart(); previous.setDate(previous.getDate() - 7);
+    await seedLegacyShapePlan(client.db, uid, previous, [
+      { id: 'r2-old', name: 'R2 Prior Dinner', type: 'dinner', isEaten: false },
+    ]);
+    await page.goto('/plan'); await settlePlanner(page);
+    const hold = await g9R2Hold(page, 'query');
+    page.on('dialog', async dialog => { await dialog.accept(); });
+    try {
+      await page.getByRole('button', { name: /Clone Last Week/ }).click();
+      await expect.poll(hold.count).toBeGreaterThan(0);
+      await page.getByRole('button', { name: /Preferences/ }).first().click();
+      await page.getByRole('spinbutton').first().fill('2333');
+      await page.getByRole('button', { name: 'Save Targets', exact: true }).click();
+      await hold.release();
+      await expect(page.getByText(/Previous saved plan cloned into this week\.|Clone cancelled\./)).toBeVisible();
+      await page.getByRole('button', { name: /Preferences/ }).first().click();
+      await expect(page.getByRole('spinbutton').first(), 'C4 a slow clone must preserve the newer target edit').toHaveValue('2333');
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    } finally { await hold.release(); }
+  });
+
+  test('C5 one invalid stored week stays untouched while a valid week reloads and edits', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r2-partial-cache');
+    await seedRecipe(client.db, uid, 'R2 Valid Dinner');
+    await seedRecipe(client.db, uid, 'R2 Valid Breakfast', { mealType: 'breakfast', folders: ['breakfast'] });
+    await page.goto('/plan'); await settlePlanner(page);
+    await g9R2CreateDraft(page);
+    await g9R2Add(page, 'Dinner', 'R2 Valid Dinner');
+    const next = getMondayWeekStart(); next.setDate(next.getDate() + 7);
+    const badWeek = toDateKey(next);
+    const bad = { weekStart: badWeek, weekEnd: badWeek, goal: 'Bad week', days: 'invalid days' };
+    await page.evaluate(({ uid, badWeek, bad }) => {
+      const key = `viomacro:plan-drafts:${uid}`;
+      const value = JSON.parse(localStorage.getItem(key)!) as Record<string, unknown>;
+      value[badWeek] = bad;
+      localStorage.setItem(key, JSON.stringify(value));
+    }, { uid, badWeek, bad });
+    page.on('dialog', async dialog => { await dialog.accept(); });
+    await page.reload(); await settlePlanner(page);
+    expect(await page.getByRole('heading', { name: 'R2 Valid Dinner', exact: true }).count(),
+      'C5 one invalid stored week must not hide a valid draft').toBe(1);
+    await expect(g9R2Bar(page).getByText(/could not.*restor/i)).toBeVisible();
+    await g9R2Add(page, 'Breakfast', 'R2 Valid Breakfast');
+    expect(await page.evaluate(({ uid, badWeek }) => {
+      const data = JSON.parse(localStorage.getItem(`viomacro:plan-drafts:${uid}`)!) as Record<string, unknown>;
+      return data[badWeek];
+    }, { uid, badWeek })).toEqual(bad);
+    await page.reload(); await settlePlanner(page);
+    await expect(page.getByRole('heading', { name: 'R2 Valid Breakfast', exact: true })).toBeVisible();
+  });
+
+  test('C7 Discard stays disabled while Confirm is saving', async ({ page }) => {
+    await g9R2SavedDraft(page, 'r2-discard-busy');
+    const hold = await g9R2Hold(page, 'save');
+    try {
+      await g9R2Bar(page).getByRole('button', { name: /Confirm Plan/ }).click();
+      await expect.poll(hold.count).toBeGreaterThan(0);
+      await expect(g9R2Bar(page).getByRole('button', { name: 'Discard changes', exact: true }),
+        'C7 Discard cannot run during a waiting Confirm').toBeDisabled();
+      await hold.release();
+      await expect(g9R2Bar(page)).toBeHidden();
+    } finally { await hold.release(); }
+  });
+
+  test('C8 a normally kept draft reloads without a leave warning', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r2-normal-leave');
+    await seedRecipe(client.db, uid, 'R2 Kept Dinner');
+    await page.goto('/plan'); await settlePlanner(page);
+    await g9R2CreateDraft(page);
+    await g9R2Add(page, 'Dinner', 'R2 Kept Dinner');
+    const dialogs: string[] = [];
+    page.on('dialog', async dialog => { dialogs.push(dialog.type()); await dialog.accept(); });
+    await page.reload(); await settlePlanner(page);
+    expect(dialogs, 'C8 a normally kept draft must not warn on reload').toEqual([]);
+    await expect(page.getByRole('heading', { name: 'R2 Kept Dinner', exact: true })).toBeVisible();
   });
 });
