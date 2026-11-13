@@ -76,7 +76,7 @@ export default function RecipeDetail({ recipe, onClose, onStartCooking }: Recipe
                         {/* Title & Stats */}
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-wrap gap-2">
-                                <span className="px-4 py-1.5 rounded-full bg-primary/20 text-[#0d1b17] text-xs font-bold uppercase tracking-wider">High Protein</span>
+                                <span className="px-4 py-1.5 rounded-full bg-primary/20 text-[#0d1b17] dark:text-gray-200 text-xs font-bold uppercase tracking-wider">High Protein</span>
                                 <span className="px-4 py-1.5 rounded-full bg-background-light dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-medium dark:text-white">Quick Prep</span>
                             </div>
                             <h2 className="text-4xl lg:text-5xl font-black text-[#0d1b17] dark:text-white tracking-tight leading-tight">
@@ -181,7 +181,7 @@ function MacroItem({ value, label, color, percentage }: { value: string | number
     return (
         <div className="flex flex-col gap-1 text-black dark:text-white">
             <span className={`text-3xl font-black ${label === 'Calories' ? 'text-black dark:text-white' : label === 'Carbs' ? 'text-amber-500' : label === 'Fats' ? 'text-blue-500' : 'text-primary'}`}>{value}</span>
-            <span className="text-xs font-medium text-gray-500 uppercase">{label}</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</span>
             <div className="w-full h-1 bg-gray-100 dark:bg-gray-800 rounded-full mt-2 overflow-hidden">
                 <div className={`${color} h-full`} style={{ width: `${percentage}%` }}></div>
             </div>
