@@ -63,6 +63,7 @@ Required fields:
 - Actual: BASE keeps drafts only in memory and replaces meals without a question or discard action.
 - User impact: A week of unsaved edits can disappear without warning.
 - Evidence: BASE red failures, matching source-only control, passing reload/save-once, leave-warning, reopen and discard cases, four passing tab filters and opened phone/desktop pictures. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g9-b12-r11-r10-r12-plan-edits-are-kept).
+- Additional B12 evidence: A held saved-tick refusal must preserve newer local draft ticks. Red and source-only control both report Expected true/Received false; the unchanged case passes with the per-meal revision guard. See the [latest draft tick proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g9-latest-draft-tick).
 - Suspected area: Store draft lifecycle and Planner dirty state, action placement and copied days.
 - Next action: Coordinator review after latest-commit full CI proof.
 - Verification target: Draft/tick reload retention, no pre-confirm plan write, one saved plan, visible actions, scratch Cancel, discard, old saved-tick behavior and full CI floors.

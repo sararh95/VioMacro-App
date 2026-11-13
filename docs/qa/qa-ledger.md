@@ -1,5 +1,16 @@
 # VioMacro QA Ledger
 
+## 2026-11-13 VioMacro 1.0 G9 latest draft tick
+
+Final review reproduced an older saved-tick refusal overwriting a newer local draft tick. Per-meal local tap revisions now preserve that newer choice while keeping ordinary saved-tick rollback. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
+
+- At previously green `591bedf`, the browser wrapper with `-g G9.latest.draft.tick` reported `1 failed`: `B12 an older saved-tick refusal must preserve the newer local draft tick`, Expected `true`, Received `false`, line 7974. The unchanged test passes after the guard. Green `-g 1.0.G9` reports `6 passed (1.1m)`; the two new unit files report 4 passed, 0 failed and 0 skipped.
+- Restoring only store.tsx from `591bedf` reproduces the same `true`/`false` failure. Restoring the committed guard leaves a clean tree. Repeating the original BASE `c612cb4` source-only controls again gives the same 3 browser failures (Expected 1/Received 0 at lines 7824, 7860 and 7876) and the R10 unit `400 !== 600`. Both restores leave a clean tree. Commands and literal output are in RUN `extra-1-targeted-proof.txt`, `latest-tick-red-1.txt` and `extra-1-control-*.txt`.
+- All required filters were repeated after the guard with `npm.cmd run test:e2e:emulator -- -g <filter>`: plan `52 passed (8.3m)`, Planner `40 passed (6.5m)`, tick `20 passed (3.3m)`, draft `15 passed (1.7m)`. Each native exit is 0; infrastructure passes 4 per invocation. Failed 0, skipped 0 and no new flaky case. The earlier unchanged VM040 desktop image-decode rerun remains recorded below.
+- Fresh formal `npm.cmd run check` reports `Extra check native exit=0`, app 303 passed, Functions 125 passed, lint 0 errors and both builds passed. Failed 0 and skipped 0. Against BASE app 299/browser 224, G9 adds four unit and six browser cases: minima 303/230, total 729. Full latest-commit CI proof is required before the PR becomes ready.
+- All 14 fresh `g9-after-extra-1-*.png` pictures were opened at 390 px touch and 1440 px. Draft/reload/confirm, macro averages, analysis, Tea and waiting confirmation remain usable. The existing white-on-white MealCard issue is unchanged and remains a separate coordinator question.
+- Exact original browser-test prefix remains 438,259 bytes. All five earlier G9 browser tests and the red R10 unit are unchanged. No old assertion, timeout, retry, skip, saved record shape, AI flag, rule, index or dependency changed. The owned test lock was released only after all seven ports were free. Current local evidence uses RUN `extra-1-`.
+
 ## 2026-11-12 VioMacro 1.0 G9 after main merge
 
 Merged main G10 into the branch, with new BASE `c612cb4`. Both groups' complete ledger entries are retained. All six G9 source/test blobs match the previously reviewed `54f50ba` exactly. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
