@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import { getRecipes, getRecipe, type Recipe } from '../recipes/recipeService';
@@ -12,11 +12,11 @@ import { PlanGenerationWizard } from './components/PlanGenerationWizard';
 import { PlanSettingsModal } from './components/PlanSettingsModal';
 import { PlanPromptModal } from './components/PlanPromptModal';
 import { GapSolverModal } from './components/GapSolverModal';
-import { getMealPlanByDate, saveMealPlan, type MealPlan, type MealPlanMeal } from './planService';
+import { getMealPlanByDate, type MealPlan, type MealPlanMeal } from './planService';
+import { PlanDraftConflictError, type PlanDraftOptions, type SavedPlanVersion } from './plan-drafts';
 import { addDays, formatDateKey, getStartOfWeek, getWeekStartKey, toLocalDateKey } from '../../shared/date-utils';
 import { recipeInitial, recipeTint } from '../../shared/visuals';
 import RecipeImage from '../../shared/recipe-image';
-import { trackSave } from '../../shared/pending-saves';
 
 type MacroTotals = { calories: number; protein: number; carbs: number; fat: number };
 type BatchMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -88,8 +88,12 @@ export default function MealPlanner() {
         userSettings,
         draftPlan,
         planDrafts,
+        draftMetadata,
         draftStorageError,
-        setDraftPlan,
+        confirmingPlanWeeks,
+        planSaveRevision,
+        setDraftPlan: setStoredDraftPlan,
+        confirmPlan,
         activePlan: contextActivePlan,
         toggleMealCompletion,
         refreshPlan,
@@ -124,6 +128,19 @@ export default function MealPlanner() {
         return null;
     }, [planDrafts, draftPlan, fetchedPlan, contextActivePlan, viewDate]);
 
+    const setDraftPlan = useCallback((plan: MealPlan | null, options: PlanDraftOptions = {}) => {
+        const week = options.weekStart ?? plan?.weekStart;
+        const basePlan = fetchedPlan?.weekStart === week ? fetchedPlan
+            : contextActivePlan?.weekStart === week ? contextActivePlan : null;
+        setStoredDraftPlan(plan, { ...options, basePlan, sourceMetadata: week ? draftMetadata[week] : undefined });
+    }, [setStoredDraftPlan, fetchedPlan, contextActivePlan, draftMetadata]);
+    const displayPlanRef = useRef(displayPlan);
+    const viewWeekRef = useRef(getWeekStartKey(viewDate));
+    const cloneRequestRef = useRef(0);
+    displayPlanRef.current = displayPlan;
+    viewWeekRef.current = getWeekStartKey(viewDate);
+    useEffect(() => () => { cloneRequestRef.current += 1; }, []);
+
     // Prompt State
     const [promptModalOpen, setPromptModalOpen] = useState(false);
     const [dismissedPromptWeek, setDismissedPromptWeek] = useState<string | null>(null);
@@ -140,7 +157,8 @@ export default function MealPlanner() {
     const [weekLoadAttempt, setWeekLoadAttempt] = useState(0);
 
 
-    const [saving, setSaving] = useState(false);
+    const saving = !!confirmingPlanWeeks[getWeekStartKey(viewDate)];
+    const [conflict, setConflict] = useState<{ week: string; version: SavedPlanVersion | null } | null>(null);
     const [addingToList, setAddingToList] = useState(false);
     const [saved, setSaved] = useState(false);
     const isDirty = !!planDrafts[getWeekStartKey(viewDate)];
@@ -180,11 +198,24 @@ export default function MealPlanner() {
     // Clone Last Week Function
     const handleCloneLastWeek = async () => {
         if (!user) return;
+        const request = ++cloneRequestRef.current;
+        if ((isDirty || displayPlan?.days.some(day => day.meals.length > 0))
+            && !window.confirm('Replace this week with last week’s plan? Your current changes will be replaced.')) return;
+        const startingPlan = displayPlan;
+        const startingWeek = getWeekStartKey(viewDate);
         setPlannerNotice(null);
         try {
             const targetStartDate = getStartOfWeek(viewDate);
             const previousWeekStart = addDays(targetStartDate, -7);
             const previousPlan = await getMealPlanByDate(user.uid, getWeekStartKey(previousWeekStart));
+
+            if (request !== cloneRequestRef.current || viewWeekRef.current !== startingWeek
+                || displayPlanRef.current !== startingPlan) {
+                if (request === cloneRequestRef.current) setPlannerNotice({
+                    tone: 'info', message: 'Clone cancelled. Your newer edits are still here.',
+                });
+                return;
+            }
 
             if (!previousPlan) {
                 setPlannerNotice({
@@ -226,7 +257,6 @@ export default function MealPlanner() {
                 tone: 'success',
                 message: 'Previous saved plan cloned into this week. Review it, then confirm the plan when it looks right.'
             });
-            console.log("Cloned plan:", clonedPlan);
 
         } catch (error) {
             console.error("Clone failed:", error);
@@ -361,7 +391,7 @@ export default function MealPlanner() {
         };
 
         fetchPlan();
-    }, [user, viewDate, viewMode, contextActivePlan, weekLoadAttempt]);
+    }, [user, viewDate, viewMode, contextActivePlan, weekLoadAttempt, planSaveRevision]);
 
     // Auto-Prompt for Plan Creation
     useEffect(() => {
@@ -584,91 +614,29 @@ export default function MealPlanner() {
         };
     }, [displayPlan, macroTotals]);
 
-    const handleConfirmPlan = async () => {
+    const handleConfirmPlan = async (replacementVersion?: SavedPlanVersion | null) => {
         if (!user || !displayPlan || saving) return;
         setPlannerNotice(null);
-        setSaving(true);
         try {
-            const startDate = getStartOfWeek(viewDate);
-            const savedPlanId = await trackSave(saveMealPlan(user.uid, {
-                weekStart: getWeekStartKey(viewDate),
-                weekEnd: toLocalDateKey(addDays(startDate, 6)),
-                goal: displayPlan.goal,
-                days: displayPlan.days.map(d => ({
-                    date: d.date,
-                    dayName: d.dayName,
-                    totalCalories: d.totalCalories,
-                    meals: d.meals.map(m => {
-                        const mealData: MealPlanMeal = {
-                            id: m.id,
-                            type: m.type,
-                            name: m.name,
-                            calories: m.calories || 0,
-                            protein: m.protein || 0,
-                            carbs: m.carbs || 0,
-                            fat: m.fat || 0,
-                            isEaten: m.isEaten || false
-                        };
-
-                        // Sanitize optional fields for Firestore
-                        if (m.recipeId) mealData.recipeId = m.recipeId;
-
-                        if (m.imageUrl) mealData.imageUrl = m.imageUrl;
-
-                        if (m.tag) mealData.tag = m.tag;
-
-                        return mealData;
-                    })
-                })),
-                // AUD-082: isAiGenerated is declared on MealPlan and permitted by
-                // the rules, but it was never included in the save payload -- so
-                // Firestore never received it, while local state was set to false
-                // immediately afterwards. After any reload it was undefined for
-                // every plan, and nothing could tell an AI plan from a manual one.
-                isAiGenerated: displayPlan.isAiGenerated ?? false,
-                ...(displayPlan.dailyTargets && {
-                    dailyTargets: {
-                        calories: displayPlan.dailyTargets.calories || 0,
-                        protein: displayPlan.dailyTargets.protein || 0,
-                        carbs: displayPlan.dailyTargets.carbs || 0,
-                        fat: displayPlan.dailyTargets.fat || 0
-                    }
-                })
-            }));
-            // Also update the store optimistically ? No, just refresh or let store handle success
-            // If we used a store action for saving, it would be cleaner.
-            // But for now, let's just trigger a reload or update
-            // Ideally we call a refresh action.
-            // window.location.reload(); // Too harsh.
-            // We can rely on AppContext refresh?
-            // updatePlan(displayPlan); // This might assume it's already saved with ID?
-
+            const savedPlan = await confirmPlan(displayPlan, replacementVersion);
+            if (!savedPlan) return;
+            setConflict(null);
             setSaved(true);
-
-            // Critical: Update local fetched state immediately so UI doesn't flash empty
-            // We know what we just saved, so we can treat it as 'fetched'
-            setFetchedPlan({
-                ...displayPlan,
-                id: savedPlanId,
-                weekStart: getWeekStartKey(viewDate),
-                weekEnd: toLocalDateKey(addDays(startDate, 6)),
-                isAiGenerated: displayPlan.isAiGenerated ?? false
-            });
-
-            setDraftPlan(null, { weekStart: displayPlan.weekStart, expectedPlan: displayPlan });
-
+            setFetchedPlan(savedPlan);
             setTimeout(() => {
                 setSaved(false);
                 refreshPlan?.();
             }, 1000);
         } catch (error) {
+            if (error instanceof PlanDraftConflictError) {
+                setConflict({ week: displayPlan.weekStart, version: error.savedVersion });
+                return;
+            }
             console.error('Failed to save meal plan:', error);
             setPlannerNotice({
                 tone: 'error',
                 message: 'Could not save this plan. Your changes are still here. Please try again.'
             });
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -869,7 +837,7 @@ export default function MealPlanner() {
                 // G-B: a refused tick is undone by the store, draft included.
                 // Say so, as the grocery list does for its ticks.
                 const failed = `Could not save your change to ${meal.name}. Please try again.`;
-                const saved = await toggleMealCompletion(displayPlan.id, meal.id, newStatus);
+                const saved = await toggleMealCompletion(displayPlan.id, meal.id, newStatus, displayPlan);
                 setPlannerNotice(current => saved
                     ? (current?.message === failed ? null : current)
                     : { tone: 'error', message: failed });
@@ -943,7 +911,7 @@ export default function MealPlanner() {
                 <span className={isDirty ? "hidden sm:inline" : undefined}>Preferences</span>
             </button>
             <button
-                onClick={handleConfirmPlan}
+                onClick={() => handleConfirmPlan()}
                 disabled={saving || (!!displayPlan.id && !isDirty)}
                 className={`flex-1 md:flex-none h-10 px-6 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_rgba(167,139,250,0.3)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${saved && !isDirty ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary-hover active:scale-95'}`}
             >
@@ -1093,18 +1061,31 @@ export default function MealPlanner() {
                         </div>
                         <button
                             onClick={() => {
+                                if (saving) return;
                                 const weekStart = getWeekStartKey(viewDate);
                                 setDraftPlan(null, { weekStart });
+                                setConflict(null);
                                 setSaved(false);
                                 setPlannerNotice(null);
                                 setDismissedPromptWeek(weekStart);
                                 setWeekLoadAttempt(attempt => attempt + 1);
                             }}
-                            className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border"
+                            disabled={saving}
+                            className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border disabled:cursor-wait disabled:opacity-50"
                         >
                             Discard changes
                         </button>
                     </div>
+                    {conflict?.week === getWeekStartKey(viewDate) && (
+                        <div className="mt-3 rounded-lg border border-amber-300/50 p-3 text-sm text-white">
+                            <p>This week was changed on another device since this draft.</p>
+                            <p className="mt-1 text-xs text-text-secondary">Replace the saved week, or discard these changes to keep it.</p>
+                            <button onClick={() => handleConfirmPlan(conflict.version)} disabled={saving}
+                                className="mt-2 min-h-10 rounded-lg bg-primary px-3 font-bold text-background-dark disabled:opacity-50">
+                                Replace saved week
+                            </button>
+                        </div>
+                    )}
                     <div className="mt-3">{plannerActions}</div>
                 </div>
             )}

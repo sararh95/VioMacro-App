@@ -2,6 +2,7 @@ import { query, where, getDocs, getDocsFromServer, getDoc, updateDoc, runTransac
 import { db } from '../../services/firebase/firebase';
 import { mealPlanDoc, mealPlansCollection } from '../../services/firebase/paths';
 import { assertPlanWithinLimits } from './lib/plan-limits';
+import { getSavedPlanVersion, sameSavedPlanVersion, PlanDraftConflictError, type SavePlanOptions } from './plan-drafts';
 import {
     assertMealStatusWithinLimits,
     extractMealStatus,
@@ -123,7 +124,7 @@ export async function getMealPlans(
  *   - a brand-new week uses the weekStart as its id, so two racing saves both
  *     target the same document and the transaction resolves them into one
  */
-export async function saveMealPlan(userId: string, plan: Omit<MealPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function saveMealPlan(userId: string, plan: Omit<MealPlan, 'id' | 'createdAt' | 'updatedAt'>, options: SavePlanOptions = {}): Promise<string> {
     if (consumeDevFailure('saveMealPlan')) {
         throw new Error('Injected saveMealPlan failure');
     }
@@ -143,18 +144,26 @@ export async function saveMealPlan(userId: string, plan: Omit<MealPlan, 'id' | '
     const planId = existing?.id ?? plan.weekStart;
     const planRef = mealPlanDoc(db, userId, planId);
 
-    await runTransaction(db, async (transaction) => {
+    const committedVersion = await runTransaction(db, async (transaction) => {
         const snapshot = await transaction.get(planRef);
+        const savedVersion = getSavedPlanVersion(snapshot.exists() ? { ...snapshot.data(), id: planId } as MealPlan : null);
+        if (Object.hasOwn(options, 'expectedVersion') && !sameSavedPlanVersion(options.expectedVersion ?? null, savedVersion)) {
+            throw new PlanDraftConflictError(savedVersion);
+        }
+        const createdAt = snapshot.exists() ? null : Timestamp.now();
+        const updatedAt = Timestamp.now();
         if (snapshot.exists()) {
-            transaction.update(planRef, { ...payload, updatedAt: Timestamp.now() });
+            transaction.update(planRef, { ...payload, updatedAt });
         } else {
             transaction.set(planRef, {
                 ...payload,
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
+                createdAt: createdAt!,
+                updatedAt,
             });
         }
+        return { id: planId, seconds: updatedAt.seconds, nanoseconds: updatedAt.nanoseconds };
     });
+    options.onCommitted?.(committedVersion);
 
     return planId;
 }
