@@ -52,6 +52,23 @@ Required fields:
 
 ## Open Items
 
+### R13 (1.0 review) One bad ingredient stops the shopping list
+
+- ID: R13 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#5](https://github.com/sararh95/VioMacro-App/pull/5)
+- Severity: P2
+- Workflow/page: Meal Planner Add to List and Grocery generation.
+- Expected: Skip and count nameless ingredients and units over 50 characters while writing all good ingredients.
+- Actual: BASE aggregation throws for a missing name or sends an overlong unit that makes the atomic grocery write fail.
+- User impact: One imported or legacy ingredient can prevent the week's shopping list from updating.
+- Evidence: Two new BASE red cases, matching source-only control, 83 focused unit passes, 299 app and 125 Functions passes, required grocery filters and four opened phone pictures. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g10-r13-invalid-ingredients-are-skipped).
+- Suspected area: Shared aggregateIngredients validation before totals enter atomic replacement.
+- Next action: Coordinator review after full public CI proof. Review the existing skip message's quantity-only wording separately.
+- Verification target: Mixed valid/nameless and valid/overlong-unit recipes, 50-character boundary, normalized-unit expansion, skipped counts, recipe/manual/legacy preservation and genuine-error atomicity.
+- Revisit trigger: PR #5 review.
+- Date closed: Pending.
+
 ### R5 (1.0 review) Recipe form discards unsaved typing
 
 - ID: R5 (1.0 review)
