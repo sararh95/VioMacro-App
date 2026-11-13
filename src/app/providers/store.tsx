@@ -10,6 +10,7 @@ import type { GroceryItem } from '../../features/groceries/shoppingService';
 import { getWeekStartKey, toLocalDateKey } from '../../shared/date-utils';
 import { trackSave } from '../../shared/pending-saves';
 import { settleMealTick, startMealTick, withMealEaten, type PendingMealTicks } from '../../features/meal-planning/lib/meal-status';
+import { readPlanDrafts, writePlanDrafts, type PlanDrafts, type PlanDraftOptions } from '../../features/meal-planning/plan-drafts';
 
 // --- State Definition ---
 interface AppState {
@@ -24,6 +25,8 @@ interface AppState {
     error: string | null;
     selectedDay: string | null; // ISO Date YYYY-MM-DD
     draftPlan: MealPlan | null; // For persisting unsaved work
+    planDrafts: PlanDrafts;
+    draftStorageError: string | null;
 }
 
 const initialState: AppState = {
@@ -38,6 +41,8 @@ const initialState: AppState = {
     error: null,
     selectedDay: toLocalDateKey(new Date()),
     draftPlan: null,
+    planDrafts: {},
+    draftStorageError: null,
 };
 
 const INITIAL_DATA_TIMEOUT_MS = 10000;
@@ -82,6 +87,7 @@ type Action =
     | { type: 'SET_LOADING_PLAN'; payload: boolean }
     | { type: 'SET_LOADING_GROCERY'; payload: boolean }
     | { type: 'SET_DRAFT_PLAN'; payload: MealPlan | null }
+    | { type: 'SET_PLAN_DRAFTS'; payload: { drafts: PlanDrafts; error: string | null } }
     // AUD-015: signing out must empty the store, not merely stop loading.
     | { type: 'RESET_FOR_NEW_USER' };
 
@@ -136,6 +142,8 @@ function appReducer(state: AppState, action: Action): AppState {
             return { ...state, loading: { ...state.loading, grocery: action.payload } };
         case 'SET_DRAFT_PLAN':
             return { ...state, draftPlan: action.payload };
+        case 'SET_PLAN_DRAFTS':
+            return { ...state, planDrafts: action.payload.drafts, draftStorageError: action.payload.error };
         default:
             return state;
     }
@@ -155,7 +163,7 @@ interface AppContextType extends AppState {
     updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
     saveCheckIn: (data: userService.WeightCheckIn) => Promise<void>;
     retrySavedData: () => void;
-    setDraftPlan: (plan: MealPlan | null) => void;
+    setDraftPlan: (plan: MealPlan | null, options?: PlanDraftOptions) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -168,10 +176,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const sessionRef = useRef(user);
     sessionRef.current = user;
     const retrySavedData = useCallback(() => setLoadAttempt(attempt => attempt + 1), []);
+    const planDraftsRef = useRef<PlanDrafts>({});
 
     useEffect(() => {
         dispatch({ type: 'RESET_FOR_NEW_USER' });
+        let drafts: PlanDrafts = {};
+        let error: string | null = null;
+        if (user) {
+            try {
+                drafts = readPlanDrafts(user.uid);
+            } catch {
+                error = 'Could not restore local plan drafts. Keep this page open and check your browser storage.';
+            }
+        }
+        planDraftsRef.current = drafts;
+        dispatch({ type: 'SET_PLAN_DRAFTS', payload: { drafts, error } });
     }, [user]);
+
+    useEffect(() => {
+        if (Object.keys(state.planDrafts).length === 0) return;
+        const warn = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [state.planDrafts]);
 
     /**
      * AUD-014: the single biggest performance defect in the audit.
@@ -196,6 +226,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
      */
     const stateRef = useRef(state);
     stateRef.current = state;
+    const persistPlanDrafts = useCallback((drafts: PlanDrafts) => {
+        if (!user || sessionRef.current !== user) return;
+        let error: string | null = null;
+        try {
+            writePlanDrafts(user.uid, drafts);
+        } catch {
+            error = 'Could not keep a local copy. Keep this page open until you confirm your plan.';
+        }
+        planDraftsRef.current = drafts;
+        dispatch({ type: 'SET_PLAN_DRAFTS', payload: { drafts, error } });
+    }, [user]);
     // G-B: meal taps the server has not answered yet. See toggleMealCompletion.
     const mealTapRef = useRef(0);
     const pendingMealTicksRef = useRef<PendingMealTicks>(new Map());
@@ -390,10 +431,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // AUD-015: never write a late answer into the next account's state.
             if (sessionRef.current === user) {
                 dispatch({ type: 'SET_MEAL_EATEN', payload: { planId, mealId, isEaten: saved } });
+                // An edit made during the pending tick may now have a local copy.
+                const drafts = planDraftsRef.current;
+                if (Object.values(drafts).some(plan => plan.id === planId)) {
+                    persistPlanDrafts(Object.fromEntries(Object.entries(drafts).map(([week, plan]) => [
+                        week, plan.id === planId ? withMealEaten(plan, mealId, saved) : plan,
+                    ])));
+                }
             }
             return false;
         }
-    }, [user]);
+    }, [user, persistPlanDrafts]);
 
     const toggleGroceryCheck = useCallback(async (itemId: string, isChecked: boolean) => {
         if (!user) return false;
@@ -445,9 +493,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_SELECTED_DAY', payload: date });
     }, []);
 
-    const setDraftPlan = useCallback((plan: MealPlan | null) => {
+    const setDraftPlan = useCallback((plan: MealPlan | null, options: PlanDraftOptions = {}) => {
+        if (!user || sessionRef.current !== user) return;
+        if (!options.transient) {
+            const week = options.weekStart ?? plan?.weekStart ?? stateRef.current.draftPlan?.weekStart;
+            if (!week) return;
+            // A completed save must not erase edits made while it was waiting.
+            if (options.expectedPlan && planDraftsRef.current[week] !== options.expectedPlan) return;
+            const drafts = { ...planDraftsRef.current };
+            if (plan) drafts[week] = plan;
+            else delete drafts[week];
+            persistPlanDrafts(drafts);
+        }
         dispatch({ type: 'SET_DRAFT_PLAN', payload: plan });
-    }, []);
+    }, [user, persistPlanDrafts]);
 
     const updateSettings = useCallback(async (settings: Partial<UserSettings>) => {
         const assertSession = () => {

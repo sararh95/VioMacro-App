@@ -7878,3 +7878,58 @@ test.describe('1.0 G9 plan edits are kept', () => {
     await expect(g4Day(page, 'Monday').getByRole('heading', { name: 'G9 Tea Snack', exact: true })).toBeVisible();
   });
 });
+test.describe('1.0 G9 draft recovery controls', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('draft warns on leaving from another tab and reopens in the same browser', async ({ page, context }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-reopen');
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await page.getByRole('button', { name: 'add_circle Create New Plan', exact: true }).click();
+    await page.getByRole('button', { name: 'auto_fix_high Open Plan Wizard', exact: true }).click();
+    await page.getByRole('button', { name: 'grid_on Start from Scratch (Empty Grid)', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+    await page.locator('#mobile-navigation-drawer a[href="/recipes"]').first().click();
+    await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+    const warned = page.waitForEvent('dialog');
+    await page.close({ runBeforeUnload: true });
+    const warning = await warned;
+    expect(warning.type()).toBe('beforeunload');
+    await warning.dismiss();
+    expect(page.isClosed()).toBe(false);
+    await page.close();
+    const reopened = await context.newPage();
+    await installAiCallableGuard(reopened);
+    await reopened.goto('/plan');
+    await settlePlanner(reopened);
+    await expect(reopened.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeVisible();
+    expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size).toBe(0);
+    await reopened.getByRole('button', { name: 'Discard changes', exact: true }).click();
+    await expect(reopened.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeHidden();
+    await expect(reopened.getByText('No plan found for this week. Create a new one or check other weeks!', { exact: true })).toBeVisible();
+    assertNoUnexpectedAiCalls(reopened);
+    await reopened.close();
+  });
+
+  test('Planner Discard restores saved meals and draft ticks never write early', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-discard');
+    const recipeId = await seedRecipe(client.db, uid, 'G9 Saved Meal');
+    await seedRecipe(client.db, uid, 'G9 Unsaved Breakfast', { mealType: 'breakfast', folders: ['breakfast'] });
+    const planId = await seedCurrentMealPlan(client.db, uid, recipeId, 'G9 Saved Meal');
+    const planRef = doc(client.db, 'users', uid, 'mealPlans', planId);
+    const before = (await getDoc(planRef)).data();
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g4Day(page, 'Monday').getByText('Add Breakfast', { exact: true }).click();
+    await page.getByRole('heading', { name: 'G9 Unsaved Breakfast', exact: true }).click();
+    await page.getByRole('button', { name: 'Mark as eaten: G9 Unsaved Breakfast', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Mark as not eaten: G9 Unsaved Breakfast', exact: true })).toBeVisible();
+    expect((await getDoc(planRef)).data()).toEqual(before);
+    await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'G9 Unsaved Breakfast', exact: true })).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'G9 Saved Meal', exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Not saved yet' })).toBeHidden();
+    expect((await getDoc(planRef)).data()).toEqual(before);
+  });
+});
