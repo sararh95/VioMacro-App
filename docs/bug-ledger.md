@@ -52,6 +52,57 @@ Required fields:
 
 ## Open Items
 
+### B12/R11 (1.0 review) Unsaved plan changes disappear or replace meals silently
+
+- ID: B12/R11 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#6](https://github.com/sararh95/VioMacro-App/pull/6)
+- Severity: P1
+- Workflow/page: Planner draft creation, editing, ticks, scratch and discard.
+- Expected: Drafts and ticks survive reopening per user and week until confirm or discard. The phone shows unsaved actions, leaving warns, and starting from scratch asks before replacing meals.
+- Actual: BASE keeps drafts only in memory and replaces meals without a question or discard action.
+- User impact: A week of unsaved edits can disappear without warning.
+- Evidence: BASE red failures, matching source-only control, passing reload/save-once, leave-warning, reopen and discard cases, four passing tab filters and opened phone/desktop pictures. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g9-b12-r11-r10-r12-plan-edits-are-kept).
+- Suspected area: Store draft lifecycle and Planner dirty state, action placement and copied days.
+- Next action: Coordinator review after latest-commit full CI proof.
+- Verification target: Draft/tick reload retention, no pre-confirm plan write, one saved plan, visible actions, scratch Cancel, discard, old saved-tick behavior and full CI floors.
+- Revisit trigger: PR #6 review.
+- Date closed: Pending.
+
+### R10 (1.0 review) Planner summaries use Monday alone
+
+- ID: R10 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#6](https://github.com/sararh95/VioMacro-App/pull/6)
+- Severity: P2
+- Workflow/page: Planner macro cards and Plan Analysis.
+- Expected: Both surfaces use the average of days with meals and state that basis.
+- Actual: BASE reads days[0], ignoring edits on other days.
+- User impact: The summaries describe only Monday while appearing to describe the week.
+- Evidence: Two-day red/control `400 !== 600`, green unit proof and opened 600 kcal pictures at both widths. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g9-b12-r11-r10-r12-plan-edits-are-kept).
+- Suspected area: Planner macro total calculation.
+- Next action: Coordinator review after latest-commit full CI proof.
+- Verification target: Two different populated days, empty-day exclusion, matching analysis basis and unchanged targets.
+- Revisit trigger: PR #6 review.
+- Date closed: Pending.
+
+### R12 (1.0 review) Add Tea lists no snack recipes
+
+- ID: R12 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#6](https://github.com/sararh95/VioMacro-App/pull/6)
+- Severity: P2
+- Workflow/page: Planner Tea slot recipe picker.
+- Expected: Tea lists snack recipes through the existing slot mapping and remains a Tea plan slot.
+- Actual: BASE passes tea as a recipe filter although tea is not a recipe type.
+- User impact: The Tea slot appears unusable even with snack recipes available.
+- Evidence: BASE and source-only control expected one snack and received zero; the fixed picker and selection pass, with both-width pictures. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g9-b12-r11-r10-r12-plan-edits-are-kept).
+- Suspected area: Planner RecipePicker filter argument.
+- Next action: Coordinator review after latest-commit full CI proof.
+- Verification target: Tea shows snacks, selection fills Tea, other meal filters stay unchanged and AI remains paused.
+- Revisit trigger: PR #6 review.
+- Date closed: Pending.
+
 ### R5 (1.0 review) Recipe form discards unsaved typing
 
 - ID: R5 (1.0 review)
