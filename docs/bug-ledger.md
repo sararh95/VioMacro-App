@@ -52,6 +52,24 @@ Required fields:
 
 ## Open Items
 
+### B23 (1.0 review) Dark design labels have low contrast
+
+- ID: B23 (1.0 review)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#10](https://github.com/sararh95/VioMacro-App/pull/10)
+- Severity: P2
+- Workflow/page: Recipe detail and Guided cooking.
+- Expected: Listed labels have contrast at least 4.5:1 at 390px and 1440px; progress track and timer gradient use dark app colors.
+- Actual: Missing surface-highlight utilities leave pale cooking surfaces; near-black badge and gray-500 labels fail contrast.
+- User impact: Badges, nutrition labels and cooking controls are hard to read.
+- Evidence: Two red browser cases and source-only control reproduce contrast from 1.23 to 3.69. Two green cases check all labels and computed gradient stops. Four required filters, full local check and ten opened before/after pictures pass. See the [QA proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g16-b23-dark-design-labels-are-readable).
+- Suspected area: src/index.css theme; GuidedCooking.tsx and RecipeDetail.tsx color classes.
+- Cause and fix: Define surface-highlight from existing surface-border and brighten only the listed dark text labels.
+- Next action: Coordinator review after exact-head full CI proof.
+- Verification target: 390px touch and 1440px light device, timer gradient endpoints, Previous enabled at rest/hover and unchanged G15 tests; full CI floor 774.
+- Revisit trigger: PR #10 review.
+- Date closed: Pending.
+
 ### B20 (1.0 review) Device light mode makes Planner titles unreadable
 
 - ID: B20 (1.0 review)

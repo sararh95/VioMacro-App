@@ -1,5 +1,16 @@
 # VioMacro QA Ledger
 
+## 2026-11-13 VioMacro 1.0 G16 B23 dark design labels are readable
+
+The missing surface-highlight token now uses the existing surface-border value. Recipe High Protein, macro labels, Guided of N and Step Timer get readable dark text colors. Full Recipe, the progress track, timer gradient and Previous hover now use the intended dark surfaces. [PR #10](https://github.com/sararh95/VioMacro-App/pull/10).
+
+- Red on BASE f507910: npm.cmd run test:e2e:emulator -- -g 1.0.G16 reports 2 failed. Line 8561 requires contrast >= 4.5. High Protein receives 1.483969970681268, macro labels 3.669404936266705, of N 3.6890286365833505, Step Timer 2.37492117784648, Full Recipe 1.2327814619127655 and Previous hover 1.3440420800137896. Timer/track dark-surface checks also fail. The initial ambiguous main selector was corrected only in the new test before this meaningful red run.
+- Green: the same command reports 2 passed (12.3s). Restoring only src/index.css, GuidedCooking.tsx and RecipeDetail.tsx from BASE reproduces 2 failed with the same assertion and values. Restoring HEAD leaves a clean tree. RUN g16/red-proof.txt, green-proof.txt and control-proof.txt retain the evidence.
+- Required npm.cmd run test:e2e:emulator filters pass: Recipe 78 (9.8m), Guided 17 (3.2m), cooking 23 (4.2m), G15 6 (1.3m). Each command exits 0 with infrastructure 4, failed 0 and skipped 0. Flaky none. Both 390px touch and 1440px light devices check every listed label, ancestor alpha blending, every computed linear-gradient stop, dark surfaces and enabled Previous hover. Existing G15 light/dark cases stay unchanged.
+- Picture kit before and after each passes 2. All ten PNGs in RUN g16 were opened: Recipe detail 390/1440, Guided step 1 390/1440 and step 2 with Previous hovered at 1440. The fixed labels are readable and the track/timer are dark. The phone timer's lower portion remains below the viewport as before; scrolling and navigation pass. Green accents and existing layout remain.
+- npm.cmd run check exits 0: app 325 passed, Functions 129 passed, failed 0, skipped 0, lint clean and both builds pass. Existing Functions lint selects no source files. Local Node 24.18.0; CI Node 22 is the referee. Required full-suite minimum is 774 tests, including emulator 249 (247 plus two new tests).
+- All 478763 checked-out old browser-spec bytes remain identical, including G15. Every old style-search hit stays (RUN old-test-hits-1.txt). No saved shape, dependency, rules, indexes, Planner dimming, green accent, tailwind.config.js or behavior changes. Full local suites are CI-only under the gauntlet. All seven test ports are free and the owned lock is removed. Physical phones, live data and live AI remain untested.
+
 ## 2026-11-13 VioMacro 1.0 G15 B20 dark design on every device
 
 Tailwind 4 now binds dark utilities to the app's existing dark class. Light-device users see the same dark Planner, Recipe detail and Guided cooking design. The source fix is one line in src/index.css. [PR #9](https://github.com/sararh95/VioMacro-App/pull/9).
