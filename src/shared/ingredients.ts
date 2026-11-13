@@ -124,7 +124,7 @@ const aliases: Record<string, string> = {
 export function normalizeIngredientUnit(unit: string): string {
     const clean = unit.trim().toLowerCase().replace(/\s+/g, ' ');
     // A leading package size describes one unit; normalize the count noun only.
-    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b/, (_match, size, word) => `${size || ''}${aliases[word] || word}`);
+    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b/, (_match, size, word) => `${size || ''}${Object.hasOwn(aliases, word) ? aliases[word] : word}`);
 }
 
 export function groceryIngredientKey(name: string, unit: string): string {
@@ -144,6 +144,10 @@ function countable(unit: string): boolean {
     return /^(?:pcs|cloves|eggs|cans|slices|stalks|sticks|large|medium|small)\b/.test(countUnit) || unit.startsWith(',');
 }
 
+function roundedGroceryQuantity(quantity: number, unit: string): number {
+    return countable(unit) ? Math.ceil(quantity - Math.min(1e-9, quantity * Number.EPSILON * 8)) : quantity;
+}
+
 export interface IngredientTotal { name: string; quantity: number; unit: string; aisle: string }
 
 /** Full-precision portion totals; countable rounding happens once at the end. */
@@ -151,26 +155,41 @@ export function aggregateIngredients(entries: { ingredient: IngredientInput; fac
     const totals = new Map<string, IngredientTotal>();
     let skippedCount = 0;
     for (const { ingredient, factor } of entries) {
+        if (!ingredient || typeof ingredient !== 'object' || Array.isArray(ingredient)) {
+            skippedCount++;
+            continue;
+        }
         const parsed = parseIngredientAmount(ingredient);
-        if (!parsed || typeof ingredient.item !== 'string' || !ingredient.item.trim()) {
+        if (!parsed || typeof ingredient.item !== 'string') {
             skippedCount++;
             continue;
         }
-        const unit = normalizeIngredientUnit(parsed.unit);
-        if (parsed.unit.length > 50 || unit.length > 50) {
-            skippedCount++;
-            continue;
-        }
-        const amount = scaleIngredientAmount(parsed, factor);
         const name = ingredient.item.trim().replace(/\s+/g, ' ');
+        const unit = normalizeIngredientUnit(parsed.unit);
+        if (!name || name.length > 200 || !unit || unit.length > 50) {
+            skippedCount++;
+            continue;
+        }
+        let amount: IngredientAmount;
+        try {
+            amount = scaleIngredientAmount(parsed, factor);
+        } catch {
+            skippedCount++;
+            continue;
+        }
         const key = groceryIngredientKey(name, unit);
         const prior = totals.get(key);
         const quantity = amount.qualitative ? 1 : (prior?.quantity || 0) + amount.max;
-        if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Ingredient total is outside the supported range');
+        // Check the value that would be written before accepting this contribution.
+        // Keep full precision in totals so valid countable amounts round only once.
+        if (!Number.isFinite(quantity) || quantity <= 0 || roundedGroceryQuantity(quantity, unit) > 100000) {
+            skippedCount++;
+            continue;
+        }
         totals.set(key, { name: prior?.name || name, quantity, unit, aisle: guessAisle(name) });
     }
     const items = [...totals.values()].map(item => ({ ...item,
-        quantity: countable(item.unit) ? Math.ceil(item.quantity - Math.min(1e-9, item.quantity * Number.EPSILON * 8)) : item.quantity,
+        quantity: roundedGroceryQuantity(item.quantity, item.unit),
     }));
     return { items, skippedCount };
 }
@@ -198,7 +217,7 @@ export function parseGroceryInput(text: string): IngredientTotal | null {
     if (!parsed) return null;
     const tail = parsed.unit;
     const first = tail.match(/^((?:\([^)]*\)\s*)?([a-z]+)(?:\s+\([^)]*\))?)\s+(.+)$/i);
-    const unit = first && aliases[first[2].toLowerCase()] ? first[1] : 'pcs';
+    const unit = first && Object.hasOwn(aliases, first[2].toLowerCase()) ? first[1] : 'pcs';
     const name = unit === 'pcs' && !first?.[2].match(/^(?:pcs?|pieces?)$/i) ? tail : first![3];
     if (tail === 'pcs' || !name.trim()) return null;
     return aggregateIngredients([{ ingredient: { item: name, quantity: parsed.max, unit }, factor: 1 }]).items[0] || null;

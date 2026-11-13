@@ -7800,6 +7800,48 @@ test.describe('1.0 G6 R7 no blank page', () => {
   });
 });
 
+
+test.describe('1.0 G10b R13 ingredient validation', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('Add to List keeps Rice and normalized Butter and skips two invalid ingredients', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g10b-r13');
+    const title = 'G10b Mixed Ingredients';
+    const recipeId = await seedRecipe(client.db, uid, title, {
+      servings: 1,
+      ingredients: [
+        { item: 'Rice', quantity: '2', unit: 'cups' },
+        { item: 'x'.repeat(201), quantity: '1', unit: 'g' },
+        { item: 'Milk', quantity: '100001', unit: 'ml' },
+        { item: 'Butter', quantity: '1', unit: 'tablespoons (level, plus extra for greasing the pan)' },
+      ],
+    });
+    const recipeRef = doc(client.db, 'users', uid, 'recipes', recipeId);
+    const before = (await getDoc(recipeRef)).data();
+    const planId = await seedCurrentMealPlan(client.db, uid, recipeId, title);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await page.getByRole('button', { name: /Add to List/ }).first().tap();
+    const notice = page.getByRole('alert');
+    await expect(notice).toBeVisible();
+    expect(await notice.textContent(), 'R13 must skip two invalid contributions and complete the list').toMatch(/Skipped 2 ingredients/i);
+    const saved = (await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(row => row.data());
+    expect(saved.map(row => [row.name, row.quantity, row.unit, row.aisle, row.source, row.mealPlanId, row.isChecked]).sort()).toEqual([
+      ['Butter', 1, 'tbsp (level, plus extra for greasing the pan)', 'Dairy', 'generated', planId, false],
+      ['Rice', 2, 'cups', 'Pantry', 'generated', planId, false],
+    ]);
+    expect((await getDoc(recipeRef)).data()).toEqual(before);
+    await page.goto('/grocery');
+    await expect(page.getByText('Rice', { exact: true })).toBeVisible();
+    await expect(page.getByText('Butter', { exact: true })).toBeVisible();
+    await expect(page.getByText('Milk', { exact: true })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText('Rice', { exact: true })).toBeVisible();
+    await expect(page.getByText('Butter', { exact: true })).toBeVisible();
+    expect((await getDoc(recipeRef)).data()).toEqual(before);
+  });
+});
+
 test.describe('1.0 G11 AI off is fully off', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
