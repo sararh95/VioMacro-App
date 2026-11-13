@@ -136,7 +136,7 @@ export default function GuidedCooking({ recipe, onExit, servings }: GuidedCookin
                     <div className="flex flex-col gap-2 w-full max-w-4xl mx-auto">
                         <div className="flex justify-between items-end">
                             <p className="text-slate-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider">Cooking Progress</p>
-                            <p className="text-slate-900 dark:text-primary text-base font-bold">Step {currentStep + 1} <span className="text-slate-400 dark:text-gray-500 font-normal">of {steps.length}</span></p>
+                            <p className="text-slate-900 dark:text-primary text-base font-bold">Step {currentStep + 1} <span className="text-slate-400 dark:text-gray-400 font-normal">of {steps.length}</span></p>
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-surface-highlight rounded-full h-2">
                             <div className="bg-primary h-2 rounded-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(19,236,91,0.4)]" style={{ width: `${progress}%` }}></div>
@@ -189,7 +189,7 @@ export default function GuidedCooking({ recipe, onExit, servings }: GuidedCookin
                         <div className="mt-auto mb-8">
                             <div className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-surface-highlight dark:to-[#1a3824] rounded-2xl p-6 shadow-inner ring-1 ring-black/5 dark:ring-white/10">
                                 <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2 text-slate-500 dark:text-gray-400">
+                                    <div className="flex items-center gap-2 text-slate-500 dark:text-gray-300">
                                         <span className="material-symbols-outlined">timer</span>
                                         <span className="text-sm font-semibold uppercase tracking-wider">Step Timer</span>
                                     </div>
