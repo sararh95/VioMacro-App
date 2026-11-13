@@ -857,7 +857,10 @@ export default function MealPlanner() {
                         ),
                     },
             );
-            setDraftPlan({ ...displayPlan, days: newDays }, { transient: !!displayPlan.id && !isDirty });
+            setDraftPlan({ ...displayPlan, days: newDays }, {
+                transient: !!displayPlan.id && !isDirty,
+                localTick: meal.id,
+            });
 
             // AUD-132: save for whichever SAVED plan is on screen, not only the
             // current week. A draft that has never been saved has no id and

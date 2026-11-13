@@ -177,9 +177,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     sessionRef.current = user;
     const retrySavedData = useCallback(() => setLoadAttempt(attempt => attempt + 1), []);
     const planDraftsRef = useRef<PlanDrafts>({});
+    const localDraftTicksRef = useRef(new Map<string, number>());
 
     useEffect(() => {
         dispatch({ type: 'RESET_FOR_NEW_USER' });
+        localDraftTicksRef.current.clear();
         let drafts: PlanDrafts = {};
         let error: string | null = null;
         if (user) {
@@ -417,6 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
          * simply has not finished, so nothing is undone.
          */
         const key = `${planId}/${mealId}`;
+        const localTick = localDraftTicksRef.current.get(key);
         const tap = ++mealTapRef.current;
         startMealTick(pendingMealTicksRef.current, key, tap, !isEaten);
         try {
@@ -431,9 +434,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // AUD-015: never write a late answer into the next account's state.
             if (sessionRef.current === user) {
                 dispatch({ type: 'SET_MEAL_EATEN', payload: { planId, mealId, isEaten: saved } });
-                // An edit made during the pending tick may now have a local copy.
+                // Roll back a copied pending tick, while preserving newer local draft taps.
                 const drafts = planDraftsRef.current;
-                if (Object.values(drafts).some(plan => plan.id === planId)) {
+                if (localDraftTicksRef.current.get(key) === localTick
+                    && Object.values(drafts).some(plan => plan.id === planId)) {
                     persistPlanDrafts(Object.fromEntries(Object.entries(drafts).map(([week, plan]) => [
                         week, plan.id === planId ? withMealEaten(plan, mealId, saved) : plan,
                     ])));
@@ -500,6 +504,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!week) return;
             // A completed save must not erase edits made while it was waiting.
             if (options.expectedPlan && planDraftsRef.current[week] !== options.expectedPlan) return;
+            if (options.localTick && plan?.id) {
+                const key = `${plan.id}/${options.localTick}`;
+                localDraftTicksRef.current.set(key, (localDraftTicksRef.current.get(key) ?? 0) + 1);
+            }
             const drafts = { ...planDraftsRef.current };
             if (plan) drafts[week] = plan;
             else delete drafts[week];

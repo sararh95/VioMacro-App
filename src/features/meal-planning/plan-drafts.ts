@@ -5,6 +5,7 @@ export type PlanDraftOptions = {
     weekStart?: string;
     transient?: boolean;
     expectedPlan?: MealPlan;
+    localTick?: string;
 };
 
 const storageKey = (userId: string) => `viomacro:plan-drafts:${userId}`;
