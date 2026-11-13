@@ -7798,3 +7798,83 @@ test.describe('1.0 G6 R7 no blank page', () => {
     expect(await g4Snapshot(client.db, uid)).toEqual(before);
   });
 });
+
+test.describe('1.0 G9 plan edits are kept', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('B12 R11 draft dinner and tick survive reload until Confirm Plan saves once', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-draft-reload');
+    const title = 'G9 Draft Dinner';
+    await seedRecipe(client.db, uid, title);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await page.getByRole('button', { name: 'add_circle Create New Plan', exact: true }).click();
+    await page.getByRole('button', { name: 'auto_fix_high Open Plan Wizard', exact: true }).click();
+    await page.getByRole('button', { name: 'grid_on Start from Scratch (Empty Grid)', exact: true }).click();
+    await g4Day(page, 'Monday').getByText('Add Dinner', { exact: true }).click();
+    await page.getByRole('heading', { name: title, exact: true }).click();
+    await page.getByRole('button', { name: `Mark as eaten: ${title}`, exact: true }).click();
+    await expect(page.getByRole('button', { name: `Mark as not eaten: ${title}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const plans = collection(client.db, 'users', uid, 'mealPlans');
+    expect((await getDocs(plans)).size).toBe(0);
+    page.on('dialog', async dialog => { await dialog.accept(); });
+    await page.reload();
+    await settlePlanner(page);
+    expect(await page.getByRole('heading', { name: title, exact: true }).count(),
+      'B12 draft dinner must survive reload before Confirm Plan').toBe(1);
+    await expect(page.getByRole('button', { name: `Mark as not eaten: ${title}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const bar = page.getByRole('status').filter({ hasText: 'Not saved yet' });
+    await expect(bar).toBeVisible();
+    const box = (await bar.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(844);
+    expect((await getDocs(plans)).size).toBe(0);
+    await bar.getByRole('button', { name: /Confirm Plan/ }).click();
+    await expect(bar).toBeHidden();
+    const records = await getDocs(plans);
+    expect(records.size).toBe(1);
+    const plan = records.docs[0].data();
+    const dinner = plan.days[0].meals.find((meal: { name: string }) => meal.name === title);
+    expect(plan.mealStatus[dinner.id]).toBe(true);
+    await page.reload();
+    await settlePlanner(page);
+    await expect(page.getByRole('button', { name: `Mark as not eaten: ${title}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect((await getDocs(plans)).size).toBe(1);
+    await expect(bar).toBeHidden();
+  });
+
+  test('R11 Planner start from scratch asks and Cancel keeps the saved meals', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-scratch-cancel');
+    const title = 'G9 Saved Dinner';
+    const recipeId = await seedRecipe(client.db, uid, title);
+    const planId = await seedCurrentMealPlan(client.db, uid, recipeId, title);
+    const planRef = doc(client.db, 'users', uid, 'mealPlans', planId);
+    const before = (await getDoc(planRef)).data();
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /Plan Week/ }).click();
+    const questions: string[] = [];
+    page.on('dialog', async dialog => { questions.push(dialog.message()); await dialog.dismiss(); });
+    await page.getByRole('button', { name: 'grid_on Start from Scratch (Empty Grid)', exact: true }).click();
+    expect(questions.length, 'R11 starting from scratch must ask before replacing meals').toBe(1);
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    expect((await getDoc(planRef)).data()).toEqual(before);
+  });
+
+  test('R12 Planner Add Tea lists snack recipes', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-tea');
+    const recipeId = await seedRecipe(client.db, uid, 'G9 Existing Dinner');
+    await seedCurrentMealPlan(client.db, uid, recipeId, 'G9 Existing Dinner');
+    await seedRecipe(client.db, uid, 'G9 Tea Snack', { mealType: 'snack', folders: ['snack'] });
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await page.getByTitle('Toggle Daily Tea', { exact: true }).click();
+    await g4Day(page, 'Monday').getByText('Add Tea', { exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Select Tea', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'G9 Tea Snack', exact: true }),
+      'R12 Tea must list snack recipes through the slot mapping').toHaveCount(1);
+    await page.getByRole('heading', { name: 'G9 Tea Snack', exact: true }).click();
+    await expect(g4Day(page, 'Monday').getByRole('heading', { name: 'G9 Tea Snack', exact: true })).toBeVisible();
+  });
+});
