@@ -8239,3 +8239,52 @@ test.describe('1.0 G9 R2 review', () => {
     await expect(page.getByRole('heading', { name: 'R2 Kept Dinner', exact: true })).toBeVisible();
   });
 });
+
+
+test.describe('1.0 G9 R2 positive choices', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('C2 a saved tick completing during Confirm does not create a false conflict', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'r2-own-tick');
+    const planId = await seedLegacyShapePlan(client.db, uid, getMondayWeekStart(), [
+      { id: 'r2-own-tick', name: 'R2 Own Tick Dinner', type: 'dinner', isEaten: false },
+    ]);
+    const ref = doc(client.db, 'users', uid, 'mealPlans', planId);
+    await page.goto('/plan'); await settlePlanner(page);
+    const hold = await g9R2Hold(page, 'save');
+    try {
+      await page.getByRole('button', { name: 'Mark as eaten: R2 Own Tick Dinner', exact: true }).click();
+      await expect.poll(hold.count).toBeGreaterThan(0);
+      await page.getByRole('button', { name: /Preferences/ }).first().click();
+      await page.getByRole('spinbutton').first().fill('2333');
+      await page.getByRole('button', { name: 'Save Targets', exact: true }).click();
+      await g9R2Bar(page).getByRole('button', { name: /Confirm Plan/ }).click();
+      await expect(g9R2Bar(page).getByRole('button', { name: /Saving/ })).toBeDisabled();
+      expect(hold.count()).toBe(1);
+      await hold.release();
+      await expect(g9R2Bar(page)).toBeHidden();
+      const saved = (await getDoc(ref)).data()!;
+      expect(saved.dailyTargets.calories).toBe(2333);
+      expect(saved.mealStatus['r2-own-tick']).toBe(true);
+      await expect(page.getByText('This week was changed on another device since this draft.', { exact: true })).toHaveCount(0);
+    } finally { await hold.release(); }
+  });
+
+  test('C2 Replace saved week saves the draft only after the explicit choice', async ({ page }) => {
+    const fixture = await g9R2SavedDraft(page, 'r2-replace-choice');
+    const stored = (await getDoc(fixture.ref)).data()!;
+    stored.days[0].meals[0].name = 'R2 Remote Choice Dinner';
+    await setDoc(fixture.ref, { ...stored, updatedAt: Timestamp.now() });
+    const newer = (await getDoc(fixture.ref)).data();
+    await g9R2Bar(page).getByRole('button', { name: /Confirm Plan/ }).click();
+    const replace = g9R2Bar(page).getByRole('button', { name: 'Replace saved week', exact: true });
+    await expect(replace).toBeVisible();
+    expect((await getDoc(fixture.ref)).data()).toEqual(newer);
+    await replace.click();
+    await expect(g9R2Bar(page)).toBeHidden();
+    const saved = (await getDoc(fixture.ref)).data()!;
+    expect(saved.days[0].meals.map((meal: { name: string }) => meal.name)).toEqual(['R2 Breakfast', 'R2 Saved Dinner']);
+    expect(saved.createdAt).toEqual(stored.createdAt);
+    expect((await getDocs(collection(fixture.client.db, 'users', fixture.uid, 'mealPlans'))).size).toBe(1);
+  });
+});
