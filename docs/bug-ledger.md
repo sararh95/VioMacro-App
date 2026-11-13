@@ -52,6 +52,25 @@ Required fields:
 
 ## Open Items
 
+### B12/R11 (1.0 review, round 2) Kept drafts can erase other weeks or newer saves
+
+- ID: B12/R11 (1.0 review, round 2)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#6](https://github.com/sararh95/VioMacro-App/pull/6)
+- Severity: P1
+- Workflow/page: Planner kept drafts, tabs, Confirm, Clone, storage recovery and leave warnings.
+- Expected: Other weeks survive tab writes; stale drafts ask before replacing newer saved data; Confirms stay serialized across navigation; Clone preserves Cancel and later edits; malformed cached weeks remain untouched while valid weeks load.
+- Actual: The first G9 implementation writes stale whole-cache maps, saves without an expected version, keeps its save lock only in the page, and accepts unconditional or stale Clone replies.
+- User impact: A kept draft can erase another week's draft or overwrite newer saved meals.
+- Evidence: Red-first cases for coordinator items 1-8, matching source-only controls, 16 green G9 browser cases, ten focused unit cases, four green tab filters, full local check and 22 opened phone/desktop pictures. See the [round 2 QA proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g9-review-round-2).
+- Cause and fix: Patch only the edited stored week; synchronize storage events; persist starting-version metadata locally; check it inside saveMealPlan's transaction; reserve a provider-owned week lease; guard Clone replies; validate and recover cached weeks separately.
+- Review decisions: Discard is disabled during Confirm. Normally kept drafts do not show a leave warning; only failed local persistence does. These coordinator decisions supersede the earlier draft warning expectation below.
+- Suspected area: Store draft lifecycle, plan-drafts validation, Planner actions and saveMealPlan version comparison.
+- Next action: Merge current main, repeat G4-G6 and verify latest-commit full CI before coordinator review.
+- Verification target: Every coordinator item 1-8 plus the original B12/R11/R10/R12 cases; unchanged cloud shape and AI pause.
+- Revisit trigger: PR #6 review.
+- Date closed: Pending.
+
 ### B12/R11 (1.0 review) Unsaved plan changes disappear or replace meals silently
 
 - ID: B12/R11 (1.0 review)
