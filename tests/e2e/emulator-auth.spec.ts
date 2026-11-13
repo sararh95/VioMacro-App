@@ -7933,3 +7933,56 @@ test.describe('1.0 G9 draft recovery controls', () => {
     expect((await getDoc(planRef)).data()).toEqual(before);
   });
 });
+test.describe('1.0 G9 latest draft tick', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('B12 latest local draft tick survives an older saved tick refusal', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g9-latest-tick');
+    const title = 'G9 Existing Dinner';
+    const mealId = 'g9-existing-dinner';
+    await seedRecipe(client.db, uid, 'G9 Latest Breakfast', { mealType: 'breakfast', folders: ['breakfast'] });
+    const planId = await seedLegacyShapePlan(client.db, uid, getMondayWeekStart(), [
+      { id: mealId, name: title, type: 'dinner', isEaten: false },
+    ]);
+    const planRef = doc(client.db, 'users', uid, 'mealPlans', planId);
+    const mealStatus = Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`g9-old-${index}`, false]));
+    await setDoc(planRef, { mealStatus }, { merge: true });
+    const before = (await getDoc(planRef)).data();
+    await page.goto('/plan');
+    await settlePlanner(page);
+    const pattern = '**/google.firestore.v1.Firestore/Write/**';
+    let release!: () => void;
+    let held = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const handler = async (route: Route) => {
+      held++;
+      await gate;
+      await route.continue();
+    };
+    await page.route(pattern, handler);
+    try {
+      await page.getByRole('button', { name: `Mark as eaten: ${title}`, exact: true }).click();
+      await expect.poll(() => held).toBeGreaterThan(0);
+      await g4Day(page, 'Monday').getByText('Add Breakfast', { exact: true }).click();
+      await page.getByRole('heading', { name: 'G9 Latest Breakfast', exact: true }).click();
+      await page.getByRole('button', { name: `Mark as not eaten: ${title}`, exact: true }).click();
+      await page.getByRole('button', { name: `Mark as eaten: ${title}`, exact: true }).click();
+      const tick = page.getByRole('button', { name: /^Mark as (?:not )?eaten: G9 Existing Dinner$/ });
+      await expect(tick).toHaveAttribute('aria-pressed', 'true');
+      release();
+      await expect(page.getByRole('alert').filter({ hasText: `Could not save your change to ${title}.` })).toBeVisible();
+      await expect(tick, 'B12 an older saved-tick refusal must preserve the newer local draft tick').toHaveAttribute('aria-pressed', 'true');
+      expect((await getDoc(planRef)).data()).toEqual(before);
+      const bar = page.getByRole('status').filter({ hasText: 'Draft kept on this device' });
+      await bar.getByRole('button', { name: /Confirm Plan/ }).click();
+      await expect(bar).toBeHidden();
+      const saved = (await getDoc(planRef)).data()!;
+      expect(saved.mealStatus[mealId]).toBe(true);
+      expect(saved.days[0].meals).toContainEqual(expect.objectContaining({ name: 'G9 Latest Breakfast' }));
+      expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size).toBe(1);
+    } finally {
+      release();
+      await page.unroute(pattern, handler);
+    }
+  });
+});
