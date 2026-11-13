@@ -1,5 +1,15 @@
 # VioMacro QA Ledger
 
+## 2026-11-12 VioMacro 1.0 G9 after main merge
+
+Merged main G10 into the branch, with new BASE `c612cb4`. Both groups' complete ledger entries are retained. All six G9 source/test blobs match the previously reviewed `54f50ba` exactly. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
+
+- Fresh targeted proof: `node --test tests/unit/plan-macro-summary.test.ts tests/unit/plan-drafts.test.ts` passed 4; the browser wrapper with `-g 1.0.G9` reported `5 passed (1.2m)`. The control restored only MealPlanner.tsx and store.tsx with `--source=c612cb48664af80c676af8478e8ece2c224bf16d`. The unit control again reported `400 !== 600`; the browser control with `-g 1.0.G9.plan.edits.are.kept` reported `3 failed`, with the same Expected 1/Received 0 assertions at lines 7824, 7860 and 7876. Restoring committed source left a clean tree. Current evidence uses RUN `merge-1-`.
+- Fresh required filters, `npm.cmd run test:e2e:emulator -- -g <filter>`, passed plan 52 (11.1m), Planner 40 (9.7m), tick 19 (4.3m) and draft 14 (2.7m). Each native exit is explicitly 0. Infrastructure passed 4 per invocation. Failed 0 and skipped 0. No case in these merged-base runs was flaky.
+- Repeated formal `npm.cmd run check` returned `Merged check native exit=0`: app 303 passed, Functions 125 passed, lint 0 errors and both builds passed. Failed 0 and skipped 0. Local Node is 24; CI uses 22. Current base CI has app 299 and emulator browser 224. With G9's four unit and five browser cases, required minima are app 303 and emulator browser 229, total 728. Complete base check-job counts are preserved in RUN `base-check-raw-1.txt`; the formatted CLI log omits later output after a very long stack line.
+- Fresh picture kit: `2 passed (1.0m)`, native exit 0. All 14 new `g9-after-merge-1-*.png` pictures in `C:/Users/sarar/VioMacro/viomacro-sol-runs/g9/` were opened at 390 px touch and 1440 px. Unsaved/reloaded/confirmed states, average cards, analysis, Tea list and waiting confirmation show the same working behavior. Discard remains enabled and Preferences Cancel works during the wait. The separate baseline MealCard title contrast issue is unchanged. The emulator footer does not cover the draft controls.
+- The exact original browser-test prefix is still 438,259 bytes and unchanged against the new BASE checkout. The R10 red test is unchanged. No older ledger line changed, no source or dependency changed during the merge resolution, and all seven required ports were free before the owned lock was released. Existing earlier baseline VM040 flakiness remains recorded below; none of the new cases is flaky.
+
 ## 2026-11-12 VioMacro 1.0 G9 B12 R11 R10 R12 plan edits are kept
 
 Local drafts are kept by user and week until Confirm Plan or Discard changes. Draft ticks stay local and are included in confirmation. A sticky phone bar exposes both actions, and the store warns before leaving even after moving to another tab. Starting from scratch asks before replacing meals. Cards and Plan Analysis use the average of populated days and name that basis. Tea uses the existing snack mapping. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
