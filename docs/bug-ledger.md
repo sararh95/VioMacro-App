@@ -123,6 +123,23 @@ Required fields:
 - Revisit trigger: PR #6 review.
 - Date closed: Pending.
 
+### R13 (1.0 review, G10b) Ingredient values stop or corrupt the week's list
+
+- ID: R13 (1.0 review, G10b)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#8](https://github.com/sararh95/VioMacro-App/pull/8)
+- Severity: P2
+- Workflow/page: Planner Add to List, grocery generation and numeric quick add.
+- Expected: Skip and count bad contributions while preserving good items, earlier totals and valid normalized units.
+- Actual: BASE drops valid long raw units, accepts overlong names or totals rejected by rules, throws on malformed/numeric entries and substitutes inherited alias properties.
+- User impact: One ingredient can block the week or silently change its list.
+- Evidence: Sixteen new unit red failures, one real-rules phone browser failure, matching source-only control, green regressions, 99 focused unit passes, four required browser filters and an opened phone picture. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g10b-r13-ingredient-contribution-validation).
+- Suspected area: Shared aggregation validates contributions against written grocery constraints before accepting totals; unit aliases require own properties.
+- Next action: Coordinator review after exact-head full CI proof. No deploy.
+- Verification target: Name/unit/amount boundaries, normalization shrinkage, valid-bad-valid ordering, retained totals, overflow/underflow, aliases, atomic failures, real rules and unchanged recipes.
+- Revisit trigger: PR #8 review.
+- Date closed: Pending.
+
 ### R13 (1.0 review) One bad ingredient stops the shopping list
 
 - ID: R13 (1.0 review)
