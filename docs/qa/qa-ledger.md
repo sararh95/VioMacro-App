@@ -1,5 +1,16 @@
 # VioMacro QA Ledger
 
+## 2026-11-13 VioMacro 1.0 G15 B20 dark design on every device
+
+Tailwind 4 now binds dark utilities to the app's existing dark class. Light-device users see the same dark Planner, Recipe detail and Guided cooking design. The source fix is one line in src/index.css. [PR #9](https://github.com/sararh95/VioMacro-App/pull/9).
+
+- Red on BASE 84a470f with npm.cmd run test:e2e:emulator -- -g 1.0.G15 reported 1 failed and 1 passed (35.0s). Line 8446 expects contrast >= 4.5. Planner reported rgb(255, 255, 255) on [255,255,255], Received 1. Cooking ingredient/time/temperature fragments received 2.7214160269541607, 2.887538574585411 and 3.8075296430448775. Recipe detail title and ingredient checks passed on BASE. The dark-device guard passed.
+- Green reported 2 passed (21.8s). Restoring only src/index.css from BASE reproduced 1 failed and 1 passed (23.8s), with the same four contrast failures at line 8446. Restoring HEAD left a clean tree. RUN red-proof.txt, green-proof.txt and control-proof.txt retain proof.
+- Required npm.cmd run test:e2e:emulator filters passed at Planner 42 (6.8m), Recipe 76 (9.5m), Guided 15 (3.1m) and cooking 21 (4.1m). Each infrastructure prefix passed 4. Every command exited 0 with failed 0 and skipped 0. Flaky none.
+- Both picture-kit runs passed 2. All twelve 390px touch pictures were opened. Each dark before/after PNG is byte-identical. Each fixed light PNG is byte-identical to its fixed dark counterpart. Planner titles and cooking highlights are readable. Existing dark High Protein badge and timer-label faintness is recorded for the coordinator.
+- npm.cmd run check exited 0 with app 325 passed and Functions 129 passed, failed 0 and skipped 0. Lint and both builds passed. Existing Functions lint selects no source files. Local Node is 24.18.0. CI uses Node 22 and must verify all full suites, including emulator floor 245 plus the two new tests.
+- All 474226 checked-out bytes of the old browser tests are preserved. The 36 pre-existing style-search hits stay. Dependencies, configuration and saved records are preserved. Full local browser, rules and concurrency suites are CI-only under the gauntlet. Physical phones, live data and live providers remain untested. All seven test ports were free before releasing this group's lock.
+
 ## 2026-11-13 VioMacro 1.0 G9 Clone source correction
 
 First G7 CI `43419019306` at `e4cb30e` passed check/rules and all 26 G9 names, but three unchanged G13 batch/cancellation sequences failed at 1440, 768 and 390 px. Each failed both CI attempts at line 6485: `expect(...No previous saved plan was found to clone...).toBeVisible()`, Expected visible, element(s) not found. The replacement question ran before discovering there was no previous plan. This was a G9 regression, not a flake. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)

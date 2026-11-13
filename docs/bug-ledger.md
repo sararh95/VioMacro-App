@@ -52,6 +52,24 @@ Required fields:
 
 ## Open Items
 
+### B20 (1.0 review) Device light mode makes Planner titles unreadable
+
+- ID: B20 (1.0 review)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#9](https://github.com/sararh95/VioMacro-App/pull/9)
+- Severity: P2
+- Workflow/page: Planner meal cards, Recipe detail and Guided cooking.
+- Expected: The app's dark class selects the dark design on every device.
+- Actual: Tailwind 4 follows device color preference because the stylesheet lacks a class-based dark variant. Light devices show white meal titles on white cards and faint cooking highlights.
+- User impact: Saved meal names cannot be read on a light-mode device.
+- Evidence: BASE and source-only control report Planner contrast 1 against minimum 4.5. Both new scheme scenarios and four existing tab filters pass after the fix. Twelve opened pictures prove the light-device correction and byte-identical dark views. See the [QA proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g15-b20-dark-design-on-every-device).
+- Suspected area: src/index.css Tailwind dark variant.
+- Cause and fix: Add the Tailwind 4 class-based custom dark variant after the import.
+- Next action: Coordinator review after latest-commit full CI proof.
+- Verification target: Both color schemes at 390px, contrast >= 4.5 for the specified text, existing desktop/mobile interactions and full CI floors.
+- Revisit trigger: PR #9 review.
+- Date closed: Pending.
+
 ### B12/R11 (1.0 review, round 2) Kept drafts can erase other weeks or newer saves
 
 - ID: B12/R11 (1.0 review, round 2)
