@@ -94,7 +94,7 @@ test('VM-028: a rejected recipe read leaves the list untouched', async () => {
 });
 
 test('VM-028: a build error after a valid ingredient leaves the list untouched', async () => {
-    const h = await harness(); h.state.recipes = [recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, { item: null, quantity: '1', unit: 'cups' }])];
+    const h = await harness(); h.state.recipes = [{ ...recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, { item: 'Oil', quantity: '1e308', unit: 'tsp' }]), servings: 0.25 }];
     const before = h.snapshot();
     await assert.rejects(h.generate());
     assert.deepEqual(h.snapshot(), before);
@@ -131,7 +131,7 @@ test('VM-028: a different unit does not inherit checked state', async () => {
 test('VM-028: empty/invalid ingredient names cannot replace saved data', async () => {
     for (const ingredient of [{ item: '', quantity: '1', unit: 'cup' }, { item: null, quantity: '1', unit: 'cups' }]) {
         const h = await harness(); h.state.recipes = [recipe([ingredient])]; const before = h.snapshot();
-        await assert.rejects(h.generate());
+        assert.deepEqual(await h.generate(), { success: false, count: 0, skippedCount: 1, message: 'No addable ingredients found. Your shopping list has not changed.' });
         assert.deepEqual(h.snapshot(), before);
         assert.deepEqual(h.state.commits, []);
     }
@@ -443,4 +443,68 @@ test('1.0 G2 R2: a generated item without a plan does not carry its tick', async
     assert.equal(generated.length, 1);
     assert.equal(generated[0].mealPlanId, 'week-2');
     assert.equal(generated[0].isChecked, false);
+});
+
+test('1.0 G10 R13: a week skips a nameless ingredient and writes its good ingredient', async () => {
+    for (const ingredient of [
+        { item: '', amount: '1 cup' },
+        { item: '   ', quantity: '1', unit: 'cups' },
+        { item: null, amount: '1 cup' },
+        { amount: '1 cup' },
+    ]) {
+        const h = await harness({
+            old: item('Rice', { mealPlanId: 'week-new' }),
+            manual: item('Manual sentinel', { source: 'manual' }),
+            legacy: item('Legacy sentinel', { source: undefined }),
+        });
+        const manualBefore = structuredClone(h.state.records.get('manual'));
+        const legacyBefore = structuredClone(h.state.records.get('legacy'));
+        h.state.recipes = [recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, ingredient])];
+        const recipesBefore = structuredClone(h.state.recipes);
+
+        assert.deepEqual(await h.generate(), { success: true, count: 1, skippedCount: 1 });
+        const generated = h.snapshot().map(([, value]) => value).filter(value => value.source === 'generated');
+        assert.deepEqual(generated.map(value => [value.name, value.quantity, value.unit, value.isChecked]), [['Rice', 0.75, 'cups', true]]);
+        assert.deepEqual(h.state.records.get('manual'), manualBefore);
+        assert.deepEqual(h.state.records.get('legacy'), legacyBefore);
+        assert.deepEqual(h.state.recipes, recipesBefore);
+        assert.deepEqual(h.state.commits, [2]);
+        assert.equal(h.state.directWrites, 0);
+    }
+});
+
+test('1.0 G10 R13: a week skips a 51-character unit and writes its good ingredient', async () => {
+    for (const unit of ['x'.repeat(51), `can ${'x'.repeat(46)}`]) {
+        for (const ingredient of [
+            { item: 'Invalid unit', amount: `1 ${unit}` },
+            { item: 'Invalid unit', quantity: '1', unit },
+        ]) {
+            const h = await harness({
+                old: item('Rice', { mealPlanId: 'week-new' }),
+                manual: item('Manual sentinel', { source: 'manual' }),
+                legacy: item('Legacy sentinel', { source: undefined }),
+            });
+            const manualBefore = structuredClone(h.state.records.get('manual'));
+            const legacyBefore = structuredClone(h.state.records.get('legacy'));
+            h.state.recipes = [recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, ingredient])];
+            const recipesBefore = structuredClone(h.state.recipes);
+
+            assert.deepEqual(await h.generate(), { success: true, count: 1, skippedCount: 1 });
+            const generated = h.snapshot().map(([, value]) => value).filter(value => value.source === 'generated');
+            assert.deepEqual(generated.map(value => [value.name, value.quantity, value.unit, value.isChecked]), [['Rice', 0.75, 'cups', true]]);
+            assert.deepEqual(h.state.records.get('manual'), manualBefore);
+            assert.deepEqual(h.state.records.get('legacy'), legacyBefore);
+            assert.deepEqual(h.state.recipes, recipesBefore);
+            assert.deepEqual(h.state.commits, [2]);
+            assert.equal(h.state.directWrites, 0);
+        }
+    }
+
+    const h = await harness();
+    const boundaryUnit = 'x'.repeat(50);
+    h.state.recipes = [recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, { item: 'Boundary ingredient', amount: `1 ${boundaryUnit}` }])];
+    assert.deepEqual(await h.generate(), { success: true, count: 2, skippedCount: 0 });
+    const boundaryItem = h.snapshot().map(([, value]) => value).find(value => value.name === 'Boundary ingredient');
+    assert.equal(boundaryItem?.unit, boundaryUnit);
+    assert.equal(boundaryItem?.quantity, 0.25);
 });
