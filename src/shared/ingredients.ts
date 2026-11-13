@@ -152,11 +152,17 @@ export function aggregateIngredients(entries: { ingredient: IngredientInput; fac
     let skippedCount = 0;
     for (const { ingredient, factor } of entries) {
         const parsed = parseIngredientAmount(ingredient);
-        if (!parsed) { skippedCount++; continue; }
-        if (typeof ingredient.item !== 'string' || !ingredient.item.trim()) throw new Error('Invalid ingredient name');
+        if (!parsed || typeof ingredient.item !== 'string' || !ingredient.item.trim()) {
+            skippedCount++;
+            continue;
+        }
+        const unit = normalizeIngredientUnit(parsed.unit);
+        if (parsed.unit.length > 50 || unit.length > 50) {
+            skippedCount++;
+            continue;
+        }
         const amount = scaleIngredientAmount(parsed, factor);
         const name = ingredient.item.trim().replace(/\s+/g, ' ');
-        const unit = normalizeIngredientUnit(amount.unit);
         const key = groceryIngredientKey(name, unit);
         const prior = totals.get(key);
         const quantity = amount.qualitative ? 1 : (prior?.quantity || 0) + amount.max;
