@@ -3237,6 +3237,7 @@ test.describe('emulator authenticated smoke', () => {
   });
 
   test('recipe import rejects unsupported file types before upload', async ({ page }) => {
+    await enableMockAi(page);
     const failures = collectConsoleFailures(page);
     const email = `qa-import-unsupported-${Date.now()}@example.com`;
     const filename = `qa-import-unsupported-${Date.now()}.txt`;
@@ -8329,4 +8330,82 @@ test.describe('1.0 G9 R2 positive choices', () => {
     expect(saved.createdAt).toEqual(stored.createdAt);
     expect((await getDocs(collection(fixture.client.db, 'users', fixture.uid, 'mealPlans'))).size).toBe(1);
   });
+});
+
+test.describe('1.0 G11 AI off is fully off', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  for (const [extension, mimeType] of [['png', 'image/png'], ['pdf', 'application/pdf']]) {
+    const fileBytes = extension === 'png' ? g10Png : Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF');
+    test(`R14 paused Recipes ignores ${extension} drag and drop without upload or AI calls`, async ({ page }) => {
+      const { client, uid } = await g4Account(page, 390, `g11-paused-${extension}`);
+      const uploads: string[] = [];
+      const calls: string[] = [];
+      page.on('request', request => {
+        const url = new URL(request.url());
+        if (url.port === String(readEmulatorConfig().ports.storage) && request.method() === 'POST') uploads.push(url.pathname);
+      });
+      await page.route('**/parseRecipeFromImage', async route => {
+        calls.push(route.request().url());
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({
+          error: { status: 'FAILED_PRECONDITION', message: 'AI features are paused.' },
+        }) });
+      });
+      page.on('dialog', dialog => dialog.dismiss());
+      await page.goto('/recipes');
+      await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: /AI Search/ })).toBeDisabled();
+      const transfer = await page.evaluateHandle(({ extension, mimeType, bytes }) => {
+        const data = new DataTransfer();
+        data.items.add(new File([new Uint8Array(bytes)], `g11-paused.${extension}`, { type: mimeType }));
+        return data;
+      }, { extension, mimeType, bytes: [...fileBytes] });
+      const library = page.getByTestId('recipe-library-page');
+      await library.dispatchEvent('dragover', { dataTransfer: transfer });
+      await expect.soft(page.getByText('We will extract the data automatically', { exact: true }),
+        'paused drag must not promise extraction').toHaveCount(0);
+      await library.dispatchEvent('drop', { dataTransfer: transfer });
+      await expect(page.getByRole('heading', { name: 'Analyzing Recipe...', exact: true })).toBeHidden();
+      expect.soft(uploads, 'paused drop must not upload to Storage').toEqual([]);
+      expect.soft(calls, 'paused drop must not call a Function').toEqual([]);
+      await expect(page.getByText('We will extract the data automatically', { exact: true })).toHaveCount(0);
+      await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveCount(0);
+      expect((await listAll(ref(client.storage, `users/${uid}/recipes`))).items).toEqual([]);
+      await transfer.dispose();
+    });
+
+    test(`R14 AI enabled Recipes ${extension} drop still opens a reviewable imported draft`, async ({ page }) => {
+      await enableMockAi(page);
+      const { client, uid } = await g4Account(page, 390, `g11-enabled-${extension}`);
+      const payloads: Record<string, unknown>[] = [];
+      await page.route('**/parseRecipeFromImage', async route => {
+        payloads.push(route.request().postDataJSON().data);
+        await fulfillCallable(route, { title: `G11 ${extension} recipe`, mealType: 'dinner',
+          calories: 400, protein: 25, carbs: 40, fat: 15,
+          ingredients: [{ item: 'Rice', qty: 1, unit: 'cup' }], instructions: ['Cook rice.'],
+        });
+      });
+      await page.goto('/recipes');
+      await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+      const transfer = await page.evaluateHandle(({ extension, mimeType, bytes }) => {
+        const data = new DataTransfer();
+        data.items.add(new File([new Uint8Array(bytes)], `g11-enabled.${extension}`, { type: mimeType }));
+        return data;
+      }, { extension, mimeType, bytes: [...fileBytes] });
+      const library = page.getByTestId('recipe-library-page');
+      await library.dispatchEvent('dragover', { dataTransfer: transfer });
+      await expect(page.getByText('We will extract the data automatically', { exact: true })).toBeVisible();
+      await library.dispatchEvent('drop', { dataTransfer: transfer });
+      await expect(page.getByLabel('Recipe Name *', { exact: true })).toHaveValue(`G11 ${extension} recipe`);
+      expect(payloads).toHaveLength(1);
+      expect(payloads[0]).toMatchObject({ mimeType, imageBase64: fileBytes.toString('base64') });
+      expect((await listAll(ref(client.storage, `users/${uid}/recipes`))).items).toHaveLength(1);
+      const discard = acceptNextDialog(page);
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      expect(await discard).toBe('Discard this recipe?');
+      await expect(page.getByLabel('Recipe Name *', { exact: true })).toBeHidden();
+      await expect.poll(async () => (await listAll(ref(client.storage, `users/${uid}/recipes`))).items.length).toBe(0);
+      await transfer.dispose();
+    });
+  }
 });

@@ -66,15 +66,14 @@ goes live again, not after.
 
 ## Revoking the key entirely
 
-Not required. With `AI_ENABLED` off, no code path reaches
-`createGeminiClient()`, so the key is never used. Revoke it whenever you like:
+Not required to pause AI. With `AI_ENABLED` off, no code path reaches
+`createGeminiClient()`, so the key is never used.
 
-```bash
-firebase functions:secrets:destroy GEMINI_API_KEY
-```
-
-Then delete the key in Google AI Studio. Do this **after** the switch is off, so
-nothing errors in between.
+All four paid Functions still bind the `GEMINI_API_KEY` secret while paused.
+Keep an enabled secret version available for deployment; removing the secret
+can block a Functions deploy or prompt for a value even when AI is off.
+Revoking or removing the key needs a separate approved release plan that
+accounts for those bindings. Turning AI off does not make secret removal safe.
 
 ## Verifying it is really off
 

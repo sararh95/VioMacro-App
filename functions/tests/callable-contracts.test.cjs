@@ -21,6 +21,7 @@ let fakeCountTokensError = null;
 let lastGeneratePayload = null;
 let lastEmbedPayload = null;
 let lastCountTokensPayload = null;
+const pausedStorageReads = [];
 
 class MemorySnapshot {
     constructor(data, pathName = null) {
@@ -184,6 +185,24 @@ class FakeGoogleGenAI {
 }
 
 Module._load = function patchedModuleLoad(request, parent, isMain) {
+    if (request === "firebase-admin/storage") {
+        return {
+            getStorage: () => ({
+                bucket: () => ({
+                    file: (storagePath) => ({
+                        getMetadata: async () => {
+                            pausedStorageReads.push(`metadata:${storagePath}`);
+                            return [{ size: 4 }];
+                        },
+                        download: async () => {
+                            pausedStorageReads.push(`download:${storagePath}`);
+                            return [Buffer.from("mock")];
+                        },
+                    }),
+                }),
+            }),
+        };
+    }
     if (request === "@google/genai") {
         return {
             GoogleGenAI: class extends FakeGoogleGenAI {
@@ -1006,5 +1025,58 @@ test("paused: the refusal names the feature and says why in plain words", withAi
     assert.ok(caught, "expected a refusal");
     assert.match(caught.message, /generateMealPlan/);
     assert.match(caught.message, /No provider key is configured/i);
+}));
+
+for (const [feature, data] of [
+    ["generateMealPlan", {
+        userSettings: { calories: 1800, protein: 130, carbs: 160, fat: 60 },
+        userRecipes: [], preferences: {},
+    }],
+    ["parseRecipeFromImage", { imageBase64: "abc", mimeType: "image/png" }],
+    ["semanticSearchRecipes", { query: "warm and spicy" }],
+]) {
+    test(`R15 paused: ${feature} refuses 11 calls before active usage counters`, withAiPaused(async () => {
+        const previousEmulator = process.env.FUNCTIONS_EMULATOR;
+        const previousOwners = process.env.OWNER_UIDS;
+        const originalNow = Date.now;
+        let minute = originalNow();
+        process.env.FUNCTIONS_EMULATOR = "false";
+        delete process.env.OWNER_UIDS;
+        // Separate minute buckets exercise the daily limit without real waits.
+        Date.now = () => (minute += 61_000);
+        try {
+            const refusals = [];
+            for (let call = 0; call < 11; call++) {
+                try {
+                    await functions[feature].run(authedRequest(data));
+                    refusals.push("unexpected success");
+                } catch (error) {
+                    refusals.push(`${error.code}:${/paused/i.test(error.message) ? "paused" : error.message}`);
+                }
+            }
+            assert.deepEqual(refusals, Array(11).fill("failed-precondition:paused"),
+                "all 11 paused calls must refuse as paused, never as limit reached");
+            assert.equal(fakeFirestore.docs.size, 0, "paused calls must not write a usage counter");
+            assert.equal(lastGeneratePayload, null);
+            assert.equal(lastEmbedPayload, null);
+            assert.equal(lastCountTokensPayload, null);
+        } finally {
+            Date.now = originalNow;
+            process.env.FUNCTIONS_EMULATOR = previousEmulator;
+            if (previousOwners === undefined) delete process.env.OWNER_UIDS;
+            else process.env.OWNER_UIDS = previousOwners;
+        }
+    }));
+}
+
+test("R15 paused: recipe import refuses before Storage metadata or download", withAiPaused(async () => {
+    pausedStorageReads.length = 0;
+    await expectHttpsError(functions.parseRecipeFromImage.run(authedRequest({
+        storagePath: "users/user-1/recipes/paused.png", mimeType: "image/png",
+    })), "failed-precondition", /paused/i);
+    assert.deepEqual(pausedStorageReads, [], "paused import must not read Storage");
+    assert.equal(fakeFirestore.docs.size, 0);
+    assert.equal(lastGeneratePayload, null);
+    assert.equal(lastCountTokensPayload, null);
 }));
 
