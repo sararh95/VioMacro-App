@@ -199,8 +199,6 @@ export default function MealPlanner() {
     const handleCloneLastWeek = async () => {
         if (!user) return;
         const request = ++cloneRequestRef.current;
-        if ((isDirty || displayPlan?.days.some(day => day.meals.length > 0))
-            && !window.confirm('Replace this week with last week’s plan? Your current changes will be replaced.')) return;
         const startingPlan = displayPlan;
         const startingWeek = getWeekStartKey(viewDate);
         setPlannerNotice(null);
@@ -224,6 +222,9 @@ export default function MealPlanner() {
                 });
                 return;
             }
+
+            if ((isDirty || startingPlan?.days.some(day => day.meals.length > 0))
+                && !window.confirm('Replace this week with last week’s plan? Your current changes will be replaced.')) return;
 
             const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const clonedDays = Array.from({ length: 7 }, (_, i) => {

@@ -8194,7 +8194,7 @@ test.describe('1.0 G9 R2 review', () => {
     const questions: string[] = [];
     page.on('dialog', async dialog => { questions.push(dialog.message()); await dialog.dismiss(); });
     await page.getByRole('button', { name: /Clone Last Week/ }).click();
-    expect(questions.length, 'C4 Clone must ask before replacing the current draft or meals').toBe(1);
+    await expect.poll(() => questions.length, 'C4 Clone must ask before replacing the current draft or meals').toBe(1);
     await expect(page.getByRole('heading', { name: 'R2 Breakfast', exact: true })).toBeVisible();
     expect(await page.evaluate(uid => localStorage.getItem(`viomacro:plan-drafts:${uid}`), fixture.uid)).toBe(before);
   });
