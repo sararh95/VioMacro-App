@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-12 VioMacro 1.0 G10b R13 ingredient contribution validation
+
+A bad contribution is skipped and counted before it can stop the week's atomic grocery write. Valid units are checked after normalization, names after cleaning, and candidate totals after scaling and countable rounding. Earlier accepted totals stay. Alias lookup uses own properties. [PR #8](https://github.com/sararh95/VioMacro-App/pull/8)
+
+- BASE `c612cb4`, `node --test --test-name-pattern=G10b tests/unit/ingredients.test.ts`: `tests 16`, `pass 0`, `fail 16`, `skipped 0`. Failures cover Butter/raw-unit normalization, quick add, unit/name/amount boundaries, accumulated totals, small servings, countable rounding, null/non-object entries, overflow, underflow and inherited aliases. Examples: `actual: null` for the package quick add; `Cannot read properties of null (reading 'quantity')`; `Ingredient quantity is outside the supported range`.
+- BASE browser, `npm.cmd run test:e2e:emulator -- -g 1.0.G10b`: `1 failed`. Line 7826 expected `/Skipped 2 ingredients/i`; received `"errorCould not update your shopping list. Please try again.close"`. The 390 px touch fixture uses real rules, Rice, 52-character raw Butter unit, a 201-character name and 100001 ml Milk.
+- Green: the same commands reported `pass 16`, `fail 0`, `skipped 0` and `1 passed (15.9s)`. With only ingredients.ts restored from BASE, the control reproduced `16` unit failures and `1 failed` on the same browser assertion. Restoring committed source left a clean tree. RUN evidence uses suffix `-2`.
+- Focused existing/new unit tests, `node --test tests/unit/ingredients.test.ts tests/unit/grocery-atomic.test.ts`: `99` passed, `0` failed/skipped. Required browser filters passed grocery `26`, Grocery `26`, Add.to.List `2`, ingredient `4`; infrastructure `4` per invocation. Existing 1440 px and 390 px cases passed. No flaky test observed.
+- Coordinator-1 permits changing only ingredients.test.ts:68 from an overflow throw to the same input returning `{ items: [], skippedCount: 1 }`. Its scale-helper assertions remain byte-identical. VM-028's overflow fixture is replaced only with a quantity getter that throws a genuine build error after valid Rice; every assertion remains unchanged. All prior browser-test bytes remain unchanged.
+- `npm.cmd run check` exited 0: app `315`, Functions `125`, failed `0`, skipped `0`, lint 0 errors and both builds passed. Functions lint still selects no source files. Local Node is 24.18.0; CI uses Node 22. Full browser, rules and concurrency suites remain CI-only; no saved shape, rules or index changed. Required totals including these 17 new tests: app 315, emulator browser 225, all suites 736.
+- Picture kit: `1 passed (7.0s)`. Opened `C:/Users/sarar/VioMacro/viomacro-sol-runs/g10b/g10b-after-2-list-390.png`: Rice 2 cups and Butter 1 tbsp with its full normalized description are legible; wrapping and both rows' controls fit. The emulator banner does not obscure either row. Recipe preservation and reload are asserted by the browser regression.
+- The shared lock was unavailable from 21:59 until about 23:05, first held by group 9 and then group 11. All port runs used G10b's own lock. All seven required ports were free before release. Physical phones, live data and AI/provider calls were not tested. Skip-message wording and the coordinator's other excluded findings remain outside this group.
+
 ## 2026-11-12 VioMacro 1.0 G10 R13 invalid ingredients are skipped
 
 Aggregation counts nameless ingredients and units over 50 characters as skipped, while good ingredients reach the existing atomic grocery replacement. Parsed and normalized unit lengths are checked. [PR #5](https://github.com/sararh95/VioMacro-App/pull/5)
