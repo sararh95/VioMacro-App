@@ -72,7 +72,7 @@ test('unit aliases preserve equivalent checked keys and countable floating point
     assert.equal(groceryIngredientKey(' Rice ', 'CUP'), groceryIngredientKey('rice', 'cups'));
     const result = aggregate(Array.from({ length: 10 }, () => ({ ingredient: { item: 'Garlic', quantity: '.1', unit: 'clove' }, factor: 3 })));
     assert.equal(result.items[0].quantity, 3);
-    assert.throws(() => aggregate([{ ingredient: { item: '', quantity: '1', unit: 'cup' }, factor: 1 }]));
+    assert.deepEqual(aggregate([{ ingredient: { item: '', quantity: '1', unit: 'cup' }, factor: 1 }]), { items: [], skippedCount: 1 });
 });
 
 test('quick-add uses the same fraction/range/unit parser and aisle classifier', () => {
