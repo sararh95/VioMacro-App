@@ -8409,3 +8409,79 @@ test.describe('1.0 G11 AI off is fully off', () => {
     });
   }
 });
+
+test.describe('1.0 G15 B20 dark design on every device', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  async function expectReadable(text: Locator, label: string) {
+    await text.scrollIntoViewIfNeeded();
+    await expect(text).toBeVisible();
+    const sample = await text.evaluate(element => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      const rgba = (color: string) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data];
+      };
+      const over = (foreground: number[], background: number[]) =>
+        background.map((channel, index) => foreground[index] * foreground[3] / 255 + channel * (1 - foreground[3] / 255));
+      const ancestors: Element[] = [];
+      for (let node: Element | null = element; node; node = node.parentElement) ancestors.unshift(node);
+      let background = [255, 255, 255];
+      for (const node of ancestors) background = over(rgba(getComputedStyle(node).backgroundColor), background);
+      const color = getComputedStyle(element).color;
+      const foreground = over(rgba(color), background);
+      const luminance = (channels: number[]) => channels.map(channel => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      }).reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
+      const light = luminance(foreground);
+      const dark = luminance(background);
+      return { color, background, ratio: (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05) };
+    });
+    await test.info().attach(label, { body: JSON.stringify(sample), contentType: 'application/json' });
+    expect.soft(sample.ratio, `${label}: ${sample.color} on ${JSON.stringify(sample.background)}`).toBeGreaterThanOrEqual(4.5);
+  }
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`Planner Recipe Guided cooking text is readable on a ${colorScheme} device at 390px`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      const { client, uid } = await g4Account(page, 390, `g15-${colorScheme}`);
+      const title = 'G15 Chicken Bowl';
+      const recipeId = await seedRecipe(client.db, uid, title, {
+        instructions: [{ step: 'Cook Chicken breast for 10 minutes at 180 C.', timer: 600 }],
+      });
+      await seedCurrentMealPlan(client.db, uid, recipeId, title);
+      expect(await page.evaluate(scheme => matchMedia(`(prefers-color-scheme: ${scheme})`).matches, colorScheme)).toBe(true);
+      await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+
+      await test.step('Planner saved meal title', async () => {
+        await page.goto('/plan');
+        await settlePlanner(page);
+        await expectReadable(page.getByRole('heading', { name: title, exact: true }), 'Planner meal title');
+      });
+      await test.step('Recipe detail title and ingredient', async () => {
+        await page.getByRole('heading', { name: title, exact: true }).click();
+        await expectReadable(page.getByRole('heading', { name: title, level: 2, exact: true }), 'Recipe detail title');
+        await expectReadable(page.locator('label').filter({ hasText: 'Chicken breast' }).locator('span').first(), 'Recipe ingredient line');
+      });
+      await test.step('Guided cooking first step text', async () => {
+        await page.getByRole('button', { name: /Start Guided Cooking/ }).click();
+        const heading = page.getByRole('heading', { name: 'Step 1', exact: true });
+        await expectReadable(heading, 'Guided step title');
+        const fragments = heading.locator('..').locator(':scope > div > span > span');
+        await expect(fragments).toHaveCount(7);
+        for (const [index, fragment] of (await fragments.all()).entries()) {
+          await expectReadable(fragment, `Guided step text ${index + 1}`);
+        }
+        await page.getByRole('button', { name: /Exit/ }).click();
+        await expect(page.getByRole('heading', { name: title, level: 2, exact: true })).toBeVisible();
+        await page.getByRole('button', { name: 'Close recipe details', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Next week', exact: true })).toBeVisible();
+      });
+    });
+  }
+});
