@@ -111,6 +111,7 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        if (!AI_ENABLED) return;
         setIsDragging(true);
     };
 
@@ -122,6 +123,7 @@ export default function RecipeLibrary({ initialAction }: RecipeLibraryProps) {
     const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
+        if (!AI_ENABLED) return;
         const file = e.dataTransfer.files[0];
         const isSupported = file && (file.type.startsWith('image/') || file.type === 'application/pdf');
         if (isSupported && user) {

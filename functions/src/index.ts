@@ -578,6 +578,7 @@ export const generateMealPlan = onCall(
         try {
             requireAppCheck(request);
             const uid = requireAuth(request);
+            assertAiEnabled("generateMealPlan");
             assertPayloadSize(request.data, MAX_MEAL_PLAN_PAYLOAD_CHARS, "Meal plan request");
 
             const { userSettings, userRecipes, preferences } = request.data;
@@ -587,7 +588,6 @@ export const generateMealPlan = onCall(
                 throw new HttpsError("invalid-argument", "Missing user settings.");
             }
             await enforceAiUsageLimit(uid, "generateMealPlan");
-            assertAiEnabled("generateMealPlan");
             assertLiveAiAllowed("generateMealPlan");
             assertAiSpendPricingSafeWhenEnabled();
 
@@ -720,6 +720,7 @@ export const parseRecipeFromImage = onCall(
         try {
             requireAppCheck(request);
             const uid = requireAuth(request);
+            assertAiEnabled("parseRecipeFromImage");
 
             const { imageBase64, storagePath, mimeType = "image/jpeg" } = request.data;
             if (typeof mimeType !== "string" ||
@@ -769,7 +770,6 @@ export const parseRecipeFromImage = onCall(
                 );
             }
             await enforceAiUsageLimit(uid, "parseRecipeFromImage");
-            assertAiEnabled("parseRecipeFromImage");
             assertLiveAiAllowed("parseRecipeFromImage");
             assertAiSpendPricingSafeWhenEnabled();
 
@@ -1035,6 +1035,7 @@ export const semanticSearchRecipes = onCall(
     async (request) => {
         requireAppCheck(request);
         const uid = requireAuth(request);
+        assertAiEnabled("semanticSearchRecipes");
 
         const { query, limit = 10 } = request.data;
         if (!query || typeof query !== "string") {
@@ -1045,7 +1046,6 @@ export const semanticSearchRecipes = onCall(
         }
         const safeLimit = Math.min(Number(limit) || 10, MAX_SEARCH_LIMIT);
         await enforceAiUsageLimit(uid, "semanticSearchRecipes");
-        assertAiEnabled("semanticSearchRecipes");
             assertLiveAiAllowed("semanticSearchRecipes");
         assertAiSpendPricingSafeWhenEnabled();
 

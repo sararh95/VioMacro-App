@@ -52,6 +52,40 @@ Required fields:
 
 ## Open Items
 
+### R14 (1.0 review) Paused recipe drops still start AI import
+
+- ID: R14 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#7](https://github.com/sararh95/VioMacro-App/pull/7)
+- Severity: P2
+- Workflow/page: Recipes drag-over and drop, AI paused.
+- Expected: No extraction promise, Storage upload or parser call while paused. AI-on import still opens a reviewable draft and cleans up on Cancel.
+- Actual: BASE sets dragging state and processes supported drops without checking AI_ENABLED.
+- User impact: A paused feature uploads and deletes a file before showing a parse failure.
+- Evidence: Image/PDF BASE red, source-only control, four green browser cases, required filters and an opened 390px touch picture. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g11-r14-r15-ai-off-is-fully-off-before-main-merge).
+- Suspected area: RecipeLibrary handleDragOver and handleDrop.
+- Next action: Coordinator review after current-base CI. Audit follow-ups outside the drop-path scope are file-input and callback-level pause checks; the existing empty-state import test also has a conditional paused/enabled fixture mismatch.
+- Verification target: Zero upload/call/overlay while paused; image/PDF AI-on review and Cancel cleanup; full CI floors.
+- Revisit trigger: PR #7 review and separately approved Functions/Hosting release.
+- Date closed: Pending.
+
+### R15 (1.0 review) Paused AI calls consume quota and read Storage
+
+- ID: R15 (1.0 review)
+- Date opened: 2026-11-12
+- Status: Fix in PR [#7](https://github.com/sararh95/VioMacro-App/pull/7)
+- Severity: P2
+- Workflow/page: generateMealPlan, parseRecipeFromImage and semanticSearchRecipes.
+- Expected: After sign-in, pause refuses before daily usage, Storage reads and provider work on every call.
+- Actual: BASE enforces quota before pause; recipe import also reads Storage before pause.
+- User impact: Paused requests consume daily allowance and can change the response to limit reached.
+- Evidence: Four contract cases fail on BASE and source-only control, then pass with active counters. Eleven paused calls per callable leave no usage document; paused import leaves no metadata/download calls. Full Functions suite passes 129. See the [QA ledger](qa/qa-ledger.md#2026-11-12-viomacro-10-g11-r14-r15-ai-off-is-fully-off-before-main-merge).
+- Suspected area: Order of assertAiEnabled after requireAuth in the three callable handlers.
+- Next action: Coordinator review and separate deployment approval. The secret remains bound while paused; key-removal documentation now reflects that requirement.
+- Verification target: Stable paused responses, no counter/Storage/provider work, preserved AI-on quotas/spend protection and full CI.
+- Revisit trigger: PR #7 review or an approved backend release.
+- Date closed: Pending.
+
 ### R13 (1.0 review, G10b) Ingredient values stop or corrupt the week's list
 
 - ID: R13 (1.0 review, G10b)
