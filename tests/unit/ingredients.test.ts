@@ -65,7 +65,7 @@ test('yield fallback and scale validation never introduce NaN or silently zero t
     assert.equal(scale(amount, 0.25).max, 0.000025);
     assert.notEqual(formatQuantity(0.000025), '0');
     for (const factor of [0, -1, NaN, Infinity]) assert.throws(() => scale(amount, factor));
-    assert.throws(() => aggregate([{ ingredient: { item: 'Rice', quantity: '1e308', unit: 'cups' }, factor: 2 }]));
+    assert.deepEqual(aggregate([{ ingredient: { item: 'Rice', quantity: '1e308', unit: 'cups' }, factor: 2 }]), { items: [], skippedCount: 1 });
 });
 
 test('unit aliases preserve equivalent checked keys and countable floating point boundaries', () => {
