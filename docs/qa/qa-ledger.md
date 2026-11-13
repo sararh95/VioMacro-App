@@ -1,5 +1,15 @@
 # VioMacro QA Ledger
 
+## 2026-11-13 VioMacro 1.0 G9 Clone source correction
+
+First G7 CI `43419019306` at `e4cb30e` passed check/rules and all 26 G9 names, but three unchanged G13 batch/cancellation sequences failed at 1440, 768 and 390 px. Each failed both CI attempts at line 6485: `expect(...No previous saved plan was found to clone...).toBeVisible()`, Expected visible, element(s) not found. The replacement question ran before discovering there was no previous plan. This was a G9 regression, not a flake. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
+
+- Commit `3b45434` reads the source, rejects stale replies, reports an absent source, then asks before replacing meals/drafts. Cancel and slow-response protection remain. No old test changed. The owned C4 question-count assertion now uses `expect.poll` for the asynchronous lookup; the exact expected count and unchanged meals/cache checks remain.
+- Green: canonical emulator wrapper with `-g original.batch.sequence` gives `3 passed (51.2s)` at all three widths. `-g 1.0.G9` gives `16 passed (3.1m)`, including Clone Cancel and held-reply cases. Both native exits are 0.
+- Control: restore only Planner from `e4cb30e`, run `-g original.batch.sequence.*390px`: `1 failed`, same line 6485, Expected visible, element(s) not found. Restore the committed fix: tree clean. Raw log and failure trace/picture/video are in RUN `r2-clone-control-1.txt` and `r2-clone-control-failure-1/`.
+- Repeated `npm.cmd run check`: app 325, Functions 125, failed 0, skipped 0, lint and both builds pass, native exit 0. The previous merged full controls, four required filters and 22 reviewed pictures remain applicable; this correction changes lookup/confirmation ordering and adds no screen or layout. Every main browser-test byte remains exact; Store, service, helper and four unit blobs remain unchanged. See RUN `r2-clone-byte-proof-1.txt`.
+- All seven test ports were free before releasing the owned lock. No CI rerun; the correction receives a new commit run. Latest-head CI must still prove three green jobs, suite floors and all 26 passed names before ready.
+
 ## 2026-11-13 VioMacro 1.0 G9 round 2 after G10b main
 
 Merged main `d0729451a564bcdf02b6117c669c1a1dcd9eb7b6` into G9 and repeated G4-G6. The three append conflicts retain every main test/ledger byte and every G9 addition. Product source and all four G9 unit files match the reviewed pre-merge commit exactly. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
