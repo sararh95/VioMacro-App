@@ -1,5 +1,18 @@
 # VioMacro QA Ledger
 
+## 2026-11-13 VioMacro 1.0 G9 round 2 after G10b main
+
+Merged main `d0729451a564bcdf02b6117c669c1a1dcd9eb7b6` into G9 and repeated G4-G6. The three append conflicts retain every main test/ledger byte and every G9 addition. Product source and all four G9 unit files match the reviewed pre-merge commit exactly. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)
+
+- Fresh green: canonical emulator wrapper with `-g 1.0.G9` reports `16 passed (3.0m)`, native exit 0; focused production units report ten passed. All eight coordinator items and both positive choices remain covered.
+- Fresh controls: reversing only round 2 source changes gives six unit failures, eight review browser failures and one storage-recovery failure, with the same assertions as G1. Examples: C1 Expected 1/Received 0 at 8132; C2 no question at 8151; C3 enabled Confirm at 8171; Clone 2333/1850 at 8223; C5 lost valid draft at 8247; C7 enabled Discard at 8265; C8 unwanted beforeunload at 8280 and 8074. The in-transaction/no-saved-plan rejections and calendar/target exceptions are missing again in unit control. Full names and literal output: RUN `r2-merge-1-control-proof.txt`.
+- Original W control uses `git restore --source=d0729451a564bcdf02b6117c669c1a1dcd9eb7b6 -- src/features/meal-planning/MealPlanner.tsx src/app/providers/store.tsx`: B12/R11/R12 give `3 failed` (1/0 at 7866, 7902 and 7918); R10 gives `400 !== 600`; latest draft tick gives true/false at 8030. Removing only the pending-tick-baseline correction instead reproduces the false-conflict bar (hidden/visible at 8034). Every source restore leaves a clean tree.
+- Fresh required filters: `npm.cmd run test:e2e:emulator -- -g plan` gives `52 passed (8.3m)`; `Planner` gives `40 passed (6.5m)`; `tick` gives `21 passed (3.4m)`; `draft` gives `19 passed (2.3m)`. Each native exit is 0; infrastructure passes four per invocation. Final failed 0, skipped 0, flaky none in this round.
+- Repeated formal `npm.cmd run check`: native exit 0, app 325 passed, Functions 125 passed, lint clean, app and Functions builds passed. BASE CI has app 315 and emulator browser 225. G9 adds ten unit and sixteen browser cases, so required minima are 325 and 241, total 762. Full local browser/rules/concurrency suites remain CI-only as W9 requires. Latest-commit CI must prove all three jobs and all 26 G9 names before ready.
+- Fresh picture kit: `2 passed (20.1s)`, native exit 0. All 22 `g9-r2-merge-1-*.png` views were opened at 390 px touch and 1440 px: draft/reload/confirmed, averages/analysis, Tea, waiting Confirm, conflict/replacement and both storage warnings. Discard is disabled only while Confirm waits; Preferences Cancel/close and navigation work. Existing B20 contrast remains outside scope. Owned test lock was released after all seven ports were free.
+- The authorized own leave-warning test change is the only pre-existing case edited: normal kept drafts do not warn; failed local persistence warns until recovery. Older ledger lines, earlier tests, dependencies, cloud fields, rules, indexes and AI pause remain unchanged. Current evidence uses RUN `r2-merge-1-`.
+
+
 ## 2026-11-13 VioMacro 1.0 G9 review round 2
 
 Kept drafts now patch one stored week and receive other tabs' storage changes. Confirm checks the starting saved version inside its transaction and offers Replace or Discard on conflict. A provider lease survives Planner navigation; later edits remain a draft until their own Confirm. Clone asks before replacement and drops stale replies. Bad cached weeks stay untouched while valid weeks load. [PR #6](https://github.com/sararh95/VioMacro-App/pull/6)

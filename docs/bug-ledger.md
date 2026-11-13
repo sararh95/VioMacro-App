@@ -63,6 +63,7 @@ Required fields:
 - Actual: The first G9 implementation writes stale whole-cache maps, saves without an expected version, keeps its save lock only in the page, and accepts unconditional or stale Clone replies.
 - User impact: A kept draft can erase another week's draft or overwrite newer saved meals.
 - Evidence: Red-first cases for coordinator items 1-8, matching source-only controls, 16 green G9 browser cases, ten focused unit cases, four green tab filters, full local check and 22 opened phone/desktop pictures. See the [round 2 QA proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g9-review-round-2).
+- Merged-base proof: G4-G6 repeated after main d0729451; app 325 and Functions 125, four green tab filters, matching controls and 22 opened fresh pictures. See the [merged round 2 proof](qa/qa-ledger.md#2026-11-13-viomacro-10-g9-round-2-after-g10b-main).
 - Cause and fix: Patch only the edited stored week; synchronize storage events; persist starting-version metadata locally; check it inside saveMealPlan's transaction; reserve a provider-owned week lease; guard Clone replies; validate and recover cached weeks separately.
 - Review decisions: Discard is disabled during Confirm. Normally kept drafts do not show a leave warning; only failed local persistence does. These coordinator decisions supersede the earlier draft warning expectation below.
 - Suspected area: Store draft lifecycle, plan-drafts validation, Planner actions and saveMealPlan version comparison.
