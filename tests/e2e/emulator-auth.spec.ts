@@ -8485,3 +8485,143 @@ test.describe('1.0 G15 B20 dark design on every device', () => {
     });
   }
 });
+test.describe('1.0 G16 B23 dark design labels are readable', () => {
+  async function colorsBehind(text: Locator) {
+    return text.evaluate(element => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      const rgba = (color: string) => {
+        if (!CSS.supports('color', color)) throw new Error(`Unsupported computed color: ${color}`);
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data];
+      };
+      const over = (foreground: number[], background: number[]) => background.map((channel, index) =>
+        foreground[index] * foreground[3] / 255 + channel * (1 - foreground[3] / 255));
+      const splitArguments = (value: string) => {
+        let depth = 0;
+        let start = 0;
+        const parts: string[] = [];
+        for (let index = 0; index < value.length; index++) {
+          if (value[index] === '(') depth++;
+          if (value[index] === ')') depth--;
+          if (value[index] === ',' && depth === 0) {
+            parts.push(value.slice(start, index).trim());
+            start = index + 1;
+          }
+        }
+        parts.push(value.slice(start).trim());
+        return parts;
+      };
+      const ancestors: Element[] = [];
+      for (let node: Element | null = element; node; node = node.parentElement) ancestors.unshift(node);
+      let backgrounds = [[255, 255, 255]];
+      const gradients: { image: string; stops: string[] }[] = [];
+      for (const node of ancestors) {
+        const style = getComputedStyle(node);
+        backgrounds = backgrounds.map(background => over(rgba(style.backgroundColor), background));
+        if (style.backgroundImage === 'none') continue;
+        const layers = splitArguments(style.backgroundImage).reverse();
+        for (const layer of layers) {
+          if (!layer.startsWith('linear-gradient(')) throw new Error(`Unsupported background: ${layer}`);
+          const stops = splitArguments(layer.slice('linear-gradient('.length, -1))
+            .map(part => part.match(/^([a-z][\w-]*\([^)]*\)|#[\da-f]+|[a-z]+)/i)?.[1])
+            .filter((color): color is string => !!color && CSS.supports('color', color));
+          if (stops.length < 2) throw new Error(`Missing computed gradient stops: ${layer}`);
+          gradients.push({ image: layer, stops });
+          backgrounds = backgrounds.flatMap(background => stops.map(stop => over(rgba(stop), background)));
+        }
+      }
+      const luminance = (channels: number[]) => channels.map(channel => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      }).reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
+      const color = getComputedStyle(element).color;
+      return {
+        color, gradients,
+        samples: backgrounds.map(background => {
+          const foreground = over(rgba(color), background);
+          const a = luminance(foreground);
+          const b = luminance(background);
+          return { background, luminance: b, ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+        }),
+      };
+    });
+  }
+
+  async function readable(text: Locator, label: string) {
+    await text.scrollIntoViewIfNeeded();
+    await expect(text).toBeVisible();
+    const result = await colorsBehind(text);
+    await test.info().attach(label, { body: JSON.stringify(result), contentType: 'application/json' });
+    for (const sample of result.samples) {
+      expect.soft(sample.ratio, `${label}: ${result.color} on ${JSON.stringify(sample.background)}`)
+        .toBeGreaterThanOrEqual(4.5);
+    }
+    return result;
+  }
+
+  for (const width of [390, 1440]) {
+    test.describe(`${width}px light device`, () => {
+      test.use({ colorScheme: 'light', viewport: { width, height: width === 390 ? 844 : 1000 },
+        hasTouch: width === 390, isMobile: width === 390 });
+
+      test(`Recipe Guided cooking labels and dark surfaces meet contrast at ${width}px`, async ({ page }) => {
+        const { client, uid } = await g4Account(page, width, 'g16');
+        const title = 'G16 Chicken Bowl';
+        await seedRecipe(client.db, uid, title, {
+          instructions: [{ step: 'Cook Chicken breast for 10 minutes.', timer: 600 },
+            { step: 'Serve Chicken breast.', timer: 60 }],
+        });
+        expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: light)').matches)).toBe(true);
+        expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(width === 1440);
+        await page.goto('/recipes');
+        await page.getByRole('heading', { name: title, exact: true }).click();
+        const detail = page.getByRole('heading', { name: title, level: 2, exact: true });
+        await expect(detail).toBeVisible();
+        const detailPanel = detail.locator('xpath=ancestor::main[1]');
+        for (const label of ['High Protein', 'Quick Prep', 'Calories', 'Protein', 'Carbs', 'Fats']) {
+          await readable(detailPanel.getByText(label, { exact: true }), `Recipe ${label}`);
+        }
+        await page.getByRole('button', { name: /Start Guided Cooking/ }).click();
+        await expect(page.getByRole('heading', { name: 'Step 1', exact: true })).toBeVisible();
+        await readable(page.getByText('of 2', { exact: true }), 'Guided of N');
+        const timer = await readable(page.getByText('Step Timer', { exact: true }), 'Guided Step Timer');
+        expect(timer.gradients).toHaveLength(1);
+        expect(timer.gradients[0].stops).toHaveLength(2);
+        for (const sample of timer.samples) {
+          expect.soft(sample.luminance, 'Timer gradient must be dark at every computed stop').toBeLessThan(0.15);
+        }
+        const track = page.getByText('Cooking Progress', { exact: true }).locator('../..').locator(':scope > div').last();
+        const trackColors = await colorsBehind(track);
+        for (const sample of trackColors.samples) {
+          expect.soft(sample.luminance, 'Progress track must be dark rather than light slate').toBeLessThan(0.15);
+        }
+        if (width === 1440) {
+          await readable(page.getByRole('button', { name: 'Full Recipe', exact: true }).getByText('Full Recipe'), 'Guided Full Recipe');
+        }
+        await page.getByRole('button', { name: /Next Step/ }).click();
+        await expect(page.getByRole('heading', { name: 'Step 2', exact: true })).toBeVisible();
+        const previous = page.getByRole('button', { name: /Previous/ });
+        await expect(previous).toBeEnabled();
+        await readable(previous.getByText('Previous', { exact: true }), 'Guided Previous at rest');
+        if (width === 1440) {
+          await page.hover('button:has-text("Previous")');
+          await previous.evaluate(async element => {
+            await Promise.all(element.getAnimations().map(animation => animation.finished));
+          });
+          expect(await previous.evaluate(element => element.matches(':hover'))).toBe(true);
+          await readable(previous.getByText('Previous', { exact: true }), 'Guided Previous on hover');
+        }
+        await previous.click();
+        await expect(page.getByRole('heading', { name: 'Step 1', exact: true })).toBeVisible();
+        await page.getByRole('button', { name: /Exit/ }).click();
+        await expect(detail).toBeVisible();
+        await page.getByRole('button', { name: 'Close recipe details', exact: true }).click();
+        await expect(page.getByRole('heading', { name: 'My Kitchen', exact: true })).toBeVisible();
+      });
+    });
+  }
+});
