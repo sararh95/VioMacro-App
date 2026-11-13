@@ -94,7 +94,7 @@ test('VM-028: a rejected recipe read leaves the list untouched', async () => {
 });
 
 test('VM-028: a build error after a valid ingredient leaves the list untouched', async () => {
-    const h = await harness(); h.state.recipes = [{ ...recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, { item: 'Oil', quantity: '1e308', unit: 'tsp' }]), servings: 0.25 }];
+    const h = await harness(); h.state.recipes = [{ ...recipe([{ item: 'Rice', quantity: '3', unit: 'cups' }, { item: 'Oil', get quantity() { throw new Error('Injected ingredient build failure'); }, unit: 'tsp' }]), servings: 0.25 }];
     const before = h.snapshot();
     await assert.rejects(h.generate());
     assert.deepEqual(h.snapshot(), before);
