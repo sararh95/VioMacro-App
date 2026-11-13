@@ -266,3 +266,113 @@ test('VM047: legacy missing or nontext units retain their existing display witho
     }
     assert.equal(formatGroceryAmount(1, 'constructor'), '1 constructor', 'unknown words must not read inherited dictionary entries');
 });
+
+
+// R13 contributions are isolated: good items before and after must survive.
+type G10bEntry = { ingredient: unknown; factor: number };
+const g10bRice = { name: 'Rice', quantity: 2, unit: 'cups', aisle: 'Pantry' };
+const g10bBeans = { name: 'Beans', quantity: 3, unit: 'g', aisle: 'Pantry' };
+function g10bSandwich(entries: G10bEntry[]) {
+    return aggregate([
+        { ingredient: { item: 'Rice', quantity: '2', unit: 'cups' }, factor: 1 },
+        ...entries,
+        { ingredient: { item: 'Beans', quantity: '3', unit: 'g' }, factor: 1 },
+    ]);
+}
+function g10bEntry(quantity: string, unit = 'ml', factor = 1, item = 'Milk'): G10bEntry {
+    return { ingredient: { item, quantity, unit }, factor };
+}
+
+test('G10b R13 keeps Butter whose raw unit shrinks from 52 to 45 characters', () => {
+    const unit = 'tablespoons (level, plus extra for greasing the pan)';
+    assert.equal(unit.length, 52);
+    assert.deepEqual(g10bSandwich([g10bEntry('1', unit, 1, 'Butter')]), {
+        items: [g10bRice, { name: 'Butter', quantity: 1, unit: 'tbsp (level, plus extra for greasing the pan)', aisle: 'Dairy' }, g10bBeans], skippedCount: 0,
+    });
+});
+
+test('G10b R13 quick add keeps a package unit shortened by whitespace normalization', () => {
+    assert.deepEqual(parseGroceryInput('2 cups rice'), { ...g10bRice, name: 'rice' });
+    assert.deepEqual(parseGroceryInput('1 (14' + ' '.repeat(46) + 'oz) can tomatoes'), {
+        name: 'tomatoes', quantity: 1, unit: '(14 oz) cans', aisle: 'Produce',
+    });
+    assert.deepEqual(parseGroceryInput('3 g beans'), { ...g10bBeans, name: 'beans' });
+});
+
+test('G10b R13 enforces unit 50 and 51 boundaries after normalization', () => {
+    const kept = 'tablespoons ' + 'x'.repeat(45);
+    const skipped = 'tablespoons ' + 'x'.repeat(46);
+    assert.deepEqual(g10bSandwich([g10bEntry('1', kept), g10bEntry('1', skipped)]), {
+        items: [g10bRice, { name: 'Milk', quantity: 1, unit: 'tbsp ' + 'x'.repeat(45), aisle: 'Dairy' }, g10bBeans], skippedCount: 1,
+    });
+});
+
+test('G10b R13 enforces cleaned name 200 and 201 boundaries', () => {
+    const kept = 'x'.repeat(200);
+    const skipped = 'x'.repeat(201);
+    assert.deepEqual(g10bSandwich([g10bEntry('1', 'g', 1, '  ' + kept + '  '), g10bEntry('1', 'g', 1, skipped)]), {
+        items: [g10bRice, { name: kept, quantity: 1, unit: 'g', aisle: 'Other' }, g10bBeans], skippedCount: 1,
+    });
+});
+
+test('G10b R13 skips a single amount over 100000 without losing neighbors', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('100001')]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 skips a contribution that pushes 60000 plus 60000 over the limit', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('60000'), g10bEntry('60000'), g10bEntry('1')]), {
+        items: [g10bRice, { name: 'Milk', quantity: 60001, unit: 'ml', aisle: 'Dairy' }, g10bBeans], skippedCount: 1,
+    });
+});
+
+test('G10b R13 skips an amount made too large by small recipe servings', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('60000', 'ml', 1 / 0.5)]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 checks the countable rounded amount against 100000', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('100000.1', 'Large', 1, 'Eggs')]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 keeps total 100000 and skips the contribution reaching 100001', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('60000'), g10bEntry('40000'), g10bEntry('1')]), {
+        items: [g10bRice, { name: 'Milk', quantity: 100000, unit: 'ml', aisle: 'Dairy' }, g10bBeans], skippedCount: 1,
+    });
+});
+
+test('G10b R13 skips null and non-object entries without interrupting good items', () => {
+    for (const ingredient of [null, undefined, false, 12, 'not an ingredient', []]) {
+        assert.deepEqual(g10bSandwich([{ ingredient, factor: 1 }]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+    }
+});
+
+test('G10b R13 skips scaling overflow instead of throwing', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('1e308', 'ml', 1 / 0.25)]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 skips two huge amounts instead of overflowing their sum', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('1e308'), g10bEntry('1e308')]), { items: [g10bRice, g10bBeans], skippedCount: 2 });
+});
+
+test('G10b R13 skips scaling underflow instead of throwing or silently writing zero', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('5e-324', 'ml', 1 / 4)]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 rejects an infinite scale without interrupting other ingredients', () => {
+    assert.deepEqual(g10bSandwich([g10bEntry('1', 'ml', 1 / Number.MIN_VALUE)]), { items: [g10bRice, g10bBeans], skippedCount: 1 });
+});
+
+test('G10b R13 unit aliases ignore inherited Object properties and preserve identity', () => {
+    for (const unit of ['constructor', 'toString']) {
+        const result = g10bSandwich([g10bEntry('1', unit)]);
+        assert.deepEqual(result, {
+            items: [g10bRice, { name: 'Milk', quantity: 1, unit: unit.toLowerCase(), aisle: 'Dairy' }, g10bBeans], skippedCount: 0,
+        });
+        assert.equal(groceryIngredientKey('Milk', unit), JSON.stringify(['milk', unit.toLowerCase()]));
+    }
+});
+
+test('G10b R13 quick add does not treat constructor as a known unit alias', () => {
+    assert.deepEqual(parseGroceryInput('2 cups rice'), { ...g10bRice, name: 'rice' });
+    assert.deepEqual(parseGroceryInput('1 constructor milk'), { name: 'constructor milk', quantity: 1, unit: 'pcs', aisle: 'Dairy' });
+    assert.deepEqual(parseGroceryInput('3 g beans'), { ...g10bBeans, name: 'beans' });
+});
