@@ -8977,8 +8977,14 @@ test.describe('1.0 G17 Planner shows the right week', () => {
       await settlePlanner(page);
       if (await g17ThisWeek(page).count() === 0) await page.getByRole('button', { name: 'Next week' }).click();
       await expect(g17ThisWeek(page)).toBeVisible();
-      const button = (await g17ThisWeek(page).boundingBox())!;
-      const weekBox = (await page.getByRole('button', { name: 'Next week' }).locator('..').boundingBox())!;
+      // The arrows are icon-font glyphs: until that font is in, the week box is wider. Wait for the fonts,
+      // then read both boxes in one step, so no redraw can fall between the two readings.
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      const [button, weekBox] = await page.evaluate(() => {
+        const box = (element: Element) => { const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height }; };
+        const thisWeek = Array.from(document.querySelectorAll('button')).find(item => item.textContent?.trim() === 'This week')!;
+        return [box(thisWeek), box(document.querySelector('[aria-label="Next week"]')!.parentElement!)];
+      });
       expect(button.x, `at ${width}px the button starts inside the width of the week box`).toBeGreaterThanOrEqual(weekBox.x);
       expect(button.x + button.width, `at ${width}px the button ends inside the width of the week box`)
         .toBeLessThanOrEqual(weekBox.x + weekBox.width + 1);
