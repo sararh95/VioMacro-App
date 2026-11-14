@@ -9499,3 +9499,318 @@ test.describe('1.0 G19 Every form ingredient reaches the list', () => {
     expect(await g19Items(client.db, uid), 'nothing could be added, so the list is the same documents').toEqual(listBefore);
   });
 });
+
+test.describe('1.0 G20 Grocery page layout', () => {
+  const g20Names = async (db: Firestore, uid: string) => (await getDocs(collection(db, 'users', uid, 'groceryItems'))).docs
+    .map(record => record.data().name as string).sort();
+  const g20Ticked = async (db: Firestore, uid: string, id: string) => (await getDoc(doc(db, 'users', uid, 'groceryItems', id))).data()?.isChecked;
+  const g20ShortDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const g20Week = (weeks = 0) => {
+    const start = getMondayWeekStart();
+    start.setDate(start.getDate() + weeks * 7);
+    return start;
+  };
+  // "This week's plan" changes on Monday, so the tests with a plan run on the Wednesday of this week.
+  const g20PinWednesday = async (page: Page) => {
+    const wednesday = g20Week();
+    wednesday.setDate(wednesday.getDate() + 2);
+    wednesday.setHours(12);
+    await page.clock.setFixedTime(wednesday);
+  };
+  // The saved plan of this week: one entry of mealsPerDay for each day, from Monday on.
+  const g20SeedPlan = async (db: Firestore, uid: string, mealsPerDay: number[], calories?: number) => {
+    const monday = g20Week();
+    const dateKey = (index: number) => { const date = new Date(monday); date.setDate(date.getDate() + index); return toDateKey(date); };
+    const plan = await addDoc(collection(db, 'users', uid, 'mealPlans'), {
+      weekStart: dateKey(0), weekEnd: dateKey(6), goal: 'G20 Lean Week', isAiGenerated: false,
+      ...(calories !== undefined && { dailyTargets: { calories, protein: 140, carbs: 185, fat: 60 } }),
+      days: mealsPerDay.map((count, index) => ({
+        date: dateKey(index), dayName: ['Monday', 'Tuesday', 'Wednesday'][index], totalCalories: count * 520,
+        meals: Array.from({ length: count }, (_, meal) => ({
+          id: `g20-meal-${index}-${meal}`, name: `G20 Meal ${index}-${meal}`, type: 'dinner', calories: 520, protein: 42, carbs: 55, fat: 14, isEaten: false,
+        })),
+      })),
+      createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+    });
+    return plan.id;
+  };
+  const g20Item = (db: Firestore, uid: string, id: string, name: string, fields: Record<string, unknown> = {}) =>
+    setDoc(doc(db, 'users', uid, 'groceryItems', id), {
+      name, quantity: 1, unit: 'pcs', aisle: 'Pantry', isChecked: false, source: 'manual', createdAt: Timestamp.now(), ...fields,
+    });
+  // Two ticked items (one hand-added, one from a plan) and one that is still to buy.
+  const g20SeedTicked = async (db: Firestore, uid: string) => {
+    await g20Item(db, uid, 'g20-apples', 'G20 Apples', { isChecked: true });
+    await g20Item(db, uid, 'g20-beans', 'G20 Beans', { isChecked: true, source: 'generated', mealPlanId: 'g20-some-plan' });
+    await g20Item(db, uid, 'g20-carrots', 'G20 Carrots');
+  };
+  const g20Line = (page: Page) => page.getByRole('heading', { name: 'Smart Grocery List', exact: true }).locator('xpath=following-sibling::p[1]');
+  const g20Row = (page: Page, name: string) => page.getByRole('heading', { name, exact: true });
+  const g20Clear = (page: Page) => page.getByRole('button', { name: /^Clear ticked items/ });
+  const g20Open = async (page: Page, rowName: string) => {
+    await page.goto('/grocery');
+    await expect(g20Row(page, rowName)).toBeVisible();
+  };
+  // Answers every confirm box from now on and keeps what each one asked. Call it before the click.
+  const g20Answer = (page: Page, accept: boolean) => {
+    const box = { asked: [] as string[], accept };
+    page.on('dialog', async dialog => {
+      box.asked.push(dialog.message());
+      await (box.accept ? dialog.accept() : dialog.dismiss());
+    });
+    return box;
+  };
+  // All boxes in one read, after the fonts are in. "sideways" is how far the row's scroll parents can scroll sideways.
+  const g20Boxes = (page: Page, rowName: string) => page.evaluate(async name => {
+    await document.fonts.ready;
+    const box = (element: Element | null | undefined) => {
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+    };
+    const row = [...document.querySelectorAll('button[aria-label]')]
+      .find(button => button.getAttribute('aria-label')!.endsWith(`: ${name}`))?.parentElement;
+    const sideways: number[] = [];
+    for (let node = row?.parentElement; node; node = node.parentElement) sideways.push(node.scrollWidth - node.clientWidth);
+    const title = [...document.querySelectorAll('h1')].find(heading => heading.textContent === 'Smart Grocery List');
+    return {
+      viewport: window.innerWidth,
+      main: box(document.querySelector('main')),
+      row: box(row),
+      line: box(title?.nextElementSibling),
+      input: box(document.querySelector('input[placeholder^="Quick add item"]')),
+      add: box(document.querySelector('button[aria-label="Add grocery item"]')),
+      clear: box([...document.querySelectorAll('button')].find(button => button.textContent!.trim().startsWith('Clear ticked items'))),
+      sideways: Math.max(...sideways),
+    };
+  }, rowName);
+  type G20Box = { left: number; right: number; width: number; height: number } | null;
+  const g20Inside = (box: G20Box, viewport: number, what: string) => {
+    expect(box, `${what} is on the page`).not.toBeNull();
+    expect(box!.width, `${what} has a width`).toBeGreaterThan(0);
+    expect(box!.left, `${what} starts inside the page`).toBeGreaterThanOrEqual(0);
+    expect(box!.right, `${what} ends inside the page`).toBeLessThanOrEqual(viewport);
+  };
+
+  for (const width of [1280, 1536]) {
+    test(`L1 the list has the width of the page and one summary line at ${width}px`, async ({ page }) => {
+      const { client, uid } = await g4Account(page, width, 'g20-wide');
+      const planId = await g20SeedPlan(client.db, uid, [2, 1], 1850);
+      await g20Item(client.db, uid, 'g20-rice', 'G20 Rice', { source: 'generated', mealPlanId: planId });
+      await g20Item(client.db, uid, 'g20-milk', 'G20 Milk');
+      await g20PinWednesday(page);
+      await g20Open(page, 'G20 Rice');
+
+      const boxes = await g20Boxes(page, 'G20 Rice');
+      expect(boxes.row!.width, `Sara-G a grocery row is at least 700 px wide at ${width}px`).toBeGreaterThanOrEqual(700);
+      // The row uses the whole content area: the page padding (32 px each side) and nothing else.
+      expect(boxes.main!.width - boxes.row!.width, 'the list has no other column and no max width beside it').toBeLessThanOrEqual(65);
+      await expect(page.locator('main aside'), 'the page has no side column').toHaveCount(0);
+      for (const text of ['Checkout', 'Coming Soon', 'Meal Plan Source', 'Local list ready', 'Manual List Mode', 'Meal Plan Connected', 'Store Availability', 'Estimated Total']) {
+        await expect(page.getByText(text), `"${text}" is not on the page`).toHaveCount(0);
+      }
+      await expect(g20Line(page), 'one summary line: week, plan, meals planned, calorie target, link')
+        .toHaveText(`Week of ${g20ShortDate(g20Week())} - G20 Lean Week · 3 meals planned · 1850 kcal / day · View plan`);
+      expect(boxes.sideways, 'nothing scrolls sideways').toBeLessThanOrEqual(0);
+
+      const link = g20Line(page).getByRole('link', { name: 'View plan', exact: true });
+      await expect(link).toHaveAttribute('href', '/plan');
+      await link.click();
+      await expect(page).toHaveURL(/\/plan$/);
+      await expect(page.getByRole('button', { name: 'Next week', exact: true })).toBeVisible();
+    });
+  }
+
+  test('L2 at 390px the summary line, quick add and rows stay inside the page, and tick and delete work', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-phone');
+    const planId = await g20SeedPlan(client.db, uid, [2, 1], 1850);
+    await g20Item(client.db, uid, 'g20-rice', 'G20 Rice', { source: 'generated', mealPlanId: planId });
+    await g20Item(client.db, uid, 'g20-milk', 'G20 Milk');
+    await g20PinWednesday(page);
+    await g20Open(page, 'G20 Rice');
+
+    await expect(g20Line(page), 'the summary line at 390 px')
+      .toHaveText(`Week of ${g20ShortDate(g20Week())} - G20 Lean Week · 3 meals planned · 1850 kcal / day · View plan`);
+    await expect(g20Line(page)).toBeVisible();
+    await expect(g20Line(page).getByRole('link', { name: 'View plan', exact: true })).toBeVisible();
+    await expect(page.locator('main aside')).toHaveCount(0);
+    const boxes = await g20Boxes(page, 'G20 Rice');
+    expect(boxes.viewport).toBe(390);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), 'the page does not scroll sideways').toBeLessThanOrEqual(390);
+    expect(boxes.sideways, 'nothing around the list scrolls sideways').toBeLessThanOrEqual(0);
+    g20Inside(boxes.line, 390, 'the summary line');
+    g20Inside(boxes.input, 390, 'quick add');
+    g20Inside(boxes.add, 390, 'the add button');
+    g20Inside(boxes.row, 390, 'the first row');
+
+    // Tick still works, and the new button is a real touch target inside the page.
+    await page.getByRole('button', { name: 'Mark as purchased: G20 Rice', exact: true }).click();
+    await expect.poll(() => g20Ticked(client.db, uid, 'g20-rice')).toBe(true);
+    await expect(g20Clear(page)).toHaveText('Clear ticked items (1)');
+    const ticked = await g20Boxes(page, 'G20 Rice');
+    g20Inside(ticked.clear, 390, 'Clear ticked items');
+    expect(ticked.clear!.height, 'N5 the button is at least 44 px high at 390 px').toBeGreaterThanOrEqual(44);
+    g20Inside(ticked.row, 390, 'the first row with the button showing');
+    expect(ticked.sideways).toBeLessThanOrEqual(0);
+
+    // Delete still works.
+    await page.getByRole('button', { name: 'Delete grocery item: G20 Milk', exact: true }).click();
+    await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Rice']);
+    await expect(g20Row(page, 'G20 Milk')).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('L3 a list of another week shows that week and not this week\'s meal count or calories', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 1280, 'g20-other-week');
+    const planId = await g20SeedPlan(client.db, uid, [2, 1], 1850);
+    const nextWeek = g20Week(1);
+    // The list was made from next week's plan. A new week's plan is saved under its week start.
+    await g20Item(client.db, uid, 'g20-rice', 'G20 Rice', { source: 'generated', mealPlanId: toDateKey(nextWeek) });
+    await g20PinWednesday(page);
+    await g20Open(page, 'G20 Rice');
+    await expect(page.getByText(/meals? planned/i), 'this week\'s meal count is not shown beside another week\'s list').toHaveCount(0);
+    await expect(page.getByText('kcal / day'), 'this week\'s calorie target is not shown beside another week\'s list').toHaveCount(0);
+    await expect(g20Line(page)).toHaveText(`Week of ${g20ShortDate(nextWeek)} - From your meal plan · View plan`);
+
+    // The same list made from this week's plan does show them, so the plan was there to read.
+    await g20Item(client.db, uid, 'g20-rice', 'G20 Rice', { source: 'generated', mealPlanId: planId });
+    await g20Open(page, 'G20 Rice');
+    await expect(g20Line(page))
+      .toHaveText(`Week of ${g20ShortDate(g20Week())} - G20 Lean Week · 3 meals planned · 1850 kcal / day · View plan`);
+  });
+
+  test('L4 the summary line with no plan, and with one meal and no calorie target', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-line');
+    await g20Item(client.db, uid, 'g20-milk', 'G20 Milk');
+    await g20PinWednesday(page);
+    await g20Open(page, 'G20 Milk');
+    await expect(g20Line(page), 'no plan: the label and the link, nothing about meals').toHaveText('Manual list - Manual grocery list · View plan');
+
+    await g20SeedPlan(client.db, uid, [1]);
+    await g20Open(page, 'G20 Milk');
+    await expect(g20Line(page), 'one meal, no calorie target in the plan')
+      .toHaveText(`Week of ${g20ShortDate(g20Week())} - G20 Lean Week · 1 meal planned · View plan`);
+  });
+
+  test('C1 Clear ticked items asks first: Cancel keeps every item, OK removes the ticked ones', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-clear');
+    await g20SeedTicked(client.db, uid);
+    const before = await g8GrocerySnapshot(client.db, uid);
+    expect(before.map(row => [row.data.name, row.data.source, row.data.isChecked]))
+      .toEqual([['G20 Apples', 'manual', true], ['G20 Beans', 'generated', true], ['G20 Carrots', 'manual', false]]);
+    const question = 'Remove the 2 ticked items from your list?';
+    const confirmBox = g20Answer(page, false);
+    await g20Open(page, 'G20 Carrots');
+    const clear = g20Clear(page);
+    await expect(clear, 'N5 the header has a button that counts the ticked items').toHaveText('Clear ticked items (2)');
+
+    await clear.click();
+    await expect.poll(() => confirmBox.asked, 'the click asks first').toEqual([question]);
+    // Cancel was pressed. Watch the database for 3 seconds: every read must be the list as it was.
+    const until = Date.now() + 3000;
+    do {
+      expect(await g8GrocerySnapshot(client.db, uid), 'Cancel must leave every saved item as it was').toEqual(before);
+      await page.waitForTimeout(200);
+    } while (Date.now() < until);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(clear).toHaveText('Clear ticked items (2)');
+    await expect(clear).toBeEnabled();
+    await expect(g20Row(page, 'G20 Apples')).toBeVisible();
+
+    // The same click with OK removes both ticked items, the hand-added one and the one from a plan.
+    confirmBox.accept = true;
+    await clear.click();
+    await expect.poll(() => g20Names(client.db, uid), 'OK removes every ticked item and nothing else').toEqual(['G20 Carrots']);
+    expect(confirmBox.asked).toEqual([question, question]);
+    expect(await g8GrocerySnapshot(client.db, uid), 'the item that was not ticked is the same document').toEqual(before.slice(2));
+    await expect(clear, 'nothing is ticked now, so the button is gone').toHaveCount(0);
+    await expect(g20Row(page, 'G20 Apples')).toHaveCount(0);
+    await expect(g20Row(page, 'G20 Beans')).toHaveCount(0);
+    await expect(g20Row(page, 'G20 Carrots')).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.reload();
+    await expect(g20Row(page, 'G20 Carrots')).toBeVisible();
+    await expect(g20Row(page, 'G20 Apples')).toHaveCount(0);
+    await expect(g20Clear(page)).toHaveCount(0);
+  });
+
+  test('C2 the Clear button shows only while an item is ticked, and one item is asked about as one', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-none');
+    await g20Item(client.db, uid, 'g20-apples', 'G20 Apples', { isChecked: true });
+    await g20Item(client.db, uid, 'g20-carrots', 'G20 Carrots');
+    const confirmBox = g20Answer(page, false);
+    await g20Open(page, 'G20 Carrots');
+    const clear = g20Clear(page);
+    // One item is ticked: the button is there, so its absence below means something.
+    await expect(clear).toHaveText('Clear ticked items (1)');
+    await clear.click();
+    await expect.poll(() => confirmBox.asked).toEqual(['Remove the 1 ticked item from your list?']);
+    expect(await g20Names(client.db, uid)).toEqual(['G20 Apples', 'G20 Carrots']);
+
+    await page.getByRole('button', { name: 'Mark as not purchased: G20 Apples', exact: true }).click();
+    await expect.poll(() => g20Ticked(client.db, uid, 'g20-apples')).toBe(false);
+    await expect(clear, 'N5 no ticked item, no button').toHaveCount(0);
+    await page.reload();
+    await expect(g20Row(page, 'G20 Carrots')).toBeVisible();
+    await expect(g20Clear(page), 'no ticked item after a reload, no button').toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Mark as purchased: G20 Carrots', exact: true }).click();
+    await expect(g20Clear(page)).toHaveText('Clear ticked items (1)');
+  });
+
+  test('C3 a failed clear says so, keeps every item and works on the next click', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-fail');
+    await g20SeedTicked(client.db, uid);
+    const before = await g8GrocerySnapshot(client.db, uid);
+    const confirmBox = g20Answer(page, true);
+    await g20Open(page, 'G20 Carrots');
+    const clear = g20Clear(page);
+    await expect(clear).toHaveText('Clear ticked items (2)');
+
+    await setDevFailure(page, 'clearCheckedItems');
+    await clear.click();
+    await expect(page.getByRole('alert'), 'N5 a failed clear shows the error bar').toHaveText('Could not clear the ticked items. Please try again.');
+    expect(await g8GrocerySnapshot(client.db, uid), 'the database still has every item').toEqual(before);
+    await expect(clear, 'the button is back').toHaveText('Clear ticked items (2)');
+    await expect(clear).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Mark as not purchased: G20 Apples', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(g20Row(page, 'G20 Beans')).toBeVisible();
+
+    // The next click works, so the first one could have deleted.
+    await clear.click();
+    await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Carrots']);
+    expect(confirmBox.asked).toHaveLength(2);
+    await expect(page.getByRole('alert'), 'the error bar goes after a clear that worked').toHaveCount(0);
+    await expect(clear).toHaveCount(0);
+  });
+
+  test('C4 two clicks start one clear, and the rows stay until the database has removed them', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g20-twice');
+    await g20SeedTicked(client.db, uid);
+    const confirmBox = g20Answer(page, true);
+    await g20Open(page, 'G20 Carrots');
+    const clear = g20Clear(page);
+    await expect(clear).toHaveText('Clear ticked items (2)');
+
+    const hold = await g9R2Hold(page, 'save');
+    try {
+      // Two clicks in one go, before the page can draw anything in between.
+      await clear.evaluate((button: HTMLElement) => { button.click(); button.click(); });
+      await expect.poll(() => hold.count(), 'the delete is on its way and held').toBeGreaterThan(0);
+      expect(confirmBox.asked, 'N5 the second click starts nothing').toEqual(['Remove the 2 ticked items from your list?']);
+      await expect(clear, 'the button is off while the clear runs').toBeDisabled();
+      // No guess on the screen: the ticked rows stay until the database answers.
+      await expect(g20Row(page, 'G20 Apples')).toBeVisible();
+      await expect(g20Row(page, 'G20 Beans')).toBeVisible();
+      await expect(clear).toHaveText('Clear ticked items (2)');
+      expect(await g20Names(client.db, uid)).toEqual(['G20 Apples', 'G20 Beans', 'G20 Carrots']);
+    } finally {
+      await hold.release();
+    }
+    await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Carrots']);
+    await expect(clear).toHaveCount(0);
+    await expect(g20Row(page, 'G20 Apples')).toHaveCount(0);
+    expect(confirmBox.asked).toHaveLength(1);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+});
