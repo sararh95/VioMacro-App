@@ -633,3 +633,19 @@ test('1.0 G19 N6: meals whose recipe was deleted are counted, also when nothing 
     assert.deepEqual(h.snapshot(), before);
     assert.equal(h.state.commits.length, commits);
 });
+
+test('1.0 G19 N6: only meals of a deleted recipe are counted; a read failure still stops before any write', async () => {
+    const h = await harness({ old: item('Rice', { mealPlanId: 'week-new' }), manual: item('Manual', { source: 'manual' }) });
+    // Nothing is missing: the result has no count at all (older tests compare the whole result).
+    assert.deepEqual(await h.generate(g19Week('recipe', 'recipe', 'recipe')), { success: true, count: 1, skippedCount: 0 });
+    // An id that can never be a recipe document is skipped without a word, as before (browser test G-D pins the message).
+    assert.deepEqual(await h.generate(g19Week('recipe', 'missing/recipe', '..', '__reserved__', undefined)), { success: true, count: 1, skippedCount: 0 });
+    // No meal has a recipe id: the older answer, and no count.
+    assert.deepEqual(await h.generate(g19Week(undefined, undefined)), { success: false, count: 0, skippedCount: 0, message: 'No recipes in plan' });
+
+    const before = h.snapshot(); const commits = h.state.commits.length;
+    h.state.failRead = true;
+    await assert.rejects(h.generate(g19Week('recipe', 'gone')), /recipe read rejected/);
+    assert.deepEqual(h.snapshot(), before);
+    assert.equal(h.state.commits.length, commits);
+});

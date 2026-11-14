@@ -934,6 +934,11 @@ function MealPlannerScreen() {
         setPlannerNotice(null);
         try {
             const result = await generateGroceryList(user.uid, displayPlan);
+            // N6: meals whose recipe was deleted add nothing to the list. Say how
+            // many, on success and also when nothing could be added.
+            const leftOut = !result.missingRecipeMeals ? ''
+                : result.missingRecipeMeals === 1 ? ' 1 meal has no recipe any more and was left out.'
+                    : ` ${result.missingRecipeMeals} meals have no recipe any more and were left out.`;
 
             // AUD-079: there was no else branch. A failed generation produced no
             // message at all, and the reason the generator carefully returned was
@@ -942,7 +947,7 @@ function MealPlannerScreen() {
             if (!result.success) {
                 setPlannerNotice({
                     tone: 'error',
-                    message: result.message || 'Could not build a shopping list from this plan.',
+                    message: (result.message || 'Could not build a shopping list from this plan.') + leftOut,
                 });
                 return;
             }
@@ -957,7 +962,7 @@ function MealPlannerScreen() {
                 tone: 'success',
                 message: result.count
                     ? `Added ${result.count} ${result.count === 1 ? 'item' : 'items'} to your shopping list.` +
-                        (result.skippedCount ? ` Skipped ${result.skippedCount} ${result.skippedCount === 1 ? 'ingredient' : 'ingredients'} with invalid or zero quantities.` : '')
+                        (result.skippedCount ? ` Skipped ${result.skippedCount} ${result.skippedCount === 1 ? 'ingredient' : 'ingredients'} that could not be added.` : '') + leftOut
                     : (result.message || 'Your shopping list is already up to date.'),
             });
         } catch (err) {

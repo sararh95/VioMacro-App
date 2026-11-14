@@ -3080,7 +3080,8 @@ test.describe('emulator authenticated smoke', () => {
       ],
     }, { merge: true });
     await page.getByRole('button', { name: /Add to List/ }).click();
-    await expect(page.getByRole('alert')).toContainText('Added 1 item to your shopping list. Skipped 2 ingredients with invalid or zero quantities.');
+    // G19 B13: the sentence is now "that could not be added" (the wording is the finding). The count stays.
+    await expect(page.getByRole('alert')).toContainText('Added 1 item to your shopping list. Skipped 2 ingredients that could not be added.');
     const saved = await readSaved();
     expect(saved).toHaveLength(2);
     expect(saved).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Validation Rice', quantity: 0.75, isChecked: true })]));

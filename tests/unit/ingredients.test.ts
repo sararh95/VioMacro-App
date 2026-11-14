@@ -422,3 +422,45 @@ test('1.0 G19 GB6: a decimal comma reads as a decimal point, with 1 or 2 digits 
     assert.deepEqual(parseGroceryInput('1,5 cups flour'), { name: 'flour', quantity: 1.5, unit: 'cups', aisle: 'Pantry' });
     assert.deepEqual(parseGroceryInput('0,5 lb butter'), { name: 'butter', quantity: 0.5, unit: 'lbs', aisle: 'Dairy' });
 });
+
+test('1.0 G19 N8: a blank quantity is still skipped without a qualitative unit, and a number stays a number', () => {
+    for (const ingredient of [
+        { item: 'Flour', quantity: '', unit: 'Cup' }, { item: 'Flour', quantity: '', unit: '' }, { item: 'Flour', quantity: '' },
+        { item: 'Flour', quantity: '0', unit: 'Cup' }, { item: 'Flour', quantity: 0, unit: 'tasteful' }, { item: 'Flour', quantity: '', unit: 5 },
+        // A quantity that is neither blank nor zero is not rescued by the unit.
+        { item: 'Salt', quantity: 'some', unit: 'to taste' }, { item: 'Salt', quantity: '-1', unit: 'to taste' }, { item: 'Salt', quantity: null, unit: 'to taste' },
+        // The unit rule is for the form's quantity field only: a legacy amount row is read from its amount, as before.
+        { item: 'Salt', amount: '', unit: 'to taste' }, { item: 'Salt', amount: '0', unit: 'to taste' }, { item: 'Salt', unit: 'to taste' },
+    ]) {
+        assert.equal(parse(ingredient), null, JSON.stringify(ingredient));
+        assert.deepEqual(aggregate([{ ingredient, factor: 1 }]), { items: [], skippedCount: 1 }, JSON.stringify(ingredient));
+    }
+    const pinches = { item: 'Salt', quantity: '2', unit: 'Pinch' };
+    assert.deepEqual(parse(pinches), { min: 2, max: 2, unit: 'Pinch', quantityText: '2', separator: '', qualitative: false });
+    assert.equal(format(pinches, 2), '4 Pinch');
+    assert.deepEqual(aggregate([{ ingredient: pinches, factor: 0.5 }, { ingredient: pinches, factor: 0.5 }]),
+        { items: [{ name: 'Salt', quantity: 2, unit: 'pinch', aisle: 'Other' }], skippedCount: 0 });
+});
+
+test('1.0 G19 N8: recipe views show a form-made qualitative ingredient with the same words at every serving size', () => {
+    for (const [unit, shown] of [['to taste', 'to taste'], ['Pinch', 'Pinch'], [' to taste ', 'to taste']] as const) {
+        // On the old code this text came from joining the blank quantity and the unit: the same words.
+        for (const factor of [1, 0.25, 3]) assert.equal(format({ item: 'Salt', quantity: '', unit, amount: '' }, factor), shown);
+    }
+    assert.equal(format({ item: 'Flour', quantity: '', unit: 'Cup' }, 2), 'Cup');
+    assert.equal(format({ item: 'Flour', quantity: '0', unit: 'Cup' }, 2), '0 Cup');
+});
+
+test('1.0 G19 GB6: a comma that is not a decimal comma is still not a number', () => {
+    for (const quantity of ['1,000', '2,000', '1,555', '1,', ',5', '1,5,5', '1, 5', '1 ,5', '1,5.2', '1.5,2']) {
+        assert.equal(parse({ item: 'Flour', quantity, unit: 'g' }), null, quantity);
+    }
+    for (const amount of ['1,000 g', '2,000 g', '1,555 g', '1, 5 cups', '1,5,5 cups', '1,5.2 cups']) {
+        assert.equal(parse({ item: 'Flour', amount }), null, amount);
+        assert.equal(parseGroceryInput(`${amount} flour`), null, amount);
+    }
+    assert.equal(parse({ item: 'Lemon', amount: '2, juice and zest' })?.max, 2);
+    assert.equal(parse({ item: 'Flour', quantity: '1.5', unit: 'Cup' })?.max, 1.5);
+    // The comma is read only where the number is: a name with a comma in it is untouched.
+    assert.deepEqual(parseGroceryInput('2 cups rice, 1,5 kg bag'), { name: 'rice, 1,5 kg bag', quantity: 2, unit: 'cups', aisle: 'Pantry' });
+});

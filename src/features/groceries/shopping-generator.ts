@@ -15,7 +15,8 @@ function isRecipeDocumentId(id: string): boolean {
     return !id.includes('/') && id !== '.' && id !== '..' && !/^__.*__$/.test(id);
 }
 
-export async function generateGroceryList(userId: string, weekPlan: MealPlan) {
+export async function generateGroceryList(userId: string, weekPlan: MealPlan):
+    Promise<{ success: boolean; count: number; skippedCount: number; message?: string; missingRecipeMeals?: number }> {
     console.log("Generating grocery list for user:", userId);
 
     // 1. Collect all Recipe IDs
@@ -53,19 +54,28 @@ export async function generateGroceryList(userId: string, weekPlan: MealPlan) {
         // One planned meal is one portion. Parse/scale every owned recipe
         // before the existing atomic replacement is allowed to stage writes.
         const entries: { ingredient: IngredientInput; factor: number }[] = [];
+        // N6: a planned meal whose recipe was deleted adds nothing. Count those
+        // meals so the Planner can say so. An id that can never be a recipe
+        // (see isRecipeDocumentId) is skipped without a word, as before.
+        let missingRecipeMeals = 0;
         for (const day of weekPlan.days) {
             for (const meal of day.meals) {
                 const recipe = meal.recipeId ? recipeMap.get(meal.recipeId) : undefined;
-                if (!recipe) continue;
+                if (!recipe) {
+                    if (meal.recipeId && isRecipeDocumentId(meal.recipeId)) missingRecipeMeals++;
+                    continue;
+                }
                 const factor = 1 / recipeServings(recipe.servings);
                 for (const ingredient of recipe.ingredients || []) entries.push({ ingredient, factor });
             }
         }
         const { items: totals, skippedCount } = aggregateIngredients(entries);
+        // The count is in the result only when there is something to say.
+        const missing = missingRecipeMeals ? { missingRecipeMeals } : {};
 
         // 4. Save to Firestore
         if (totals.length === 0) {
-            return { success: false, count: 0, skippedCount, message: 'No addable ingredients found. Your shopping list has not changed.' };
+            return { success: false, count: 0, skippedCount, message: 'No addable ingredients found. Your shopping list has not changed.', ...missing };
         }
 
         const items = totals.map(item => {
@@ -87,7 +97,7 @@ export async function generateGroceryList(userId: string, weekPlan: MealPlan) {
 
         await replaceGeneratedGroceryItems(userId, items);
         console.log(`Successfully saved ${items.length} items to Firestore.`);
-        return { success: true, count: items.length, skippedCount };
+        return { success: true, count: items.length, skippedCount, ...missing };
 
     } catch (error) {
         console.error("Failed to generate grocery list", error);
