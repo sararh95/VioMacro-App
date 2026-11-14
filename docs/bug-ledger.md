@@ -52,6 +52,132 @@ Required fields:
 
 ## Open Items
 
+### N8 (audit 2, G19) Salt entered with no number never reaches the grocery list
+
+- ID: N8 (audit 2, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13)
+- Severity: P2
+- Workflow/page: Recipe form (unit "to taste" or "Pinch", number left blank); Meal Planner "Add to List"; Grocery list.
+- Expected: An ingredient the cook enters as "to taste" or "a pinch" is on the shopping list.
+- Actual: The form saves a blank quantity and the unit. The amount reader looked only at the quantity, found it blank and skipped the ingredient. The Planner said "Skipped N ingredients with invalid or zero quantities".
+- User impact: Salt, pepper and spices are missing from every list made from her own recipes.
+- Evidence: Unit and browser tests fail on the old code: a recipe made in the real form reaches the database as Rice only, with "Skipped 3 ingredients". See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/shared/ingredients.ts parseIngredientAmount (the blank check ran before the unit was read).
+- Cause and fix: A quantity that is blank or zero, with a unit that the existing qualitative rule accepts (to taste, as needed, pinch, dash, in any letter case), is now 1 x that unit, marked qualitative. It is saved like an imported "to taste" already was: quantity 1 and the unit text.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: A recipe made in the real form; Add to List; database read-back; the Grocery page row; recipe detail and cooking text.
+- Revisit trigger: PR #13 review. Stays as before: a blank number with a measuring unit (Cup) is skipped; a number with "Pinch" is a number. Left as is: a quantity of null; a recipe that holds both "2 Pinch" and a blank "Pinch" of the same item shows 1 pinch.
+- Date closed: Pending.
+
+### B16 (1.0 review, G19) An imported "to taste" with quantity 0 is skipped
+
+- ID: B16 (1.0 review ledger, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13)
+- Severity: P3
+- Workflow/page: Imported recipes; Meal Planner "Add to List"; recipe detail and cooking.
+- Expected: "to taste" with a quantity of 0 is a "to taste" ingredient.
+- Actual: A zero quantity was not addable, whatever the unit said. Recipe views showed "0 to taste".
+- User impact: Same as N8 for recipes that hold a 0.
+- Evidence: Unit test fails on the old code for '0', 0 and '0.0'. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/shared/ingredients.ts parseIngredientAmount.
+- Cause and fix: Same rule as N8: zero with a qualitative unit is 1 x that unit.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Unit tests for the list and for the view text.
+- Revisit trigger: PR #13 review. One visible text changes: recipe detail and cooking now show "to taste" where a saved zero showed "0 to taste". Today's import already saves a blank, not 0.
+- Date closed: Pending.
+
+### B13 (1.0 review, G19) The skipped-ingredient message blames quantities
+
+- ID: B13 (1.0 review ledger, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13)
+- Severity: P3
+- Workflow/page: Meal Planner message bar after "Add to List".
+- Expected: Plain words that are true for every skipped ingredient.
+- Actual: "Skipped N ingredients with invalid or zero quantities." was shown also for a blank number and for a name or unit that is too long.
+- User impact: The message points at the wrong thing.
+- Evidence: Browser test asserts the new sentence. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx handleAddToShoppingList.
+- Cause and fix: The sentence is now "Skipped N ingredient(s) that could not be added." The count is unchanged.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: One skipped and two skipped ingredients.
+- Revisit trigger: PR #13 review. Left as is: the message does not name the skipped ingredients.
+- Date closed: Pending.
+
+### N6 (audit 2, G19) Meals of a deleted recipe are left out of the list without a word
+
+- ID: N6 (audit 2, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13)
+- Severity: P2
+- Workflow/page: Meal Planner "Add to List" for a plan that holds a meal whose recipe was deleted.
+- Expected: The Planner says how many meals added nothing.
+- Actual: The meal was skipped silently. The message was the same as for a complete list.
+- User impact: She shops from a list that misses whole meals and nothing tells her.
+- Evidence: Unit and browser tests fail on the old code: the message ends after the "Skipped" sentence. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/features/groceries/shopping-generator.ts (if (!recipe) continue); MealPlanner.tsx message.
+- Cause and fix: The generator counts the meals whose recipe id finds no recipe and returns the count when it is above 0. The Planner adds "1 meal has no recipe any more and was left out." or "N meals have no recipe any more and were left out.", on success and also when nothing could be added. A failed read still stops before any write.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: One deleted recipe; all recipes deleted; a meal with no recipe; database read-back.
+- Revisit trigger: PR #13 review. Left as is: a meal whose recipe id can never be a recipe (for example one with a slash) is still skipped without a word, because an older browser test fixes that exact message; the Planner still shows the meal card; deleting a recipe does not touch plans; the sentence does not name the meals.
+- Date closed: Pending.
+
+### GB6 (audit 2, G19, list part) A decimal comma is not read as a number
+
+- ID: GB6 (audit 2, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13) for recipes, the grocery list and grocery quick add. Pantry quick add stays open.
+- Severity: P3
+- Workflow/page: Recipe form quantity "1,5"; recipe detail and cooking at another serving size; Meal Planner "Add to List"; Grocery quick add.
+- Expected: "1,5" is one and a half.
+- Actual: The ingredient was skipped by the list, never scaled in recipe views, and refused by quick add.
+- User impact: A cook who types a comma loses the ingredient from the list.
+- Evidence: Unit test fails on the old code: "1,5" parses to nothing. Hand test: "1,5 Cup" at twice the recipe still read "1,5 Cup". See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/shared/ingredients.ts numeric token.
+- Cause and fix: A number may be digits, a comma and 1 or 2 digits. It reads as a decimal point, for a single number and for both ends of a range. The unscaled text keeps the cook's spelling.
+- Next action: Coordinator merge gate; exact-head CI. Pantry quick add ("2 Cups Milk" becomes the item "Cups Milk", pantry-parse.ts) is a later group.
+- Verification target: "1,5", "0,25", "2,50", a range, a legacy amount, quick add; "1,000" and "2,000 g" still not accepted.
+- Revisit trigger: PR #13 review. Left as is: three digits after a comma are not a number; a space after the comma is not a decimal comma.
+- Date closed: Pending.
+
+### GA11 (audit 2, G19) Grocery quick add misreads common short forms
+
+- ID: GA11 (audit 2, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13). "100% orange juice" stays open.
+- Severity: P3
+- Workflow/page: Grocery page quick add.
+- Expected: "2 tbs olive oil" is 2 tbsp of olive oil; "1 lb. ground beef" is 1 lb of ground beef.
+- Actual: The unit word was not known, or its dot hid it, so the item was saved as "tbs olive oil" x 2 pcs.
+- User impact: Wrong names and amounts on the list; the same food twice.
+- Evidence: Unit test fails on the old code. Hand test with database read-back. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/shared/ingredients.ts alias table, normalizeIngredientUnit, parseGroceryInput.
+- Cause and fix: The alias table knows tbs, tbsps, tsps, bunch, bunches, head and heads. A known unit word may end in one dot: quick add finds it and the unit is saved without the dot.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Each short form; a name that only looks like a unit ("2 mr. clean sponges") stays a name.
+- Revisit trigger: PR #13 review. Left as is: "100% orange juice" is still read as 100 of "% orange juice"; other short forms (pkg, qt, pt, gal, fl oz, handful, sprig).
+- Date closed: Pending.
+
+### GA12 (audit 2, G19) Heads and bunches are fractions and do not merge
+
+- ID: GA12 (audit 2, W7 G19)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#13](https://github.com/sararh95/VioMacro-App/pull/13)
+- Severity: P3
+- Workflow/page: Generated grocery list and quick add.
+- Expected: Lettuce is bought in whole heads. "bunch" and "bunches", "tsp" and "tsp." are one row.
+- Actual: "0.25 head" of lettuce; two rows for one food.
+- User impact: Amounts nobody can buy; a longer list.
+- Evidence: Unit test fails on the old code. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g19-every-form-ingredient-reaches-the-list).
+- Suspected area: src/shared/ingredients.ts countable(), alias table, singular display map.
+- Cause and fix: Heads and bunches are counted in whole items, rounded up once after the sum. Singular, plural and dotted forms share one unit. One head and one bunch show the singular word.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: A quarter head, five quarter heads, bunch plus bunches, tsp plus tsp.
+- Revisit trigger: PR #13 review. Left as is: rows saved before this fix are not rewritten; an unknown unit keeps its dot.
+- Date closed: Pending.
+
 ### GA2 (audit 2, G18) A list made from an unsaved plan loses its ticks
 
 - ID: GA2 (audit 2, W7 G18)
