@@ -16,7 +16,8 @@ const recipe = (ingredients: unknown[] = [{ item: 'Rice', quantity: '3', unit: '
 
 async function harness(initial: Record<string, Item> = { old: item(), manual: item('Manual', { source: 'manual' }) }) {
     const records = new Map(Object.entries(structuredClone(initial)));
-    const state = { records, recipes: [recipe()], failRead: false, failCommit: false, commits: [] as number[], directWrites: 0, nextId: 0 };
+    // G18: rawDocs, when set, is what a read returns, uncloned, so a document can carry a real createdAt (toMillis).
+    const state = { records, recipes: [recipe()], failRead: false, failCommit: false, commits: [] as number[], directWrites: 0, nextId: 0, rawDocs: null as [string, unknown][] | null };
     // A unique module per harness prevents state sharing across tests.
     const key = `groceryAtomic${Math.random()}`;
     Object.assign(globalThis, { [key]: state });
@@ -28,6 +29,7 @@ async function harness(initial: Record<string, Item> = { old: item(), manual: it
         export const query = (ref, ...constraints) => ({ ref, constraints });
         export const doc = () => 'new-' + (++s.nextId);
         export async function getDocs(q) {
+            if (s.rawDocs) return { docs: s.rawDocs.map(([id,v]) => ({ id, ref: id, data: () => v })) };
             return { docs: [...s.records].filter(([,v]) => (q.constraints || []).every(c => !c.field || v[c.field] === c.value))
                 .map(([id,v]) => ({ id, ref: id, data: () => structuredClone(v) })) };
         }
@@ -67,7 +69,9 @@ async function harness(initial: Record<string, Item> = { old: item(), manual: it
         .replaceAll("'./shoppingService'", JSON.stringify(service))
         .replace(/(['"])\.\.\/\.\.\/shared\/ingredients\1/g, () => JSON.stringify(dataModule(compile('src/shared/ingredients.ts')))));
     const { generateGroceryList } = await import(generator);
-    return { state, generate: (input = plan()) => generateGroceryList('synthetic-user', input), snapshot: () => [...records] };
+    const { getGroceryList } = await import(service);
+    return { state, generate: (input = plan()) => generateGroceryList('synthetic-user', input), snapshot: () => [...records],
+        list: (): Promise<{ id: string; name: string }[]> => getGroceryList('synthetic-user') };
 }
 
 test('VM-028: empty plan leaves checked generated and manual items untouched', async () => {
@@ -507,4 +511,57 @@ test('1.0 G10 R13: a week skips a 51-character unit and writes its good ingredie
     const boundaryItem = h.snapshot().map(([, value]) => value).find(value => value.name === 'Boundary ingredient');
     assert.equal(boundaryItem?.unit, boundaryUnit);
     assert.equal(boundaryItem?.quantity, 0.25);
+});
+
+// 1.0 G18 (audit 2: GA2, GA6, GA7). A draft has a week start and no id yet.
+const g18Draft = (id?: string) => ({ id, weekStart: '2026-11-16', days: [{ meals: [{ recipeId: 'recipe' }] }] }) as never;
+const g18Generated = (h: Awaited<ReturnType<typeof harness>>) => h.snapshot().filter(([, value]) => value.source === 'generated');
+
+test('1.0 G18 GA2: a list made from an unsaved draft keeps its tick, also after the plan is confirmed', async () => {
+    const h = await harness({ manual: item('Manual', { source: 'manual' }) });
+    assert.equal((await h.generate(g18Draft())).success, true);
+    const [[firstId, first]] = g18Generated(h);
+    assert.equal(first.isChecked, false);
+    h.state.records.set(firstId, { ...first, isChecked: true }); // ticked in the shop
+
+    await h.generate(g18Draft()); // Add to List again from the same draft
+    assert.equal(h.state.records.has(firstId), false, 'the second Add to List rewrote the item');
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', true]]);
+
+    // Confirm Plan saves a new week under its week start (planService), so the tick follows the saved plan.
+    await h.generate(g18Draft('2026-11-16'));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.mealPlanId, value.isChecked]), [['Rice', '2026-11-16', true]]);
+
+    // A plan that has an id keeps it: this is another plan, so the tick does not follow.
+    await h.generate(g18Draft('saved-plan-id'));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.mealPlanId, value.isChecked]), [['Rice', 'saved-plan-id', false]]);
+});
+
+test('1.0 G18 GA6: a tick is carried only when the amount needed did not grow', async () => {
+    // The recipe needs 3 cups for 4 servings: one planned meal needs 0.75 cups.
+    for (const [ticked, kept] of [[0.25, false], [0.7499, false], [0.75, true], [2, true], [undefined, false]] as const) {
+        const h = await harness({ old: item('Rice', { quantity: ticked, mealPlanId: 'week-new' }) });
+        assert.equal((await h.generate()).success, true);
+        assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.quantity, value.isChecked]), [['Rice', 0.75, kept]],
+            `bought ${ticked} cups, 0.75 cups needed now`);
+    }
+    // Not bought before: a smaller amount now does not tick it.
+    const h = await harness({ old: item('Rice', { quantity: 2, isChecked: false, mealPlanId: 'week-new' }) });
+    await h.generate();
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', false]]);
+});
+
+test('1.0 G18 GA7: grocery items saved at the same moment keep one order, by name and then by id', async () => {
+    const h = await harness({});
+    const at = (ms: number) => ({ toMillis: () => ms });
+    const row = (id: string, name: string, createdAt?: unknown): [string, unknown] => [id, { ...item(name), ...(createdAt ? { createdAt } : {}) }];
+    h.state.rawDocs = [
+        row('id-1', 'Zucchini', at(5)), row('id-2', 'Mango', at(5)), row('id-9', 'Apple', at(5)), row('id-3', 'Apple', at(5)),
+        row('id-4', 'Aaa later', at(9)), row('id-5', 'Zzz earlier', at(1)),
+        row('id-8', 'Old pears'), row('id-7', 'Old pears'), row('id-6', 'Old figs'),
+    ];
+    assert.deepEqual((await h.list()).map(value => `${value.id} ${value.name}`), [
+        'id-5 Zzz earlier', 'id-3 Apple', 'id-9 Apple', 'id-2 Mango', 'id-1 Zucchini', 'id-4 Aaa later',
+        'id-6 Old figs', 'id-7 Old pears', 'id-8 Old pears',
+    ]);
 });
