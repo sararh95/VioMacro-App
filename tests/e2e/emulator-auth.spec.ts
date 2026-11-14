@@ -9838,3 +9838,479 @@ test.describe('1.0 G20 Grocery page layout', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 });
+
+test.describe('1.0 G21 Layout fits: shell and Planner', () => {
+  test.setTimeout(90_000);
+  const g21DayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  type G21Drink = 'tea' | 'smoothie';
+  type G21Box = { left: number; right: number; top: number; bottom: number; width: number; height: number };
+  const g21Week = (weeks = 0) => {
+    const start = getMondayWeekStart();
+    start.setDate(start.getDate() + weeks * 7);
+    return start;
+  };
+  // The Planner asks a question on a weekend and the week changes on Monday, so every test
+  // runs on the Wednesday of this week, whatever day the suite runs.
+  const g21PinWednesday = async (page: Page) => {
+    const wednesday = g21Week();
+    wednesday.setDate(wednesday.getDate() + 2);
+    wednesday.setHours(12);
+    await page.clock.setFixedTime(wednesday);
+  };
+  const g21MealName = (day: number, type: string) => `G21 ${g21DayNames[day]} ${type} with a long recipe name`;
+  // A saved plan of this week: breakfast, lunch and dinner on all 7 days, a snack on Monday, and the drinks named per day.
+  const g21SeedWeek = async (db: Firestore, uid: string, drinks: Record<number, G21Drink[]> = {}) => {
+    const monday = g21Week();
+    const dateKey = (index: number) => { const date = new Date(monday); date.setDate(date.getDate() + index); return toDateKey(date); };
+    const meal = (day: number, type: string) => ({
+      id: `g21-${type}-${day}`, name: g21MealName(day, type), type, calories: type === 'tea' ? 5 : 620, protein: type === 'tea' ? 0 : 45, carbs: 55, fat: 14, isEaten: false,
+    });
+    const days = g21DayNames.map((dayName, index) => {
+      const meals = [...(drinks[index] ?? []), 'breakfast', 'lunch', 'dinner', ...(index === 0 ? ['snack'] : [])].map(type => meal(index, type));
+      return { date: dateKey(index), dayName, totalCalories: meals.reduce((sum, item) => sum + item.calories, 0), meals };
+    });
+    await setDoc(doc(db, 'users', uid, 'mealPlans', dateKey(0)), {
+      weekStart: dateKey(0), weekEnd: dateKey(6), goal: 'G21 Full Week', isAiGenerated: false,
+      dailyTargets: { calories: 1850, protein: 140, carbs: 185, fat: 60 }, days,
+      createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+    });
+    return { id: dateKey(0), cards: days.reduce((sum, day) => sum + day.meals.length, 0) };
+  };
+  // An unsaved draft of this week with one Monday dinner, as Start from Scratch and one pick leave it.
+  const g21Draft = (weekKey: string, recipeId: string, mealName: string) => {
+    const [year, month, day] = weekKey.split('-').map(Number);
+    const date = (index: number) => toDateKey(new Date(year, month - 1, day + index));
+    return {
+      weekStart: weekKey, weekEnd: date(6), goal: 'G21 draft', isAiGenerated: false,
+      dailyTargets: { calories: 1850, protein: 140, carbs: 185, fat: 60 },
+      days: g21DayNames.map((dayName, index) => ({
+        date: date(index), dayName, totalCalories: index ? 0 : 520,
+        meals: index ? [] : [{ id: 'g21-draft-dinner', recipeId, name: mealName, type: 'dinner', calories: 520, protein: 42, carbs: 55, fat: 14, isEaten: false }],
+      })),
+    };
+  };
+  const g21OpenPlanner = async (page: Page, mealName: string) => {
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await expect(page.getByRole('heading', { name: mealName, exact: true })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  };
+  const g21Inside = (inner: G21Box, outer: G21Box, what: string) => {
+    expect(inner.width, `${what} has a width`).toBeGreaterThan(0);
+    expect(inner.left, `${what}: left edge`).toBeGreaterThanOrEqual(outer.left - 0.5);
+    expect(inner.right, `${what}: right edge`).toBeLessThanOrEqual(outer.right + 0.5);
+    expect(inner.top, `${what}: top edge`).toBeGreaterThanOrEqual(outer.top - 0.5);
+    expect(inner.bottom, `${what}: bottom edge`).toBeLessThanOrEqual(outer.bottom + 0.5);
+  };
+  const g21Apart = (a: G21Box, b: G21Box) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+
+  test('N9a the fixed menu shows from 1024px; at 768px and 1000px the menu button opens the phone menu', async ({ page }) => {
+    await g4Account(page, 768, 'g21-menu');
+    // The shell in one read, after the fonts are in.
+    const shell = () => page.evaluate(async () => {
+      await document.fonts.ready;
+      const seen = (element: Element | null) => !!element && element.getClientRects().length > 0;
+      const header = document.querySelector('main > header')!;
+      const main = document.querySelector('main')!.getBoundingClientRect();
+      return {
+        viewport: window.innerWidth,
+        fixedMenu: seen(document.querySelector('aside:not(#mobile-navigation-drawer)')),
+        menuButton: seen(header.querySelector('button[aria-label="Open navigation menu"]')),
+        title: seen(header.querySelector('h2')),
+        weekLabel: [...header.querySelectorAll('span')].some(span => /^Week of /.test(span.textContent ?? '') && seen(span)),
+        main: { left: main.left, right: main.right },
+        bellRight: Math.round(header.querySelector('button[aria-label="Notifications coming soon"]')!.getBoundingClientRect().right),
+        pageScrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    const button = page.getByRole('button', { name: 'Open navigation menu', exact: true });
+    const drawer = page.locator('#mobile-navigation-drawer');
+    const drawerLeft = async () => Math.round((await drawer.boundingBox())!.x);
+
+    for (const width of [768, 1000]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/');
+      await expect(page.getByRole('heading', { name: 'Hydration', exact: true })).toBeVisible();
+      const at = await shell();
+      expect(at.viewport).toBe(width);
+      expect(at.fixedMenu, `N9 at ${width}px the fixed left menu is not shown`).toBe(false);
+      expect(at.menuButton, `N9 at ${width}px the menu button is shown`).toBe(true);
+      expect(at.main, `N9 at ${width}px the page has the full width`).toEqual({ left: 0, right: width });
+      expect(at.title, `at ${width}px the top bar is the phone one: no page title in it`).toBe(false);
+      expect(at.weekLabel, `at ${width}px the top bar is the phone one: no week label in it`).toBe(false);
+      // The bell is the last thing in the top bar: nothing hidden takes room beside it (32 px of padding).
+      expect(at.bellRight, `at ${width}px the bell is at the right end of the top bar`).toBe(width - 32);
+      expect(at.pageScrollWidth, 'the page does not scroll sideways').toBeLessThanOrEqual(width);
+
+      // The button opens the phone menu, a click beside the menu closes it, and its links work.
+      await expect(button).toHaveAttribute('aria-expanded', 'false');
+      expect(await drawerLeft(), 'the phone menu waits off the screen').toBe(-288);
+      await button.click();
+      await expect(button).toHaveAttribute('aria-expanded', 'true');
+      await expect.poll(drawerLeft, `N9 at ${width}px the menu button opens the phone menu`).toBe(0);
+      await page.mouse.click(width - 40, 500);
+      await expect(button, 'a click beside the open menu closes it').toHaveAttribute('aria-expanded', 'false');
+      await expect.poll(drawerLeft).toBe(-288);
+      await button.click();
+      await expect.poll(drawerLeft).toBe(0);
+      await drawer.getByRole('link', { name: /Recipes$/ }).click();
+      await expect(page).toHaveURL(/\/recipes$/);
+      await expect(button, 'a link in the menu closes it').toHaveAttribute('aria-expanded', 'false');
+    }
+
+    await page.setViewportSize({ width: 1024, height: 1000 });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Hydration', exact: true })).toBeVisible();
+    const wide = await shell();
+    expect(wide.fixedMenu, 'at 1024px the fixed left menu is shown').toBe(true);
+    expect(wide.menuButton, 'at 1024px there is no menu button').toBe(false);
+    expect(wide.title, 'at 1024px the top bar has the page title').toBe(true);
+    expect(wide.weekLabel, 'at 1024px the top bar has the week label').toBe(true);
+    expect(wide.main, 'at 1024px the page starts after the 288 px menu').toEqual({ left: 288, right: 1024 });
+    await expect(drawer, 'at 1024px the phone menu is not in the page').toBeHidden();
+  });
+
+  test('N9b at 768px the Planner has the page width: Confirm Plan is inside its card, the date is on one line and the macro labels fit', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 768, 'g21-tablet');
+    await g21SeedWeek(client.db, uid, { 0: ['smoothie'] });
+    await g21PinWednesday(page);
+    await g21OpenPlanner(page, g21MealName(0, 'breakfast'));
+    const at = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const box = (element: Element) => { const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+      const confirm = [...document.querySelectorAll('main button')].find(item => item.textContent!.includes('Confirm Plan'))!;
+      const card = confirm.parentElement!.parentElement!;
+      const title = document.querySelector('main h1')!;
+      const labels = ['Daily Calories', 'Protein', 'Carbs', 'Fats'];
+      return {
+        viewport: window.innerWidth,
+        confirm: box(confirm),
+        actions: [...confirm.parentElement!.children].map(box),
+        card: box(card),
+        cardHoldsTheDate: card.contains(title),
+        title: box(title),
+        macros: [...document.querySelectorAll('main p')].filter(p => labels.includes(p.textContent!.trim()))
+          .map(p => ({ name: p.textContent!.trim(), clientWidth: p.clientWidth, scrollWidth: p.scrollWidth, card: box(p.parentElement!) })),
+        pageScrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(at.viewport).toBe(768);
+    expect(at.cardHoldsTheDate, 'the card read here is the Planner header card').toBe(true);
+    g21Inside(at.confirm, at.card, 'N9 Confirm Plan is fully inside its card');
+    expect(at.actions).toHaveLength(3);
+    for (const action of at.actions) g21Inside(action, at.card, 'every header button is inside the card');
+    // One line of the date is 45 px high; "Nov" over "9" is 90 px.
+    expect(at.title.height, 'N9 the date in the header card stays on one line').toBeLessThan(60);
+    expect(at.macros.map(macro => macro.name)).toEqual(['Daily Calories', 'Protein', 'Carbs', 'Fats']);
+    for (const macro of at.macros) {
+      expect(macro.scrollWidth, `N9 the label ${macro.name} fits in its card`).toBeLessThanOrEqual(macro.clientWidth);
+      expect(macro.card.top, 'the 4 macro cards are in one row').toBe(at.macros[0].card.top);
+    }
+    expect(at.pageScrollWidth, 'the page does not scroll sideways').toBeLessThanOrEqual(768);
+  });
+
+  // The week grid in one read, after the fonts are in. A card is found by its tick button, so this reads meal and snack cards.
+  const g21Grid = (page: Page) => page.evaluate(async () => {
+    await document.fonts.ready;
+    const box = (element: Element) => { const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+    const scroller = document.querySelector<HTMLElement>('main div.overflow-x-auto')!;
+    const grid = scroller.firstElementChild!;
+    return {
+      viewport: window.innerWidth,
+      pageScrollWidth: document.documentElement.scrollWidth,
+      scroller: { ...box(scroller), clientWidth: scroller.clientWidth, scrollWidth: scroller.scrollWidth },
+      grid: box(grid),
+      columns: [...grid.children].map(column => ({
+        day: column.querySelector('p')!.textContent,
+        box: box(column),
+        header: [...column.firstElementChild!.querySelectorAll('h3, button, span')].filter(part => part.getClientRects().length > 0 && !part.closest('.pointer-events-none')).map(box),
+        cards: [...column.querySelectorAll('button[aria-label^="Mark as"]')].map(tick => {
+          const card = tick.parentElement!.parentElement!;
+          const name = card.querySelector('h4') ?? card.querySelector('p')!;
+          return {
+            name: tick.getAttribute('aria-label')!,
+            box: box(card),
+            buttons: [...card.querySelectorAll('button')].map(box),
+            title: { ...box(name), cut: name.scrollWidth > name.clientWidth, ellipsis: getComputedStyle(name).textOverflow },
+            numbers: [...card.querySelectorAll('h4 + div > span')].map(box),
+          };
+        }),
+        slots: [...column.querySelectorAll('p')].filter(p => /^Add /.test(p.textContent ?? '')).map(p => ({ text: box(p), box: box(p.parentElement!) })),
+      })),
+    };
+  });
+
+  for (const width of [1280, 1440, 1536]) {
+    test(`N14a at ${width}px the 7 days share the page width: no day is cut, the week does not scroll sideways and every card is inside its day`, async ({ page }) => {
+      const { client, uid } = await g4Account(page, width, 'g21-week');
+      const plan = await g21SeedWeek(client.db, uid, { 0: ['smoothie'], 1: ['tea', 'smoothie'], 4: ['tea'] });
+      await g21PinWednesday(page);
+      await g21OpenPlanner(page, g21MealName(6, 'dinner'));
+      const at = await g21Grid(page);
+      expect(at.viewport).toBe(width);
+      expect(at.columns.map(column => column.day)).toEqual(g21DayNames);
+      expect(at.scroller.scrollWidth, `N14 at ${width}px the week does not scroll sideways`).toBe(at.scroller.clientWidth);
+      expect(at.pageScrollWidth, 'the page does not scroll sideways').toBeLessThanOrEqual(width);
+      // The scroller is as wide as the Planner content: the page minus the 288 px menu and 32 px of padding on each side.
+      expect(Math.round(at.scroller.width)).toBe(width - 288 - 64);
+      const sunday = at.columns[6];
+      expect(sunday.box.right, `N14 at ${width}px the Sunday column ends inside the page content`).toBeLessThanOrEqual(at.scroller.right + 0.5);
+      for (const column of at.columns) {
+        g21Inside(column.box, at.scroller, `the ${column.day} column is inside the week`);
+        expect(Math.abs(column.box.width - at.columns[0].box.width), 'the 7 days have the same width').toBeLessThanOrEqual(1);
+        for (const part of column.header) g21Inside(part, column.box, `${column.day}: the day header is inside its column`);
+        for (const card of column.cards) {
+          g21Inside(card.box, column.box, `N14 ${card.name} is inside its day`);
+          for (const button of card.buttons) g21Inside(button, card.box, `${card.name}: its buttons are inside the card`);
+          g21Inside(card.title, card.box, `${card.name}: the name is inside the card`);
+          for (const number of card.numbers) g21Inside(number, card.box, `${card.name}: the numbers are inside the card`);
+          if (card.numbers.length === 2) expect(g21Apart(card.numbers[0], card.numbers[1]), `${card.name}: the numbers are not on top of each other`).toBe(true);
+        }
+        for (const slot of column.slots) {
+          g21Inside(slot.box, column.box, `${column.day}: an empty slot is inside its day`);
+          g21Inside(slot.text, slot.box, `${column.day}: the text of an empty slot is inside the slot`);
+        }
+      }
+      // The reader found every card of the seeded week, and the long names are cut with "...".
+      expect(at.columns.reduce((sum, column) => sum + column.cards.length, 0)).toBe(plan.cards);
+      const breakfast = sunday.cards.find(card => card.name.includes('breakfast'))!;
+      expect(breakfast.title.cut, 'a long meal name is cut').toBe(true);
+      expect(breakfast.title.ellipsis).toBe('ellipsis');
+    });
+  }
+
+  for (const width of [390, 1440]) {
+    test(`D1 at ${width}px a lone smoothie or tea takes the full row, and two drinks share it`, async ({ page }) => {
+      const { client, uid } = await g4Account(page, width, 'g21-drinks');
+      await g21SeedWeek(client.db, uid, { 0: ['smoothie'], 1: ['tea', 'smoothie'], 2: ['tea'] });
+      await g21PinWednesday(page);
+      await g21OpenPlanner(page, g21MealName(0, 'smoothie'));
+      // Card boxes by meal name, and the "Add ..." slots of a day, in one read.
+      const read = () => page.evaluate(async ([names, days]) => {
+        await document.fonts.ready;
+        const box = (element: Element) => { const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+        const cards = Object.fromEntries(names.map(name => {
+          const tick = [...document.querySelectorAll('button[aria-label^="Mark as"]')].find(item => item.getAttribute('aria-label')!.endsWith(`: ${name}`))!;
+          return [name, box(tick.parentElement!.parentElement!)];
+        }));
+        const slots = Object.fromEntries(days.map(day => {
+          const column = [...document.querySelectorAll('main p')].find(p => p.textContent === day)!.parentElement!.parentElement!;
+          return [day, Object.fromEntries([...column.querySelectorAll('p')].filter(p => /^Add /.test(p.textContent ?? '')).map(p => [p.textContent!, box(p.parentElement!)]))];
+        }));
+        return { cards, slots };
+      }, [[0, 1, 2, 3].flatMap(day => [g21MealName(day, 'breakfast'), ...(day === 0 ? ['smoothie'] : day === 1 ? ['tea', 'smoothie'] : day === 2 ? ['tea'] : []).map(type => g21MealName(day, type))]),
+        ['Monday', 'Wednesday', 'Thursday']] as [string[], string[]]);
+      const fullRow = (drink: G21Box, meal: G21Box, what: string) => {
+        expect(Math.abs(drink.width - meal.width), `${what}: as wide as the day's meal cards`).toBeLessThanOrEqual(1);
+        expect(Math.abs(drink.left - meal.left), `${what}: starts where the meal cards start`).toBeLessThanOrEqual(1);
+      };
+      // Two drinks: two halves of the row with a 12 px gap, side by side.
+      const halves = (left: G21Box, right: G21Box, meal: G21Box, what: string) => {
+        const half = (meal.width - 12) / 2;
+        expect(Math.abs(left.width - half), `${what}: the left half`).toBeLessThanOrEqual(1);
+        expect(Math.abs(right.width - half), `${what}: the right half`).toBeLessThanOrEqual(1);
+        expect(Math.abs(left.left - meal.left)).toBeLessThanOrEqual(1);
+        expect(Math.abs(right.right - meal.right)).toBeLessThanOrEqual(1);
+        expect(left.top, `${what}: side by side`).toBe(right.top);
+      };
+      const name = g21MealName;
+
+      const first = await read();
+      fullRow(first.cards[name(0, 'smoothie')], first.cards[name(0, 'breakfast')], 'N14 N11 Monday has only a smoothie');
+      fullRow(first.cards[name(2, 'tea')], first.cards[name(2, 'breakfast')], 'Wednesday has only a tea');
+      halves(first.cards[name(1, 'tea')], first.cards[name(1, 'smoothie')], first.cards[name(1, 'breakfast')], 'Tuesday has a tea and a smoothie');
+      expect(Object.keys(first.slots.Thursday), 'a day with no drink has no drink row').toEqual(['Add Snack']);
+
+      // Tea switched on for the week: Monday now shows an empty tea slot beside its smoothie, and Thursday a lone tea slot.
+      await page.getByTitle('Toggle Daily Tea', { exact: true }).click();
+      await expect(page.getByText('Add Tea', { exact: true })).toHaveCount(5);
+      const withTea = await read();
+      halves(withTea.slots.Monday['Add Tea'], withTea.cards[name(0, 'smoothie')], withTea.cards[name(0, 'breakfast')], 'Monday with tea switched on');
+      fullRow(withTea.slots.Thursday['Add Tea'], withTea.cards[name(3, 'breakfast')], 'Thursday shows only the empty tea slot');
+      fullRow(withTea.cards[name(2, 'tea')], withTea.cards[name(2, 'breakfast')], 'Wednesday still has only a tea');
+
+      // Tea off and smoothie on: Wednesday shows an empty smoothie slot beside its tea, and Monday is a lone smoothie again.
+      await page.getByTitle('Toggle Daily Tea', { exact: true }).click();
+      await page.getByTitle('Toggle Daily Smoothie', { exact: true }).click();
+      await expect(page.getByText('Add Smoothie', { exact: true })).toHaveCount(5);
+      const withSmoothie = await read();
+      halves(withSmoothie.cards[name(2, 'tea')], withSmoothie.slots.Wednesday['Add Smoothie'], withSmoothie.cards[name(2, 'breakfast')], 'Wednesday with smoothie switched on');
+      fullRow(withSmoothie.cards[name(0, 'smoothie')], withSmoothie.cards[name(0, 'breakfast')], 'Monday is a lone smoothie again');
+      fullRow(withSmoothie.slots.Thursday['Add Smoothie'], withSmoothie.cards[name(3, 'breakfast')], 'Thursday shows only the empty smoothie slot');
+    });
+  }
+
+  const g21Bar = (page: Page) => page.getByRole('alert').filter({ has: page.getByRole('button', { name: 'Dismiss meal planner message', exact: true }) });
+  // The message bar and what it must not cover, in one read. "drawnOnTop" is true when the bar itself is what a click at
+  // each of 3 points along its middle would hit.
+  const g21BarBoxes = (page: Page) => page.evaluate(async () => {
+    await document.fonts.ready;
+    const box = (element: Element | null | undefined) => {
+      if (!element || element.getClientRects().length === 0) return null;
+      const r = element.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+    };
+    const button = (text: string) => [...document.querySelectorAll('main button')].find(item => item.textContent!.includes(text));
+    const bar = document.querySelector('button[aria-label="Dismiss meal planner message"]')!.parentElement!;
+    const r = bar.getBoundingClientRect();
+    const scroller = document.querySelector('main > div.overflow-y-auto')!;
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      scrollTop: scroller.scrollTop,
+      position: getComputedStyle(bar).position,
+      bar: box(bar)!,
+      topBar: box(document.querySelector('main > header'))!,
+      menuButton: box(document.querySelector('button[aria-label="Open navigation menu"]')),
+      weekBox: box(document.querySelector('button[aria-label="Next week"]')!.parentElement),
+      pageTitle: box(document.querySelector('main h1')),
+      discard: box(button('Discard changes')),
+      confirm: box(button('Confirm Plan')),
+      addToList: box(document.querySelector('button[aria-label="Add to List"]')),
+      drawnOnTop: [r.left + 24, r.left + r.width / 2, r.right - 24].map(x => bar.contains(document.elementFromPoint(x, r.top + r.height / 2))),
+    };
+  });
+
+  for (const width of [390, 1440]) {
+    test(`B4a at ${width}px the Planner message bar covers no control, stays in view when the page scrolls, and Discard and Confirm can be clicked`, async ({ page }) => {
+      const { client, uid } = await g4Account(page, width, 'g21-bar');
+      const mealName = 'G21 Draft Dinner';
+      const recipeId = await seedRecipe(client.db, uid, mealName);
+      const weekKey = toDateKey(g21Week());
+      const plans = collection(client.db, 'users', uid, 'mealPlans');
+      const draftsKey = `viomacro:plan-drafts:${uid}`;
+      const seedDraft = () => page.evaluate(([key, drafts]) => window.localStorage.setItem(key, drafts),
+        [draftsKey, JSON.stringify({ [weekKey]: g21Draft(weekKey, recipeId, mealName) })]);
+      const storedDraft = () => page.evaluate(([key, week]) => JSON.parse(window.localStorage.getItem(key) ?? '{}')[week] !== undefined, [draftsKey, weekKey]);
+      const draftBar = page.getByRole('status').filter({ hasText: 'Not saved yet' });
+      const addToList = page.getByRole('button', { name: 'Add to List', exact: true });
+      const menuButton = page.getByRole('button', { name: 'Open navigation menu', exact: true });
+      const covered = [['the menu button', 'menuButton'], ['the week box', 'weekBox'], ['the page title', 'pageTitle'],
+        ['Discard changes', 'discard'], ['Confirm Plan', 'confirm'], ['Add to List', 'addToList']] as const;
+      await g21PinWednesday(page);
+      await seedDraft();
+      await g21OpenPlanner(page, mealName);
+      await expect(draftBar).toBeVisible();
+
+      await addToList.click();
+      await expect(g21Bar(page).locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
+      const shown = await g21BarBoxes(page);
+      expect(shown.viewport.width).toBe(width);
+      expect(shown.bar.top, 'B4 the message bar is under the app top bar, not on it').toBeGreaterThanOrEqual(shown.topBar.bottom);
+      expect(shown.menuButton === null, 'the menu button is there at 390 px only').toBe(width !== 390);
+      for (const [what, key] of covered) {
+        if (key !== 'menuButton') expect(shown[key], `${what} is on the page`).not.toBeNull();
+        if (shown[key]) expect(g21Apart(shown.bar, shown[key]!), `B4 B5 the message bar does not sit on ${what}`).toBe(true);
+      }
+      expect(shown.bar.left, 'the bar is inside the page').toBeGreaterThanOrEqual(0);
+      expect(shown.bar.right, 'the bar is inside the page').toBeLessThanOrEqual(width);
+      expect(shown.drawnOnTop, 'nothing of the page is drawn over the bar').toEqual([true, true, true]);
+
+      // The page is scrolled to its end: the bar is still in view, under the top bar, and still on no button.
+      await page.evaluate(() => { const scroller = document.querySelector('main > div.overflow-y-auto')!; scroller.scrollTop = scroller.scrollHeight; });
+      const scrolled = await g21BarBoxes(page);
+      expect(scrolled.scrollTop, 'the page did scroll').toBeGreaterThan(100);
+      expect(scrolled.bar.top, 'B4 with the page scrolled down the bar is still under the top bar').toBeGreaterThanOrEqual(scrolled.topBar.bottom - 0.5);
+      expect(scrolled.bar.bottom, 'B4 with the page scrolled down the bar is still in view').toBeLessThanOrEqual(scrolled.viewport.height);
+      expect(scrolled.drawnOnTop, 'the page scrolls under the bar, not over it').toEqual([true, true, true]);
+      for (const [what, key] of covered) {
+        if (scrolled[key]) expect(g21Apart(scrolled.bar, scrolled[key]!), `scrolled: the message bar does not sit on ${what}`).toBe(true);
+      }
+      await expect(g21Bar(page)).toBeInViewport({ ratio: 1 });
+
+      // Real clicks with the bar shown. At 390 px the menu button first.
+      if (width === 390) {
+        const drawer = page.locator('#mobile-navigation-drawer');
+        await menuButton.click();
+        await expect(menuButton, 'B4 the menu button can be clicked with the bar shown').toHaveAttribute('aria-expanded', 'true');
+        await expect.poll(async () => Math.round((await drawer.boundingBox())!.x)).toBe(0);
+        await page.getByRole('button', { name: 'Close navigation menu', exact: true }).click();
+        await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+        await expect.poll(async () => Math.round((await drawer.boundingBox())!.x)).toBe(-288);
+      }
+      await expect(g21Bar(page)).toBeVisible();
+      expect(await storedDraft(), 'the draft is there before Discard').toBe(true);
+      await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+      await expect(draftBar, 'B4 Discard changes can be clicked with the bar shown').toBeHidden();
+      await expect.poll(storedDraft, 'the draft is gone from this device').toBe(false);
+      expect((await getDocs(plans)).size, 'a discarded draft is never saved').toBe(0);
+
+      // The same draft again: Add to List shows the bar, then Confirm Plan is clicked with the page not scrolled.
+      await seedDraft();
+      await page.reload();
+      await settlePlanner(page);
+      await expect(draftBar).toBeVisible();
+      await addToList.click();
+      await expect(g21Bar(page).locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
+      await draftBar.getByRole('button', { name: /Confirm Plan/ }).click();
+      await expect(draftBar, 'B4 Confirm Plan can be clicked with the bar shown').toBeHidden();
+      await expect.poll(async () => (await getDocs(plans)).docs.map(plan => plan.id), 'the confirmed plan is saved').toEqual([weekKey]);
+    });
+  }
+
+  test('B4b a dialog, the phone menu and the recipe page cover the message bar', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g21-under');
+    const mealName = 'G21 Saved Dinner';
+    await seedCurrentMealPlan(client.db, uid, await seedRecipe(client.db, uid, mealName), mealName);
+    await g21PinWednesday(page);
+    await g21OpenPlanner(page, mealName);
+    await page.getByRole('button', { name: 'Add to List', exact: true }).click();
+    await expect(g21Bar(page).locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
+    // What a click would hit at 3 points along the middle of the bar: the bar, the layer named by the selector, or something else.
+    const onTop = (layer: string) => page.evaluate(selector => {
+      const bar = document.querySelector('button[aria-label="Dismiss meal planner message"]')!.parentElement!;
+      const r = bar.getBoundingClientRect();
+      return [r.left + 24, r.left + r.width / 2, r.right - 24].map(x => {
+        const top = document.elementFromPoint(x, r.top + r.height / 2);
+        return !top ? 'nothing' : bar.contains(top) ? 'the message bar' : top.closest(selector) ? 'the layer' : 'something else';
+      });
+    }, layer);
+    expect(await onTop('main'), 'with nothing open a click on the bar hits the bar').toEqual(['the message bar', 'the message bar', 'the message bar']);
+
+    // A dialog: Plan Settings.
+    await page.getByRole('button', { name: 'Plan preferences', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /Plan Settings/ })).toBeVisible();
+    expect(await onTop('div.fixed.inset-0'), 'B4 the Plan Settings dialog is on top of the message bar').toEqual(['the layer', 'the layer', 'the layer']);
+    await page.getByRole('button', { name: 'Close plan settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /Plan Settings/ })).toBeHidden();
+    await expect(g21Bar(page), 'the bar is still there after the dialog').toBeVisible();
+
+    // The phone menu: the panel covers the left part of the bar, its dark backdrop the rest.
+    const drawer = page.locator('#mobile-navigation-drawer');
+    await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+    await expect.poll(async () => Math.round((await drawer.boundingBox())!.x)).toBe(0);
+    expect(await onTop('#mobile-navigation-drawer, div.fixed.inset-0'), 'B4 the phone menu is on top of the message bar').toEqual(['the layer', 'the layer', 'the layer']);
+    await page.getByRole('button', { name: 'Close navigation menu', exact: true }).click();
+    await expect.poll(async () => Math.round((await drawer.boundingBox())!.x)).toBe(-288);
+
+    // The recipe page that opens over the Planner: it covers the bar, and its back button can be clicked.
+    await page.getByRole('heading', { name: mealName, exact: true }).click();
+    await expect(page.getByRole('button', { name: /Start Guided Cooking/ })).toBeVisible();
+    expect(await onTop('div.fixed.inset-0'), 'B4 the recipe page is on top of the message bar').toEqual(['the layer', 'the layer', 'the layer']);
+    await page.getByRole('button', { name: 'Close recipe details', exact: true }).click();
+    await expect(page.getByRole('button', { name: /Start Guided Cooking/ }), 'B4 the back button of the recipe page can be clicked').toBeHidden();
+    await expect(g21Bar(page)).toBeVisible();
+  });
+
+  test('N11 at 390px the Daily Calories label does not run into the corner icon', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g21-label');
+    await g21SeedWeek(client.db, uid);
+    await g21PinWednesday(page);
+    await g21OpenPlanner(page, g21MealName(0, 'breakfast'));
+    const at = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const rect = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height });
+      return ['Daily Calories', 'Protein', 'Carbs', 'Fats'].map(name => {
+        const label = [...document.querySelectorAll('main p')].find(p => p.textContent!.trim() === name)!;
+        const text = document.createRange();
+        text.selectNodeContents(label);
+        const card = label.parentElement!;
+        return { name, text: rect(text.getBoundingClientRect()), icon: rect(card.querySelector('.material-symbols-outlined')!.getBoundingClientRect()), card: rect(card.getBoundingClientRect()) };
+      });
+    });
+    for (const macro of at) {
+      expect(macro.icon.width, `${macro.name}: the corner icon is drawn`).toBeGreaterThan(20);
+      expect(g21Apart(macro.text, macro.icon), `N11 the label ${macro.name} does not run into the corner icon`).toBe(true);
+      g21Inside(macro.text, macro.card, `the label ${macro.name} is inside its card`);
+    }
+  });
+});
