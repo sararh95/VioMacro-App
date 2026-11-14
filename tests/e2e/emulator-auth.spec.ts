@@ -4820,7 +4820,7 @@ test.describe('G5 mocked plan recipe identity', () => {
       await setDoc(doc(client.db, 'users', uid, 'groceryItems', 'g5-checked-rice'), {
         name: 'G5 Rice', quantity: 9, unit: 'cup', aisle: 'Pantry', source: 'generated', isChecked: true,
       });
-      await page.addInitScript(() => window.sessionStorage.setItem('viomacro:meal-planner:viewDate', '2030-01-07'));
+      await page.addInitScript(() => window.sessionStorage.setItem('viomacro:meal-planner:viewDate', JSON.stringify({ week: '2030-01-07', at: Date.now() })));
       let reject = false;
       let calls = 0;
       await enableMockAi(page);
@@ -8644,11 +8644,13 @@ test.describe('1.0 G17 Planner shows the right week', () => {
       label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
     };
   }, weeks);
-  // The user comes back to a page that stayed open: the clock moved on and the page shows again.
-  const g17ComeBack = async (page: Page, at: number) => {
+  // The user comes back to a page that stayed open: the clock moved on, and the
+  // page shows again or, on a screen that never went dark, is simply touched.
+  const g17ComeBack = async (page: Page, at: number, how: 'shown' | 'touched' = 'shown') => {
     await page.clock.setFixedTime(at);
+    if (how === 'touched') await g17Header(page).click();
+    else await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
     await page.evaluate(() => new Promise<void>(resolve => {
-      document.dispatchEvent(new Event('visibilitychange'));
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     }));
   };
@@ -8702,7 +8704,7 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     const nextWeek = await g17Week(page, 1);
     await expect(g17Header(page)).toHaveText(thisWeek.label);
 
-    await g17ComeBack(page, Date.now() + 7 * 24 * 3_600_000);
+    await g17ComeBack(page, Date.now() + 7 * 24 * 3_600_000, 'touched');
     await expect(g17Header(page), 'R9 one week later the open Planner must show the new week').toHaveText(nextWeek.label);
   });
 

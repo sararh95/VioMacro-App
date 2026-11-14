@@ -3,6 +3,10 @@ import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import { getRecipes, getRecipe, type Recipe } from '../recipes/recipeService';
 import { createEmptyPlan } from './lib/plan-generator';
+import {
+    MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice, isPlannerWeekOutdated, renewPlannerWeekChoice,
+    resolvePlannerWeek, stepPlannerWeek,
+} from './lib/planner-week';
 import { generateAiMealPlan } from '../../services/aiService';
 import { generateGroceryList } from '../groceries/shopping-generator';
 import RecipeDetail from '../recipes/components/RecipeDetail';
@@ -40,20 +44,8 @@ type AiPlan = Omit<MealPlan, 'id' | 'weekStart' | 'weekEnd' | 'days'> & {
     days: AiDay[];
 };
 
-const MEAL_PLANNER_VIEW_DATE_KEY = 'viomacro:meal-planner:viewDate';
-
 function getInitialPlannerViewDate() {
-    if (typeof window !== 'undefined') {
-        const savedDate = window.sessionStorage.getItem(MEAL_PLANNER_VIEW_DATE_KEY);
-        if (savedDate) {
-            const parsedDate = new Date(`${savedDate}T00:00:00`);
-            if (!Number.isNaN(parsedDate.getTime())) {
-                return getStartOfWeek(parsedDate);
-            }
-        }
-    }
-
-    return getStartOfWeek(new Date());
+    return resolvePlannerWeek(window.sessionStorage.getItem(MEAL_PLANNER_VIEW_DATE_KEY));
 }
 
 function toRecipeMealType(type: MealPlanMeal['type']): Recipe['mealType'] {
@@ -82,7 +74,59 @@ function getPlanMacroTotals(plan: MealPlan | null) {
     };
 }
 
+/**
+ * R9: a Planner that stays open must not keep showing an old week.
+ *
+ * The week on screen lives in React state, so a page left open (a laptop that
+ * slept, a phone tab that stayed in memory) showed the same week for days.
+ * Each time the user is back at the Planner (the page shows again, gets focus,
+ * or is touched or typed in), the stored choice is checked with the same rule
+ * a fresh visit uses. While it is fresh, its age is reset: the memory runs
+ * from when the Planner was last used. Once it is stale and is not this week,
+ * the screen starts again on this week. A new key remounts it, so a dialog
+ * left open on the old week closes too, and the touch that woke a stale page
+ * cannot land in the wrong week. Unsaved drafts live in the store and are kept.
+ */
 export default function MealPlanner() {
+    const [visit, setVisit] = useState(0);
+    // Not read: a new value re-renders the header, so "This week" appears when
+    // the week changes under a choice that is still fresh.
+    const [, setCurrentWeek] = useState(() => getWeekStartKey());
+
+    useEffect(() => {
+        const check = () => {
+            if (document.visibilityState !== 'visible') return;
+            const saved = window.sessionStorage.getItem(MEAL_PLANNER_VIEW_DATE_KEY);
+            const now = new Date();
+            const renewed = renewPlannerWeekChoice(saved, now);
+            if (renewed) {
+                window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, renewed);
+            } else if (isPlannerWeekOutdated(saved, now)) {
+                // Stored first, so a second event in the same burst finds a
+                // fresh choice and the screen restarts once.
+                window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
+                setVisit(count => count + 1);
+            }
+            setCurrentWeek(getWeekStartKey(now));
+        };
+        document.addEventListener('visibilitychange', check);
+        window.addEventListener('pageshow', check);
+        window.addEventListener('focus', check);
+        document.addEventListener('pointerdown', check, true);
+        document.addEventListener('keydown', check, true);
+        return () => {
+            document.removeEventListener('visibilitychange', check);
+            window.removeEventListener('pageshow', check);
+            window.removeEventListener('focus', check);
+            document.removeEventListener('pointerdown', check, true);
+            document.removeEventListener('keydown', check, true);
+        };
+    }, []);
+
+    return <MealPlannerScreen key={visit} />;
+}
+
+function MealPlannerScreen() {
     const { user } = useAuth();
     const {
         userSettings,
@@ -192,7 +236,7 @@ export default function MealPlanner() {
     };
 
     useEffect(() => {
-        window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, getWeekStartKey(viewDate));
+        window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(viewDate));
     }, [viewDate]);
 
     // Clone Last Week Function
@@ -491,7 +535,7 @@ export default function MealPlanner() {
             }) as AiPlan;
 
             // The Cloud Function returns a plan structure, but we need to hydrate dates and day names locally to match the viewDate
-            const startDate = new Date(viewDate);
+            const startDate = getStartOfWeek(viewDate);
             const hydratedPlan: MealPlan = {
                 ...aiPlan,
                 dailyTargets: aiSettings, // STRICT ENFORCEMENT: Use user settings, not AI suggestions
@@ -571,15 +615,10 @@ export default function MealPlanner() {
         setWizardOpen(true);
     };
 
-    const handleNavigate = (direction: 'prev' | 'next') => {
-        const newDate = new Date(viewDate);
-        if (viewMode === 'day') {
-            newDate.setDate(viewDate.getDate() + (direction === 'next' ? 1 : -1));
-        } else if (viewMode === 'week') {
-            newDate.setDate(viewDate.getDate() + (direction === 'next' ? 7 : -7));
-        } else {
-            newDate.setMonth(viewDate.getMonth() + (direction === 'next' ? 1 : -1));
-        }
+    // N1: every view moves by whole weeks, so the week on screen is always a
+    // Monday week. The Day and Month views are placeholders with a week header.
+    const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
+        const newDate = direction === 'today' ? getStartOfWeek(new Date()) : stepPlannerWeek(viewDate, direction);
         setPromptModalOpen(false);
         setDismissedPromptWeek(getWeekStartKey(newDate));
         setPlannerNotice(null);
@@ -1465,8 +1504,9 @@ function PlannerHeader({ viewMode, setViewMode, viewDate, onNavigate }: {
     viewMode: 'day' | 'week' | 'month';
     setViewMode: (m: 'day' | 'week' | 'month') => void;
     viewDate: Date;
-    onNavigate: (dir: 'prev' | 'next') => void;
+    onNavigate: (dir: 'prev' | 'next' | 'today') => void;
 }) {
+    const onThisWeek = getWeekStartKey(viewDate) === getWeekStartKey();
     return (
         <div className="flex flex-col flex-wrap md:flex-row justify-between items-center gap-4 mb-8">
             {/* View Tabs */}
@@ -1516,6 +1556,19 @@ function PlannerHeader({ viewMode, setViewMode, viewDate, onNavigate }: {
                     <span className="material-symbols-outlined">chevron_right</span>
                 </button>
             </div>
+
+            {/* R9: one tap back from any other week. */}
+            {!onThisWeek && (
+                <div className="flex w-full justify-center md:justify-end">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('today')}
+                        className="h-10 rounded-lg border border-surface-border bg-surface-dark px-4 text-sm font-bold text-white hover:bg-surface-border transition-colors"
+                    >
+                        This week
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
