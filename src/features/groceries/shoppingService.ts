@@ -127,7 +127,10 @@ export async function replaceGeneratedGroceryItems(userId: string, items: Omit<G
     const key = (mealPlanId: string | undefined, name: string, unit: string) =>
         JSON.stringify([mealPlanId, groceryIngredientKey(name, unit)]);
     // GA6: remember how much was ticked. A tick is carried only when the
-    // amount needed now is not more than the amount that was bought.
+    // amount needed now is not more than the amount that was bought. Amounts
+    // are sums of fractions, and the same meals in another order of days can
+    // sum to a last-digit different number (0.6 and 0.6000000000000001), so
+    // "not more" allows that much.
     const checked = new Map(existing.docs.flatMap(snapshot => {
         const item = snapshot.data();
         return item.isChecked === true && typeof item.mealPlanId === 'string' && typeof item.name === 'string' && typeof item.unit === 'string'
@@ -139,7 +142,7 @@ export async function replaceGeneratedGroceryItems(userId: string, items: Omit<G
     items.forEach(item => batch.set(doc(groceryRef), {
         ...item,
         source: 'generated',
-        isChecked: item.quantity <= (checked.get(key(item.mealPlanId, item.name, item.unit)) ?? 0),
+        isChecked: item.quantity <= (checked.get(key(item.mealPlanId, item.name, item.unit)) ?? 0) + 1e-9,
         createdAt,
     }));
     await batch.commit();
