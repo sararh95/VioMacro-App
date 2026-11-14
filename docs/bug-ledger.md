@@ -52,6 +52,78 @@ Required fields:
 
 ## Open Items
 
+### GA2 (audit 2, G18) A list made from an unsaved plan loses its ticks
+
+- ID: GA2 (audit 2, W7 G18)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#12](https://github.com/sararh95/VioMacro-App/pull/12)
+- Severity: P2
+- Workflow/page: Meal Planner "Add to List" from a draft (Clone Last Week, Start from Scratch); Grocery list.
+- Expected: An item ticked in the shop stays ticked when the list is refreshed from the same week, also after the plan is confirmed.
+- Actual: A list made from a plan that was not saved yet had no plan id on its items. Ticks are carried by plan id, so every tick was gone after the next Add to List.
+- User impact: Bought items come back on the to-buy list.
+- Evidence: Browser and unit tests fail on the old code: the tick is false after a second Add to List from the same draft. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g18-the-grocery-list-keeps-what-it-should).
+- Suspected area: src/features/groceries/shopping-generator.ts (mealPlanId: weekPlan.id).
+- Cause and fix: The item now carries weekPlan.id, or the week start when the plan has no id yet. A new week's plan is saved under its week start, so the draft's list and the confirmed plan's list share one key.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Draft, Add to List, tick in the Grocery page, Add to List, Confirm Plan, Add to List; database read-back of isChecked and mealPlanId.
+- Revisit trigger: PR #12 review. Left as is: items saved before this fix with no plan id keep no tick on their next refresh; no data is migrated.
+- Date closed: Pending.
+
+### GA3 (audit 2, G18, decision D9) Add to List replaces another week's list without asking
+
+- ID: GA3 (audit 2, W7 G18)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#12](https://github.com/sararh95/VioMacro-App/pull/12)
+- Severity: P2
+- Workflow/page: Meal Planner "Add to List"; Grocery page header line and "Meal Plan Source" card.
+- Expected: The app asks before it removes the list of another week. The Grocery page names the week its list was made from.
+- Actual: There is one list for all weeks. Add to List for one week deleted the generated items of any other week, bought or not, with only "Added N items". The Grocery page always named this week's plan.
+- User impact: This week's unbought items vanish when she plans next week on a Saturday; the page says the list is this week's.
+- Evidence: Browser tests fail on the old code: no question is asked; the header reads "Week of Nov 9 - QA Grocery Data Loss" for a list of Nov 16. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g18-the-grocery-list-keeps-what-it-should).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx handleAddToShoppingList; src/features/groceries/ShoppingList.tsx labels.
+- Cause and fix: Sara's decision D9: ask first. When the list in memory holds a generated item whose plan id is not this plan's (or that has no plan id), a confirm box names the week being added. Cancel changes nothing and shows no message. OK replaces as before. The service still replaces the generated items of all weeks in one batch. The Grocery page builds its header and the card sentence from the list's own plan id: a date key names that week, the active plan's id reads as before, anything else names no week.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: 390 px touch for the question; 1440 px for the side card; database read-back after Cancel and after OK.
+- Revisit trigger: PR #12 review. Left open on purpose: the question uses the list the app has in memory (a list changed on another device since the last load is not seen); the other lines of the side card (meals planned, daily target, "Meal Plan Connected") still describe this week's plan; the button still says "Add to List"; there is still one list, not one per week.
+- Date closed: Pending.
+
+### GA6 (audit 2, G18) A bought item stays ticked when more is needed
+
+- ID: GA6 (audit 2, W7 G18)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#12](https://github.com/sararh95/VioMacro-App/pull/12)
+- Severity: P3
+- Workflow/page: Meal Planner "Add to List" refresh of the same plan; Grocery list.
+- Expected: A tick is kept only when the amount that was bought still covers the amount needed.
+- Actual: 0.25 cups of rice ticked stayed ticked when the plan grew to 0.75 cups.
+- User impact: She does not buy the extra amount.
+- Evidence: Browser and unit tests fail on the old code: Rice is still ticked at 0.75 cups. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g18-the-grocery-list-keeps-what-it-should).
+- Suspected area: src/features/groceries/shoppingService.ts replaceGeneratedGroceryItems (a set of ticked keys, no amount).
+- Cause and fix: The refresh remembers the ticked amount per item key and ticks the new item only when its amount is not more than that.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Grown, equal and smaller amounts; database read-back.
+- Revisit trigger: PR #12 review. Left as is: the item reads as not bought at the full new amount; the app does not show "you have 0.25, buy 0.5 more".
+- Date closed: Pending.
+
+### GA7 (audit 2, G18) Grocery rows change places after every Add to List
+
+- ID: GA7 (audit 2, W7 G18)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#12](https://github.com/sararh95/VioMacro-App/pull/12)
+- Severity: P3
+- Workflow/page: Grocery list, order of the rows inside an aisle.
+- Expected: Rows keep their places from one refresh to the next.
+- Actual: One refresh gives every item the same save time. The sort had no rule for equal times, so rows followed the random document ids, which are new after every refresh.
+- User impact: The list looks different after each Add to List; an item is hard to find again.
+- Evidence: Browser and unit tests fail on the old code: three items saved at one time show in id order, not by name. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g18-the-grocery-list-keeps-what-it-should).
+- Suspected area: src/features/groceries/shoppingService.ts getGroceryList sort.
+- Cause and fix: Equal times now go by name, then by id. Old items with no save time, which were sorted by name only, get the same id rule.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Same-time items in reverse id order; reload; two refreshes in the hand test.
+- Revisit trigger: PR #12 review.
+- Date closed: Pending.
+
 ### T1 (W7 G17, test only) Two old browser tests depend on the day or on timing
 
 - ID: T1 (W7 G17)
