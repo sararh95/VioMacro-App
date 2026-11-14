@@ -16,7 +16,8 @@ const recipe = (ingredients: unknown[] = [{ item: 'Rice', quantity: '3', unit: '
 
 async function harness(initial: Record<string, Item> = { old: item(), manual: item('Manual', { source: 'manual' }) }) {
     const records = new Map(Object.entries(structuredClone(initial)));
-    const state = { records, recipes: [recipe()], failRead: false, failCommit: false, commits: [] as number[], directWrites: 0, nextId: 0 };
+    // G18: rawDocs, when set, is what a read returns, uncloned, so a document can carry a real createdAt (toMillis).
+    const state = { records, recipes: [recipe()], failRead: false, failCommit: false, commits: [] as number[], directWrites: 0, nextId: 0, rawDocs: null as [string, unknown][] | null };
     // A unique module per harness prevents state sharing across tests.
     const key = `groceryAtomic${Math.random()}`;
     Object.assign(globalThis, { [key]: state });
@@ -28,6 +29,7 @@ async function harness(initial: Record<string, Item> = { old: item(), manual: it
         export const query = (ref, ...constraints) => ({ ref, constraints });
         export const doc = () => 'new-' + (++s.nextId);
         export async function getDocs(q) {
+            if (s.rawDocs) return { docs: s.rawDocs.map(([id,v]) => ({ id, ref: id, data: () => v })) };
             return { docs: [...s.records].filter(([,v]) => (q.constraints || []).every(c => !c.field || v[c.field] === c.value))
                 .map(([id,v]) => ({ id, ref: id, data: () => structuredClone(v) })) };
         }
@@ -67,7 +69,9 @@ async function harness(initial: Record<string, Item> = { old: item(), manual: it
         .replaceAll("'./shoppingService'", JSON.stringify(service))
         .replace(/(['"])\.\.\/\.\.\/shared\/ingredients\1/g, () => JSON.stringify(dataModule(compile('src/shared/ingredients.ts')))));
     const { generateGroceryList } = await import(generator);
-    return { state, generate: (input = plan()) => generateGroceryList('synthetic-user', input), snapshot: () => [...records] };
+    const { getGroceryList } = await import(service);
+    return { state, generate: (input = plan()) => generateGroceryList('synthetic-user', input), snapshot: () => [...records],
+        list: (): Promise<{ id: string; name: string }[]> => getGroceryList('synthetic-user') };
 }
 
 test('VM-028: empty plan leaves checked generated and manual items untouched', async () => {
@@ -297,7 +301,8 @@ test('G1 normalization retains checked state across equivalent cup/cups units', 
 });
 
 test('G1 actual form countable units round after yield aggregation and preserve checked aliases', async () => {
-    const h = await harness({ old: item('Onion', { unit: ' UNITS ', mealPlanId: 'five-portions' }), manual: item('Manual', { source: 'manual' }) });
+    // G18 GA6: 9 were bought, so the 4 needed now are covered and the tick is carried (the default 2 would not cover 4).
+    const h = await harness({ old: item('Onion', { quantity: 9, unit: ' UNITS ', mealPlanId: 'five-portions' }), manual: item('Manual', { source: 'manual' }) });
     h.state.recipes = [recipe([
         ...['Unit', 'Large', 'Medium', 'Small', 'Stick'].map((unit, index) => ({ item: ['Onion', 'Eggs', 'Apples', 'Lemons', 'Butter'][index], quantity: '3', unit })),
         { item: 'Rice', quantity: '3', unit: 'Cup' },
@@ -363,7 +368,8 @@ for (const [portions, expectedCans, expectedLargeCans, expectedRice] of [[1, 1, 
     for (const reverse of [false, true]) {
         test(`VM037: actual refresh writes one mixed-package total for ${portions} portions, reverse=${reverse}`, async () => {
             const h = await harness({
-                old: item('Tomatoes', { unit: '(14 oz) CANS', mealPlanId: 'mixed-package-week' }),
+                // G18 GA6: 9 cans were bought, so the 1 or 3 needed now are covered and the tick is carried.
+                old: item('Tomatoes', { quantity: 9, unit: '(14 oz) CANS', mealPlanId: 'mixed-package-week' }),
                 stale: item('Stale generated'),
                 manual: item('Manual sentinel', { quantity: 7, unit: 'sticks', source: 'manual' }),
                 legacy: item('Legacy sentinel', { quantity: 9, unit: 'cups', source: undefined }),
@@ -507,4 +513,88 @@ test('1.0 G10 R13: a week skips a 51-character unit and writes its good ingredie
     const boundaryItem = h.snapshot().map(([, value]) => value).find(value => value.name === 'Boundary ingredient');
     assert.equal(boundaryItem?.unit, boundaryUnit);
     assert.equal(boundaryItem?.quantity, 0.25);
+});
+
+// 1.0 G18 (audit 2: GA2, GA6, GA7). A draft has a week start and no id yet.
+const g18Draft = (id?: string) => ({ id, weekStart: '2026-11-16', days: [{ meals: [{ recipeId: 'recipe' }] }] }) as never;
+const g18Generated = (h: Awaited<ReturnType<typeof harness>>) => h.snapshot().filter(([, value]) => value.source === 'generated');
+
+test('1.0 G18 GA2: a list made from an unsaved draft keeps its tick, also after the plan is confirmed', async () => {
+    const h = await harness({ manual: item('Manual', { source: 'manual' }) });
+    assert.equal((await h.generate(g18Draft())).success, true);
+    const [[firstId, first]] = g18Generated(h);
+    assert.equal(first.isChecked, false);
+    h.state.records.set(firstId, { ...first, isChecked: true }); // ticked in the shop
+
+    await h.generate(g18Draft()); // Add to List again from the same draft
+    assert.equal(h.state.records.has(firstId), false, 'the second Add to List rewrote the item');
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', true]]);
+
+    // Confirm Plan saves a new week under its week start (planService), so the tick follows the saved plan.
+    await h.generate(g18Draft('2026-11-16'));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.mealPlanId, value.isChecked]), [['Rice', '2026-11-16', true]]);
+
+    // A plan that has an id keeps it: this is another plan, so the tick does not follow.
+    await h.generate(g18Draft('saved-plan-id'));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.mealPlanId, value.isChecked]), [['Rice', 'saved-plan-id', false]]);
+});
+
+test('1.0 G18 GA6: a tick is carried only when the amount needed did not grow', async () => {
+    // The recipe needs 3 cups for 4 servings: one planned meal needs 0.75 cups.
+    for (const [ticked, kept] of [[0.25, false], [0.7499, false], [0.75, true], [2, true], [undefined, false]] as const) {
+        const h = await harness({ old: item('Rice', { quantity: ticked, mealPlanId: 'week-new' }) });
+        assert.equal((await h.generate()).success, true);
+        assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.quantity, value.isChecked]), [['Rice', 0.75, kept]],
+            `bought ${ticked} cups, 0.75 cups needed now`);
+    }
+    // Not bought before: a smaller amount now does not tick it.
+    const h = await harness({ old: item('Rice', { quantity: 2, isChecked: false, mealPlanId: 'week-new' }) });
+    await h.generate();
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', false]]);
+});
+
+test('1.0 G18 GA7: grocery items saved at the same moment keep one order, by name and then by id', async () => {
+    const h = await harness({});
+    const at = (ms: number) => ({ toMillis: () => ms });
+    const row = (id: string, name: string, createdAt?: unknown): [string, unknown] => [id, { ...item(name), ...(createdAt ? { createdAt } : {}) }];
+    h.state.rawDocs = [
+        row('id-1', 'Zucchini', at(5)), row('id-2', 'Mango', at(5)), row('id-9', 'Apple', at(5)), row('id-3', 'Apple', at(5)),
+        row('id-4', 'Aaa later', at(9)), row('id-5', 'Zzz earlier', at(1)),
+        row('id-8', 'Old pears'), row('id-7', 'Old pears'), row('id-6', 'Old figs'),
+    ];
+    assert.deepEqual((await h.list()).map(value => `${value.id} ${value.name}`), [
+        'id-5 Zzz earlier', 'id-3 Apple', 'id-9 Apple', 'id-2 Mango', 'id-1 Zucchini', 'id-4 Aaa later',
+        'id-6 Old figs', 'id-7 Old pears', 'id-8 Old pears',
+    ]);
+});
+
+test('1.0 G18 GA3: the service still replaces the generated items of every week (the Planner asks first) and keeps manual ones', async () => {
+    const h = await harness({
+        thisWeek: item('Chicken', { isChecked: false, unit: 'lbs', mealPlanId: '2026-11-09' }),
+        manual: item('Manual', { source: 'manual' }),
+    });
+    assert.equal((await h.generate(g18Draft())).success, true);
+    assert.deepEqual(h.snapshot().map(([, value]) => [value.name, value.source, value.mealPlanId ?? null]),
+        [['Manual', 'manual', null], ['Rice', 'generated', '2026-11-16']]);
+    assert.deepEqual(h.state.commits, [2]);
+});
+
+test('1.0 G18 GA6: the same amount added up in another order keeps its tick', async () => {
+    // Review round 1 (F1): amounts that are not counted in whole items are sums of fractions, and the sum
+    // depends on the order of the days: 0.3 + 0.2 + 0.1 = 0.6, but 0.2 + 0.1 + 0.3 = 0.6000000000000001.
+    // Moving a meal to another day does not make the amount grow, so the tick stays.
+    const h = await harness({});
+    h.state.recipes = [0.1, 0.2, 0.3, 0.0001].map(quantity => ({ id: `r${quantity}`, title: 'Rice', servings: 1, ingredients: [{ item: 'Rice', quantity: String(quantity), unit: 'cups' }] }));
+    const week = (...order: number[]) => ({ id: 'week-new', days: order.map(quantity => ({ meals: [{ recipeId: `r${quantity}` }] })) }) as never;
+    assert.equal((await h.generate(week(0.3, 0.2, 0.1))).success, true);
+    const [[firstId, first]] = g18Generated(h);
+    assert.equal(first.quantity, 0.6);
+    h.state.records.set(firstId, { ...first, isChecked: true }); // ticked in the shop
+
+    await h.generate(week(0.2, 0.1, 0.3)); // Monday's meal moved to Wednesday
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.quantity, value.isChecked]), [['Rice', 0.6000000000000001, true]]);
+
+    // A real, small growth still drops the tick.
+    await h.generate(week(0.2, 0.1, 0.3, 0.0001));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', false]]);
 });

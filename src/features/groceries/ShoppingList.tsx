@@ -4,7 +4,7 @@ import { useAuth } from '../../app/providers/auth-context';
 import { useAppStore } from '../../app/providers/store';
 import { type GroceryItem } from './shoppingService';
 import { parseGroceryInput, formatGroceryAmount } from '../../shared/ingredients';
-import { formatDateKey } from '../../shared/date-utils';
+import { formatDateKey, tryParseLocalDateKey } from '../../shared/date-utils';
 
 export default function ShoppingList() {
     const { user } = useAuth();
@@ -21,9 +21,16 @@ export default function ShoppingList() {
     const [listError, setListError] = useState<string | null>(null);
     const plannedMealsCount = activePlan?.days.reduce((sum, day) => sum + day.meals.length, 0) || 0;
     const dailyTarget = activePlan?.dailyTargets?.calories;
-    const weekLabel = activePlan
-        ? `Week of ${formatDateKey(activePlan.weekStart, { month: 'short', day: 'numeric' }, 'en-US')}`
-        : 'Manual list';
+    // GA3: this is one list for all weeks. Its labels come from the plan its
+    // generated items were made from, not always from this week's plan.
+    const listPlanIds = new Set(items.filter(item => item.source === 'generated').map(item => item.mealPlanId));
+    const listPlanId = listPlanIds.size === 1 ? [...listPlanIds][0] : undefined;
+    // No generated items, or all of them from the active plan: as before.
+    const listIsActivePlans = listPlanIds.size === 0 || (!!listPlanId && listPlanId === activePlan?.id);
+    // A new week's plan is saved under its week start, so a date key names the week.
+    const listWeek = listIsActivePlans ? activePlan?.weekStart : tryParseLocalDateKey(listPlanId) ? listPlanId : undefined;
+    const listWeekDate = listWeek && formatDateKey(listWeek, { month: 'short', day: 'numeric' }, 'en-US');
+    const weekLabel = listWeekDate ? `Week of ${listWeekDate}` : listIsActivePlans ? 'Manual list' : 'Shopping list';
 
     const handleQuickAdd = async () => {
         if (!user || addingRef.current) return;
@@ -100,7 +107,9 @@ export default function ShoppingList() {
                     </div>
                     <h4 className="text-white font-semibold text-sm mb-1">Meal Plan Source</h4>
                     <p className="text-xs text-text-secondary mb-3">
-                        {activePlan
+                        {!listIsActivePlans
+                            ? (listWeekDate ? `Generated from your plan for the week of ${listWeekDate}.` : 'Generated from a meal plan.')
+                            : activePlan
                             ? `Generated from your active plan: ${activePlan.goal}.`
                             : 'No active meal plan is connected yet. You can still build a manual grocery list.'}
                     </p>
@@ -147,7 +156,7 @@ export default function ShoppingList() {
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Smart Grocery List</h1>
                         <p className="text-text-secondary">
-                            {weekLabel} - <span className="text-primary">{activePlan?.goal || 'Manual grocery list'}</span>
+                            {weekLabel} - <span className="text-primary">{listIsActivePlans ? activePlan?.goal || 'Manual grocery list' : 'From your meal plan'}</span>
                         </p>
                     </div>
                     <div className="flex items-center gap-3">

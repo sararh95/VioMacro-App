@@ -76,7 +76,10 @@ export async function generateGroceryList(userId: string, weekPlan: MealPlan) {
                 unit: item.unit,
                 aisle: item.aisle,
                 isChecked: false,
-                mealPlanId: weekPlan.id,
+                // GA2: an unsaved draft has no id yet. A new week's plan is saved
+                // under its week start (planService), so the draft's list and the
+                // confirmed plan's list share one key and a tick is carried over.
+                mealPlanId: weekPlan.id ?? weekPlan.weekStart,
                 source: 'generated' as const
             };
             return payload;

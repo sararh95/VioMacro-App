@@ -3023,7 +3023,10 @@ test.describe('emulator authenticated smoke', () => {
     // PR-5 replaced the blocking alert() with an inline notice (AUD-079), so
     // there is no dialog to wait for. The assertion is the same in substance:
     // the user is told, in a way they can see, that items were added.
+    // G18 GA3: the stale generated item belongs to no known plan, so Add to List asks first. Accept.
+    const question = acceptNextDialog(page);
     await page.getByRole('button', { name: /Add to List/ }).click();
+    expect(await question).toMatch(/^Replace your shopping list with the week of [A-Z][a-z]{2} \d+\? The items from another week's plan will be removed\.$/);
     await expect(page.getByRole('alert')).toContainText('Added');
 
     await page.goto('/grocery');
@@ -7334,7 +7337,10 @@ test.describe('1.0 G2 R2 grocery ticks per week', () => {
 
     await page.goto('/plan');
     await settlePlanner(page);
+    // G18 GA3: the list belongs to last week's plan, so Add to List asks first. Accept.
+    const question = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Add to List', exact: true }).click();
+    expect(await question).toBe(`Replace your shopping list with the week of ${thisWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}? The items from another week's plan will be removed.`);
     await expect(page.getByRole('alert').locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
 
     const items = (await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(record => record.data());
@@ -9032,4 +9038,312 @@ test.describe('1.0 G17 Planner shows the right week', () => {
       expect(plan.days[6].date).toBe(nextWeekEnd);
     });
   }
+});
+
+test.describe('1.0 G18 The grocery list keeps what it should', () => {
+  type G18Item = { id: string; name: string; quantity: number; isChecked: boolean; source?: string; mealPlanId?: string };
+  const g18Items = async (db: Firestore, uid: string) => (await getDocs(collection(db, 'users', uid, 'groceryItems'))).docs
+    .map(record => ({ id: record.id, ...record.data() }) as G18Item)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const g18Rows = async (db: Firestore, uid: string) => (await g18Items(db, uid))
+    .map(item => [item.name, item.source ?? null, item.mealPlanId ?? null, item.isChecked]);
+  const g18ShortDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const g18Week = (weeks = 0) => {
+    const start = getMondayWeekStart();
+    start.setDate(start.getDate() + weeks * 7);
+    return start;
+  };
+  // The Planner behaves differently on a weekend and the week changes on Monday, so every test
+  // runs on the Wednesday of this week, whatever day the suite runs.
+  const g18PinWednesday = async (page: Page) => {
+    const wednesday = g18Week();
+    wednesday.setDate(wednesday.getDate() + 2);
+    wednesday.setHours(12);
+    await page.clock.setFixedTime(wednesday);
+  };
+  const g18Question = (week: Date) =>
+    `Replace your shopping list with the week of ${g18ShortDate(week)}? The items from another week's plan will be removed.`;
+  // Answers every confirm box from now on and keeps what each one asked. Call it before the click.
+  const g18Answer = (page: Page, accept: boolean) => {
+    const box = { asked: [] as string[], accept };
+    page.on('dialog', async dialog => {
+      box.asked.push(dialog.message());
+      await (box.accept ? dialog.accept() : dialog.dismiss());
+    });
+    return box;
+  };
+  const g18AddToList = (page: Page) => page.getByRole('button', { name: 'Add to List', exact: true });
+  const g18Notice = (page: Page) => page.getByRole('alert').locator('p');
+  const g18CloseNotice = async (page: Page) => {
+    await page.getByRole('button', { name: 'Dismiss meal planner message', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  };
+  const g18Draft = (weekKey: string, recipeId: string, meal: string) => {
+    const [year, month, day] = weekKey.split('-').map(Number);
+    const date = (index: number) => toDateKey(new Date(year, month - 1, day + index));
+    return {
+      weekStart: weekKey, weekEnd: date(6), goal: 'G18 draft', isAiGenerated: false,
+      dailyTargets: { calories: 1850, protein: 140, carbs: 185, fat: 60 },
+      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, index) => ({
+        date: date(index), dayName, totalCalories: index ? 0 : 520,
+        meals: index ? [] : [{ id: 'g18-draft-dinner', recipeId, name: meal, type: 'dinner', calories: 520, protein: 42, carbs: 55, fat: 14, isEaten: false }],
+      })),
+    };
+  };
+
+  test('GA2 a tick on a list made from an unsaved draft is kept, also after the plan is confirmed', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g18-draft-tick');
+    const meal = 'G18 Draft Dinner';
+    const recipeId = await seedRecipe(client.db, uid, meal);
+    const weekKey = toDateKey(g18Week());
+    const plans = collection(client.db, 'users', uid, 'mealPlans');
+    const ticks = async () => (await g18Items(client.db, uid)).map(item => [item.name, item.isChecked]);
+    await g18PinWednesday(page);
+    // An unsaved draft of this week, as Clone Last Week or Start from Scratch leaves it. It has no id yet.
+    await page.evaluate(([key, drafts]) => window.localStorage.setItem(key, drafts),
+      [`viomacro:plan-drafts:${uid}`, JSON.stringify({ [weekKey]: g18Draft(weekKey, recipeId, meal) })]);
+    const confirmBox = g18Answer(page, false);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    const bar = page.getByRole('status').filter({ hasText: 'Not saved yet' });
+    await expect(bar).toBeVisible();
+    expect((await getDocs(plans)).size, 'the week is a draft only').toBe(0);
+
+    await g18AddToList(page).click();
+    await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+    await expect.poll(ticks).toEqual([['Chicken breast', false]]);
+    const firstId = (await g18Items(client.db, uid))[0].id;
+
+    // She ticks it in the shop.
+    await page.goto('/grocery');
+    await page.getByRole('button', { name: 'Mark as purchased: Chicken breast', exact: true }).click();
+    await expect.poll(ticks).toEqual([['Chicken breast', true]]);
+
+    // Add to List again from the same draft.
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await expect(bar).toBeVisible();
+    await g18AddToList(page).click();
+    await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+    const second = await g18Items(client.db, uid);
+    expect(second.map(item => item.id), 'the second Add to List rewrote the list').not.toEqual([firstId]);
+    expect(second.map(item => [item.name, item.isChecked]), 'GA2 the tick must survive a second Add to List from the same draft')
+      .toEqual([['Chicken breast', true]]);
+    await g18CloseNotice(page);
+
+    // She confirms the plan and adds to the list once more.
+    await bar.getByRole('button', { name: /Confirm Plan/ }).click();
+    await expect(bar).toBeHidden();
+    await expect.poll(async () => (await getDocs(plans)).docs.map(plan => plan.id)).toEqual([weekKey]);
+    await g18AddToList(page).click();
+    await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+    const third = await g18Items(client.db, uid);
+    expect(third.map(item => item.id), 'the third Add to List rewrote the list').not.toEqual(second.map(item => item.id));
+    expect(await g18Rows(client.db, uid), 'GA2 the tick must follow the draft to the confirmed plan')
+      .toEqual([['Chicken breast', 'generated', weekKey, true]]);
+    expect(confirmBox.asked, 'the same week never asks').toEqual([]);
+  });
+
+  test('GA3 Add to List asks before it replaces the list of another plan, and OK replaces it', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g18-ask-ok');
+    const meal = 'G18 This Week Dinner';
+    const recipeId = await seedRecipe(client.db, uid, meal);
+    const week = g18Week();
+    const planId = await seedMealPlanForWeek(client.db, uid, week, recipeId, meal);
+    const groceries = collection(client.db, 'users', uid, 'groceryItems');
+    await setDoc(doc(groceries, 'g18-manual'), {
+      name: 'G18 Manual Milk', quantity: 1, unit: 'pcs', aisle: 'Dairy', isChecked: false, source: 'manual', createdAt: Timestamp.now(),
+    });
+    const replaced = [['Chicken breast', 'generated', planId, false], ['G18 Manual Milk', 'manual', null, false]];
+    await g18PinWednesday(page);
+    const confirmBox = g18Answer(page, true);
+    // The list on the phone belongs to: last week's plan (saved under its week start), another saved plan,
+    // and a list made before this fix from a draft (no plan id at all).
+    const others = [toDateKey(g18Week(-1)), 'g18-another-saved-plan', undefined];
+    for (const [round, mealPlanId] of others.entries()) {
+      await setDoc(doc(groceries, 'g18-other-plan'), {
+        name: 'G18 Other Plan Beans', quantity: 2, unit: 'cans', aisle: 'Pantry', isChecked: false,
+        source: 'generated', ...(mealPlanId && { mealPlanId }), createdAt: Timestamp.now(),
+      });
+      await page.goto('/plan');
+      await settlePlanner(page);
+      await g18AddToList(page).click();
+      await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+      expect(confirmBox.asked, `GA3 one question that names the week being added (other plan: ${mealPlanId})`)
+        .toEqual(Array(round + 1).fill(g18Question(week)));
+      await expect.poll(() => g18Rows(client.db, uid)).toEqual(replaced);
+      await g18CloseNotice(page);
+
+      // The list now belongs to this plan: the same click asks nothing.
+      await g18AddToList(page).click();
+      await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+      expect(confirmBox.asked).toHaveLength(round + 1);
+    }
+  });
+
+  test('GA3 Cancel keeps the list of the other week: nothing is written and no message shows', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g18-ask-cancel');
+    const meal = 'G18 Cancel Dinner';
+    const recipeId = await seedRecipe(client.db, uid, meal);
+    const week = g18Week();
+    const planId = await seedMealPlanForWeek(client.db, uid, week, recipeId, meal);
+    const groceries = collection(client.db, 'users', uid, 'groceryItems');
+    const nextWeekKey = toDateKey(g18Week(1));
+    await setDoc(doc(groceries, 'g18-bought'), {
+      name: 'G18 Next Week Rice', quantity: 2, unit: 'cups', aisle: 'Pantry', isChecked: true,
+      source: 'generated', mealPlanId: nextWeekKey, createdAt: Timestamp.now(),
+    });
+    await setDoc(doc(groceries, 'g18-to-buy'), {
+      name: 'G18 Next Week Beans', quantity: 3, unit: 'cans', aisle: 'Pantry', isChecked: false,
+      source: 'generated', mealPlanId: nextWeekKey, createdAt: Timestamp.now(),
+    });
+    await setDoc(doc(groceries, 'g18-manual'), {
+      name: 'G18 Manual Milk', quantity: 1, unit: 'pcs', aisle: 'Dairy', isChecked: false, source: 'manual', createdAt: Timestamp.now(),
+    });
+    // The list has items before the click.
+    const before = await g8GrocerySnapshot(client.db, uid);
+    expect(before.map(row => row.data.name)).toEqual(['G18 Next Week Rice', 'G18 Manual Milk', 'G18 Next Week Beans']);
+    await g18PinWednesday(page);
+    const confirmBox = g18Answer(page, false);
+    await page.goto('/plan');
+    await settlePlanner(page);
+
+    await g18AddToList(page).click();
+    await expect.poll(() => confirmBox.asked, 'GA3 the click asks first').toEqual([g18Question(week)]);
+    // Cancel was pressed. Watch the database for 3 seconds: every read must be the list as it was.
+    const until = Date.now() + 3000;
+    do {
+      expect(await g8GrocerySnapshot(client.db, uid), 'GA3 Cancel must leave every saved item as it was').toEqual(before);
+      await page.waitForTimeout(200);
+    } while (Date.now() < until);
+    await expect(page.getByRole('alert'), 'GA3 Cancel shows no message bar').toHaveCount(0);
+    await expect(g18AddToList(page)).toBeEnabled();
+
+    // The same click with OK does replace the list, so the click above could have written.
+    confirmBox.accept = true;
+    await g18AddToList(page).click();
+    await expect(g18Notice(page)).toHaveText(/^Added 1 item to your shopping list\./);
+    expect(confirmBox.asked).toEqual([g18Question(week), g18Question(week)]);
+    await expect.poll(() => g18Rows(client.db, uid)).toEqual([
+      ['Chicken breast', 'generated', planId, false], ['G18 Manual Milk', 'manual', null, false],
+    ]);
+  });
+
+  test('GA3 the Grocery page names the week of its list, not always this week', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 1440, 'g18-label');
+    const meal = 'G18 Label Dinner';
+    const recipeId = await seedRecipe(client.db, uid, meal);
+    const week = g18Week();
+    const nextWeek = g18Week(1);
+    // The saved plan of this week. Its goal is 'QA Grocery Data Loss'.
+    const planId = await seedMealPlanForWeek(client.db, uid, week, recipeId, meal);
+    const groceries = collection(client.db, 'users', uid, 'groceryItems');
+    const listItem = (id: string, source: 'generated' | 'manual', mealPlanId?: string) => setDoc(doc(groceries, id), {
+      name: `G18 Label ${id}`, quantity: 2, unit: 'cups', aisle: 'Pantry', isChecked: false,
+      source, ...(mealPlanId && { mealPlanId }), createdAt: Timestamp.now(),
+    });
+    await g18PinWednesday(page);
+    const line = page.getByRole('heading', { name: 'Smart Grocery List', exact: true }).locator('xpath=following-sibling::p[1]');
+    const card = page.getByRole('heading', { name: 'Meal Plan Source', exact: true }).locator('xpath=following-sibling::p[1]');
+    const open = async () => {
+      await page.goto('/grocery');
+      await expect(page.getByRole('heading', { name: 'G18 Label Rice', exact: true })).toBeVisible();
+    };
+    const thisWeekLine = `Week of ${g18ShortDate(week)} - QA Grocery Data Loss`;
+    const thisWeekCard = 'Generated from your active plan: QA Grocery Data Loss.';
+
+    // The list was made from next week's plan. A new week's plan is saved under its week start.
+    await listItem('Rice', 'generated', toDateKey(nextWeek));
+    await open();
+    await expect(line, 'GA3 the header names the week of the list').toHaveText(`Week of ${g18ShortDate(nextWeek)} - From your meal plan`);
+    await expect(card, 'GA3 the side card names the week of the list')
+      .toHaveText(`Generated from your plan for the week of ${g18ShortDate(nextWeek)}.`);
+
+    // The list belongs to a plan this page does not know, or to no plan at all: no week is named.
+    for (const mealPlanId of ['g18-plan-that-is-gone', undefined]) {
+      await listItem('Rice', 'generated', mealPlanId);
+      await open();
+      await expect(line, `GA3 a list of an unknown plan (${mealPlanId}) names no week`).toHaveText('Shopping list - From your meal plan');
+      await expect(card).toHaveText('Generated from a meal plan.');
+    }
+
+    // Items of two plans in one list: no week is named.
+    await listItem('Rice', 'generated', planId);
+    await listItem('Beans', 'generated', toDateKey(nextWeek));
+    await open();
+    await expect(line, 'GA3 a list of two plans names no week').toHaveText('Shopping list - From your meal plan');
+    await expect(card).toHaveText('Generated from a meal plan.');
+
+    // The list of this week's plan reads as before.
+    await listItem('Beans', 'generated', planId);
+    await open();
+    await expect(line).toHaveText(thisWeekLine);
+    await expect(card).toHaveText(thisWeekCard);
+
+    // Only hand-added items: as before.
+    await listItem('Rice', 'manual');
+    await listItem('Beans', 'manual');
+    await open();
+    await expect(line).toHaveText(thisWeekLine);
+    await expect(card).toHaveText(thisWeekCard);
+  });
+
+  test('GA6 a tick is dropped when the amount needed grew and kept when it did not', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g18-grown');
+    const meal = 'G18 Grown Dinner';
+    // Four servings; one planned meal needs 0.75 cups rice, 0.5 cups beans and 1 tbsp oil.
+    const recipeId = await seedRecipe(client.db, uid, meal, {
+      ingredients: [
+        { item: 'G18 Rice', quantity: '3', unit: 'cups' },
+        { item: 'G18 Beans', quantity: '2', unit: 'cups' },
+        { item: 'G18 Oil', quantity: '4', unit: 'tbsp' },
+      ],
+    });
+    const planId = await seedCurrentMealPlan(client.db, uid, recipeId, meal);
+    const groceries = collection(client.db, 'users', uid, 'groceryItems');
+    // Bought last time: less rice than is needed now, the same beans, more oil.
+    for (const [id, name, quantity, unit] of [
+      ['g18-rice', 'G18 Rice', 0.25, 'cups'], ['g18-beans', 'G18 Beans', 0.5, 'cups'], ['g18-oil', 'G18 Oil', 3, 'tbsp'],
+    ] as const) {
+      await setDoc(doc(groceries, id), {
+        name, quantity, unit, aisle: 'Pantry', isChecked: true, source: 'generated', mealPlanId: planId, createdAt: Timestamp.now(),
+      });
+    }
+    await g18PinWednesday(page);
+    const confirmBox = g18Answer(page, false);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g18AddToList(page).click();
+    await expect(g18Notice(page)).toHaveText(/^Added 3 items to your shopping list\./);
+    const saved = await g18Items(client.db, uid);
+    expect(saved.map(item => item.id).filter(id => id.startsWith('g18-')), 'Add to List rewrote the list').toEqual([]);
+    expect(saved.map(item => [item.name, item.quantity, item.isChecked]), 'GA6 more rice is needed now, so rice is back on the to-buy list')
+      .toEqual([['G18 Beans', 0.5, true], ['G18 Oil', 1, true], ['G18 Rice', 0.75, false]]);
+    expect(confirmBox.asked, 'the same plan never asks').toEqual([]);
+
+    await page.goto('/grocery');
+    await expect(page.getByRole('button', { name: 'Mark as purchased: G18 Rice', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: 'Mark as not purchased: G18 Beans', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Mark as not purchased: G18 Oil', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('GA7 items saved at the same moment show in one order, by name', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g18-order');
+    const groceries = collection(client.db, 'users', uid, 'groceryItems');
+    const savedAt = Timestamp.now();
+    // One refresh gives every item the same time. A list read comes back in document id order,
+    // and here the ids run against the names.
+    for (const [id, name] of [['g18-1', 'G18 Zucchini'], ['g18-2', 'G18 Mango'], ['g18-3', 'G18 Apple']]) {
+      await setDoc(doc(groceries, id), {
+        name, quantity: 1, unit: 'pcs', aisle: 'Produce', isChecked: false, source: 'generated', mealPlanId: 'g18-plan', createdAt: savedAt,
+      });
+    }
+    await g18PinWednesday(page);
+    const shown = () => page.getByRole('button', { name: /^Mark as purchased: G18 / })
+      .evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')!.replace('Mark as purchased: ', '')));
+    await page.goto('/grocery');
+    await expect.poll(shown, 'GA7 same-time items are listed by name').toEqual(['G18 Apple', 'G18 Mango', 'G18 Zucchini']);
+    await page.reload();
+    await expect.poll(shown).toEqual(['G18 Apple', 'G18 Mango', 'G18 Zucchini']);
+  });
 });
