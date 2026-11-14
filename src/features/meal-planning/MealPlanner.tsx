@@ -86,8 +86,8 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * week and aim a touch at it that fast.
  *
  * Only a click that lands inside the Planner is dropped. The menu and the top
- * bar did not change under the pointer, so a click there is what the user
- * meant. A key press arms no guard: a key is not aimed at a place on screen.
+ * bar did not change under the pointer, so a click or a key press there is
+ * what the user meant.
  *
  * The guard ends with the gesture, so it cannot cost the user a later click:
  * it ends when its click is dropped, shortly after the pointer lifts with no
@@ -169,7 +169,7 @@ export default function MealPlanner() {
                 // Stored first, so a second event in the same burst finds this
                 // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
-                if (event.type !== 'keydown') dropClickOfWakingGesture(event, () => plannerRef.current);
+                dropClickOfWakingGesture(event, () => plannerRef.current);
                 setVisit(count => count + 1);
             }
             setCurrentWeek(getWeekStartKey(now));

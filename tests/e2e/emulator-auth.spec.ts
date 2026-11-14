@@ -8878,7 +8878,9 @@ test.describe('1.0 G17 Planner shows the right week', () => {
   });
 
   test('R9 waking the Planner from the menu costs the user neither that key nor that click', async ({ page }) => {
-    await g4Account(page, 390, 'g17-menu');
+    const { client, uid } = await g4Account(page, 390, 'g17-menu');
+    // This week has a saved plan, so a restarted Planner opens no "plan this week" dialog over the menu.
+    await seedCurrentMealPlan(client.db, uid, await seedRecipe(client.db, uid, 'G17 Menu Dinner'), 'G17 Menu Dinner');
     await page.setViewportSize({ width: 1440, height: 1000 });
     const recipes = page.getByRole('link', { name: /Recipes$/ }).first();
     const pickNextWeek = async () => {
@@ -8901,8 +8903,10 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await pickNextWeek();
     now += 5 * g17Hour;
     await page.clock.setFixedTime(now);
+    const link = (await recipes.boundingBox())!;
+    // Sent back to back, with no wait for the first to answer, as one physical click does.
     const focused = page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await recipes.click();
+    await page.mouse.click(link.x + link.width / 2, link.y + link.height / 2);
     await focused;
     await expect(page, 'the click that brings the window forward must still open Recipes').toHaveURL(/\/recipes$/);
 
