@@ -8630,6 +8630,7 @@ test.describe('1.0 G17 Planner shows the right week', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   const g17Key = 'viomacro:meal-planner:viewDate';
+  const g17Hour = 3_600_000;
   const g17Header = (page: Page) => page.getByText(/^Week of [A-Z][a-z]{2} \d+$/);
   const g17ThisWeek = (page: Page) => page.getByRole('button', { name: 'This week', exact: true });
   // Week maths run in the page, so the browser's own clock and timezone decide.
@@ -8642,24 +8643,46 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     return {
       key: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
       label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      startsAt: start.getTime(),
     };
   }, weeks);
-  const g17NextMonday = (page: Page) => page.evaluate(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const day = start.getDay();
-    start.setDate(start.getDate() - day + (day === 0 ? -6 : 1) + 7);
-    return start.getTime();
-  });
-  // The user comes back to a page that stayed open: the clock moved on, and the
-  // page shows again or, on a screen that never went dark, is simply touched.
-  const g17ComeBack = async (page: Page, at: number, how: 'shown' | 'touched' = 'shown') => {
+  // The user is back at a page that stayed open: the clock moved on, and then one
+  // of the five things happens that tell the Planner someone is there.
+  type G17Return = 'shown' | 'restored' | 'focused' | 'touched' | 'typed';
+  const g17ComeBack = async (page: Page, at: number, how: G17Return) => {
     await page.clock.setFixedTime(at);
     if (how === 'touched') await g17Header(page).click();
-    else await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    else if (how === 'typed') await page.keyboard.press('Shift');
+    else await page.evaluate(event => {
+      if (event === 'shown') document.dispatchEvent(new Event('visibilitychange'));
+      else window.dispatchEvent(event === 'restored' ? new PageTransitionEvent('pageshow', { persisted: true }) : new Event('focus'));
+    }, how);
     await page.evaluate(() => new Promise<void>(resolve => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     }));
+  };
+  // The page goes to the background: the same event as "shown", but the page is hidden.
+  const g17Hide = async (page: Page, at: number) => {
+    await page.clock.setFixedTime(at);
+    await page.evaluate(() => new Promise<void>(resolve => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+      delete (document as unknown as { visibilityState?: string }).visibilityState;
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    expect(await page.evaluate(() => document.visibilityState)).toBe('visible');
+  };
+  const g17Draft = (weekKey: string, meal: string) => {
+    const [year, month, day] = weekKey.split('-').map(Number);
+    const date = (index: number) => toDateKey(new Date(year, month - 1, day + index));
+    return {
+      weekStart: weekKey, weekEnd: date(6), goal: 'G17 draft', isAiGenerated: false,
+      dailyTargets: { calories: 1850, protein: 140, carbs: 185, fat: 60 },
+      days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, index) => ({
+        date: date(index), dayName, totalCalories: index ? 0 : 520,
+        meals: index ? [] : [{ id: `g17-${meal}`, name: meal, type: 'dinner', calories: 520, protein: 42, carbs: 55, fat: 14, isEaten: false }],
+      })),
+    };
   };
 
   test('R9 an old saved week opens this week and a fresh one is kept', async ({ page }) => {
@@ -8680,13 +8703,13 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await expect(g17Header(page), 'a week picked a moment ago must survive a reload').toHaveText(nextWeek.label);
 
     await page.evaluate(([key, week]) => window.sessionStorage.setItem(key,
-      JSON.stringify({ week, at: Date.now() - 5 * 3_600_000 })), [g17Key, nextWeek.key]);
+      JSON.stringify({ week, at: Date.now() - 5 * 3_600_000, pick: true })), [g17Key, nextWeek.key]);
     await page.reload();
     await settlePlanner(page);
     await expect(g17Header(page), 'R9 a week picked 5 hours ago must not open again').toHaveText(thisWeek.label);
   });
 
-  test('R9 a Planner left open returns to this week after hours away', async ({ page }) => {
+  test('R9 a Planner left open keeps a picked week while it is used and returns to this week after 4 hours away', async ({ page }) => {
     await g4Account(page, 390, 'g17-live');
     await page.goto('/plan');
     await settlePlanner(page);
@@ -8696,86 +8719,99 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await expect(g17Header(page)).toHaveText(nextWeek.label);
     const start = Date.now();
 
-    await g17ComeBack(page, start + 1 * 3_600_000);
-    await expect(g17Header(page), 'one hour away keeps the picked week').toHaveText(nextWeek.label);
-    await g17ComeBack(page, start + 7 * 3_600_000);
-    await expect(g17Header(page), 'R9 six more hours away must return to this week').toHaveText(thisWeek.label);
+    // Each visit is 3 hours after the one before. The week stays only if every
+    // visit, of every kind, counted as use and renewed the 4 hours.
+    const visits: [number, G17Return][] = [[3, 'focused'], [6, 'typed'], [9, 'restored'], [12, 'touched'], [15, 'shown']];
+    for (const [hours, how] of visits) {
+      await g17ComeBack(page, start + hours * g17Hour, how);
+      await expect(g17Header(page), `${hours} hours in, ${how}: 3 hours since the last use keeps the picked week`).toHaveText(nextWeek.label);
+    }
+    // Going to the background is not use: it must not renew the 4 hours.
+    await g17Hide(page, start + 18.5 * g17Hour);
+    await expect(g17Header(page)).toHaveText(nextWeek.label);
+    await g17ComeBack(page, start + 19.5 * g17Hour, 'typed');
+    await expect(g17Header(page), 'R9 4.5 hours after the last use the open Planner must return to this week').toHaveText(thisWeek.label);
     await expect(g17ThisWeek(page)).toHaveCount(0);
   });
 
   test('R9 a Planner left open on this week moves on when Monday starts', async ({ page }) => {
     await g4Account(page, 390, 'g17-rollover');
-    await page.goto('/plan');
-    await settlePlanner(page);
     const thisWeek = await g17Week(page);
     const nextWeek = await g17Week(page, 1);
+    // Sunday 23:00 of this week: the Planner is opened and used on this week.
+    await page.clock.setFixedTime(nextWeek.startsAt - g17Hour);
+    await page.goto('/plan');
+    await settlePlanner(page);
     await expect(g17Header(page)).toHaveText(thisWeek.label);
-    const nextMonday = await g17NextMonday(page);
+    await g17ComeBack(page, nextWeek.startsAt - 0.5 * g17Hour, 'touched');
+    await expect(g17Header(page), 'on Sunday at 23:30 it is still this week').toHaveText(thisWeek.label);
 
-    await g17ComeBack(page, nextMonday - 3_600_000, 'touched');
-    await expect(g17Header(page), 'on Sunday at 23:00 it is still this week').toHaveText(thisWeek.label);
-    await g17ComeBack(page, nextMonday + 3_600_000, 'touched');
-    await expect(g17Header(page), 'R9 on Monday at 01:00, two hours later, the open Planner must show the new week')
+    await g17ComeBack(page, nextWeek.startsAt + g17Hour, 'focused');
+    await expect(g17Header(page), 'R9 on Monday at 01:00, 90 minutes after the last use, the open Planner must show the new week')
       .toHaveText(nextWeek.label);
     await expect(g17ThisWeek(page)).toHaveCount(0);
+
+    // A week picked on purpose is given up after 4 hours too, however the user comes back.
+    for (const [hours, how] of [[6, 'shown'], [11, 'restored']] as [number, G17Return][]) {
+      await settlePlanner(page); // the restarted Planner offers to plan the empty new week, as a fresh visit does
+      await page.getByRole('button', { name: 'Previous week' }).click();
+      await expect(g17Header(page)).toHaveText(thisWeek.label);
+      await expect(g17ThisWeek(page)).toHaveCount(1);
+      await g17ComeBack(page, nextWeek.startsAt + hours * g17Hour, how);
+      await expect(g17Header(page), `R9 5 hours after a pick, ${how}: back to the current week`).toHaveText(nextWeek.label);
+    }
   });
 
-  test('R9 the tap that wakes a stale Planner does not tick a meal in the new week', async ({ page }) => {
+  test('R9 the tap that wakes a stale Planner ticks no meal in either week', async ({ page }) => {
     const { client, uid } = await g4Account(page, 390, 'g17-tap');
     // Tall enough that the Monday dinner tick needs no scrolling, before and after the restart.
     await page.setViewportSize({ width: 390, height: 1600 });
     const oldMeal = 'G17 Old Week Dinner';
     const newMeal = 'G17 New Week Dinner';
-    const monday = getMondayWeekStart();
-    const following = new Date(monday);
-    following.setDate(monday.getDate() + 7);
-    const oldPlan = await seedMealPlanForWeek(client.db, uid, monday, await seedRecipe(client.db, uid, oldMeal), oldMeal);
-    const newPlan = await seedMealPlanForWeek(client.db, uid, following, await seedRecipe(client.db, uid, newMeal), newMeal);
+    const thisWeek = await g17Week(page);
+    const nextWeek = await g17Week(page, 1);
+    // Both weeks hold an unsaved draft. A draft is drawn at once, with no wait
+    // for the server, so right after the restart the new week's tick button
+    // sits under the finger that is still on the screen.
+    await page.evaluate(([key, drafts]) => window.localStorage.setItem(key, drafts), [`viomacro:plan-drafts:${uid}`,
+      JSON.stringify({ [thisWeek.key]: g17Draft(thisWeek.key, oldMeal), [nextWeek.key]: g17Draft(nextWeek.key, newMeal) })]);
     await page.goto('/plan');
     await settlePlanner(page);
-    const nextWeek = await g17Week(page, 1);
-    const nextMonday = await g17NextMonday(page);
-    const oldTick = page.getByRole('button', { name: `Mark as eaten: ${oldMeal}`, exact: true });
-    await expect(oldTick).toBeVisible();
-    const box = (await oldTick.boundingBox())!;
+    const tick = (meal: string) => page.getByRole('button', { name: `Mark as eaten: ${meal}`, exact: true });
+    const ticked = (meal: string) => page.getByRole('button', { name: `Mark as not eaten: ${meal}`, exact: true });
+    await expect(tick(oldMeal)).toBeVisible();
+    const box = (await tick(oldMeal).boundingBox())!;
     const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
     expect(point.y).toBeLessThan(1600);
 
-    // A finger, not a mouse. First show that this tap is a real tap: it ticks the meal, then unticks it.
-    const oldUntick = page.getByRole('button', { name: `Mark as not eaten: ${oldMeal}`, exact: true });
-    const savedTicks = async (planId: string) => Object.values(
-      (await getDoc(doc(client.db, 'users', uid, 'mealPlans', planId))).data()!.mealStatus ?? {}).filter(Boolean).length;
+    // A finger, not a mouse. First show that a tap at this point is real: it ticks the meal, then unticks it.
     await page.touchscreen.tap(point.x, point.y);
-    await expect(oldUntick, 'a tap at this point must tick the meal under the finger').toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => savedTicks(oldPlan)).toBe(1);
+    await expect(ticked(oldMeal), 'a tap at this point must tick the meal under the finger').toHaveAttribute('aria-pressed', 'true');
     await page.touchscreen.tap(point.x, point.y);
-    await expect(oldTick).toBeVisible();
-    await expect.poll(() => savedTicks(oldPlan)).toBe(0);
+    await expect(tick(oldMeal)).toBeVisible();
 
     // Monday 01:00 of the next week: the same tap now wakes a stale Planner.
-    await page.evaluate(() => {
-      const clicks: string[] = [];
-      (window as unknown as { g17Clicks: string[] }).g17Clicks = clicks;
-      document.addEventListener('click', event => clicks.push(
-        (event.target as Element).closest('button')?.getAttribute('aria-label') ?? (event.target as Element).tagName), true);
-    });
-    await page.clock.setFixedTime(nextMonday + 3_600_000);
+    await page.clock.setFixedTime(nextWeek.startsAt + g17Hour);
     await page.touchscreen.tap(point.x, point.y);
-    const newTick = page.getByRole('button', { name: `Mark as eaten: ${newMeal}`, exact: true });
-    await expect(g17Header(page)).toHaveText(nextWeek.label);
-    await expect(newTick).toBeVisible();
     await page.waitForTimeout(1000);
-    console.log('[G17 waking tap clicks]', JSON.stringify(await page.evaluate(() => (window as unknown as { g17Clicks: string[] }).g17Clicks)));
-    expect(await page.getByRole('button', { name: `Mark as not eaten: ${newMeal}`, exact: true }).count(),
-      'R9 the waking tap must not tick a meal in the new week').toBe(0);
-    expect(await savedTicks(oldPlan), 'R9 the waking tap must not tick the meal of the old week').toBe(0);
-    expect(await savedTicks(newPlan)).toBe(0);
+    await expect(ticked(oldMeal), 'R9 the waking tap must not tick the meal of the stale week').toHaveCount(0);
+    await expect(g17Header(page), 'R9 the waking tap must bring the Planner to the new week').toHaveText(nextWeek.label);
+    await expect(ticked(newMeal), 'R9 the waking tap must not tick a meal in the new week').toHaveCount(0);
+    await expect(tick(newMeal), 'the draft of the new week is kept and drawn').toBeVisible();
+    const landed = (await tick(newMeal).boundingBox())!;
+    expect(point.x, 'the finger rests on the tick button of the new week').toBeGreaterThan(landed.x);
+    expect(point.x).toBeLessThan(landed.x + landed.width);
+    expect(point.y).toBeGreaterThan(landed.y);
+    expect(point.y).toBeLessThan(landed.y + landed.height);
 
-    // The Planner works as usual after it woke up.
-    await newTick.tap();
-    await expect(page.getByRole('button', { name: `Mark as not eaten: ${newMeal}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(async () => Object.values((await getDoc(doc(client.db, 'users', uid, 'mealPlans', newPlan))).data()!.mealStatus ?? {})
-      .filter(Boolean).length).toBe(1);
+    // The stale week kept its draft, unticked. The Planner works as usual after it woke up.
+    await page.getByRole('button', { name: 'Previous week' }).tap();
+    await expect(tick(oldMeal), 'the draft of the old week is kept, and its meal is not ticked').toBeVisible();
+    await expect(ticked(oldMeal)).toHaveCount(0);
+    await g17ThisWeek(page).tap();
+    await tick(newMeal).tap();
+    await expect(ticked(newMeal)).toHaveAttribute('aria-pressed', 'true');
+    expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size, 'drafts are never saved by a tick').toBe(0);
   });
 
   test('R9 another week offers a This week button that returns', async ({ page }) => {
@@ -8797,6 +8833,25 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await g17ThisWeek(page).click();
     await expect(g17Header(page)).toHaveText(thisWeek.label);
     await expect(g17ThisWeek(page)).toHaveCount(0);
+  });
+
+  test('R9 the This week button stays next to the week box at tablet and computer width', async ({ page }) => {
+    await g4Account(page, 390, 'g17-button-wide');
+    for (const width of [768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/plan');
+      await settlePlanner(page);
+      if (await g17ThisWeek(page).count() === 0) await page.getByRole('button', { name: 'Next week' }).click();
+      await expect(g17ThisWeek(page)).toBeVisible();
+      const button = (await g17ThisWeek(page).boundingBox())!;
+      const weekBox = (await page.getByRole('button', { name: 'Next week' }).locator('..').boundingBox())!;
+      expect(button.x, `at ${width}px the button starts inside the width of the week box`).toBeGreaterThanOrEqual(weekBox.x);
+      expect(button.x + button.width, `at ${width}px the button ends inside the width of the week box`)
+        .toBeLessThanOrEqual(weekBox.x + weekBox.width + 1);
+      expect(button.y, `at ${width}px the button sits right under the week box`).toBeGreaterThanOrEqual(weekBox.y + weekBox.height);
+      expect(button.y - (weekBox.y + weekBox.height)).toBeLessThanOrEqual(16);
+      expect(button.x + button.width).toBeLessThanOrEqual(width);
+    }
   });
 
   for (const view of ['day', 'month'] as const) {

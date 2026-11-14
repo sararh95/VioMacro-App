@@ -21,14 +21,20 @@ export const PLANNER_WEEK_MEMORY_MS = 4 * 60 * 60 * 1000;
 
 /**
  * `week` is the stored week. `fresh` says whether to keep showing it: it must
- * be a real pick (a week other than the one that was current when it was
- * stored) and the Planner must have been used within the memory time.
+ * be a real pick (a week other than the current one when the user went to it)
+ * and the Planner must have been used within the memory time.
  */
 export type PlannerWeekChoice = { week: string; fresh: boolean };
 
-/** What the Planner stores: the week on screen and when it was last used. */
+/**
+ * What the Planner stores: the week on screen, when it was last used, and
+ * whether the user picked it. Being on the current week is not a pick. `pick`
+ * is decided here, once, and kept by a renewal: working it out again later
+ * from `at` would give a different answer after a timezone change.
+ */
 export function encodePlannerWeekChoice(viewDate: Date, now: Date = new Date()): string {
-    return JSON.stringify({ week: getWeekStartKey(viewDate), at: now.getTime() });
+    const week = getWeekStartKey(viewDate);
+    return JSON.stringify({ week, at: now.getTime(), pick: week !== getWeekStartKey(now) });
 }
 
 /**
@@ -36,9 +42,9 @@ export function encodePlannerWeekChoice(viewDate: Date, now: Date = new Date()):
  * includes the bare `YYYY-MM-DD` value that older versions stored: it carries
  * no age, so it cannot be trusted to be recent.
  *
- * A record whose week was the current week when it was stored is not a pick.
- * The user was simply on "this week", so it follows the calendar and is never
- * fresh: after Monday 00:00 it must not hold the Planner on last week.
+ * A record that is not a pick is never fresh. The user was simply on "this
+ * week", so it follows the calendar: after Monday 00:00 it must not hold the
+ * Planner on last week.
  *
  * The age check allows the clock to step back (a network time correction),
  * so a small step cannot throw the user off the week they are working on.
@@ -48,13 +54,11 @@ export function readPlannerWeekChoice(saved: string | null | undefined, now: Dat
     try {
         const value: unknown = JSON.parse(saved);
         if (!value || typeof value !== 'object') return null;
-        const { week, at } = value as { week?: unknown; at?: unknown };
-        if (typeof week !== 'string' || typeof at !== 'number' || !Number.isFinite(at)) return null;
+        const { week, at, pick } = value as { week?: unknown; at?: unknown; pick?: unknown };
+        if (typeof week !== 'string' || typeof at !== 'number' || !Number.isFinite(at) || typeof pick !== 'boolean') return null;
         const start = tryParseLocalDateKey(week);
         if (!start) return null;
-        const stored = getWeekStartKey(start);
-        const picked = stored !== getWeekStartKey(new Date(at));
-        return { week: stored, fresh: picked && Math.abs(now.getTime() - at) < PLANNER_WEEK_MEMORY_MS };
+        return { week: getWeekStartKey(start), fresh: pick && Math.abs(now.getTime() - at) < PLANNER_WEEK_MEMORY_MS };
     } catch {
         return null;
     }
@@ -67,7 +71,7 @@ export function readPlannerWeekChoice(saved: string | null | undefined, now: Dat
  */
 export function renewPlannerWeekChoice(saved: string | null | undefined, now: Date = new Date()): string | null {
     const choice = readPlannerWeekChoice(saved, now);
-    return choice?.fresh ? JSON.stringify({ week: choice.week, at: now.getTime() }) : null;
+    return choice?.fresh ? JSON.stringify({ week: choice.week, at: now.getTime(), pick: true }) : null;
 }
 
 /** The week to show when the Planner opens: a fresh choice, else this week. */

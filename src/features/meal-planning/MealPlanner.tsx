@@ -75,6 +75,21 @@ function getPlanMacroTotals(plan: MealPlan | null) {
 }
 
 /**
+ * R9: the touch that wakes a stale Planner was aimed at the old week. A touch
+ * screen aims the click when the finger lifts. By then the screen has started
+ * again, and a week that is drawn at once (an unsaved draft) already has its
+ * buttons under the finger, so the click would tick a meal the user never
+ * chose. That one click is dropped. The next touch cancels the guard, so a
+ * touch that ends without a click (a scroll) cannot cost the user a later one.
+ */
+function dropClickOfThisTouch() {
+    const drop = (event: Event) => { event.preventDefault(); event.stopPropagation(); };
+    const cancel = () => document.removeEventListener('click', drop, true);
+    document.addEventListener('click', drop, { capture: true, once: true });
+    document.addEventListener('pointerdown', cancel, { capture: true, once: true });
+}
+
+/**
  * R9: a Planner that stays open must not keep showing an old week.
  *
  * The week on screen lives in React state, so a page left open (a laptop that
@@ -85,8 +100,9 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * from when the Planner was last used. Once it is stale and is not this week,
  * the screen starts again on this week. A new key remounts it, so a dialog
  * left open on the old week closes too. The old screen is gone before the
- * click of the touch that woke it arrives, so that touch cannot tick a meal in
- * the stale week. Unsaved drafts live in the store and are kept.
+ * click of the touch that woke it arrives, and that click is dropped, so the
+ * touch cannot tick a meal in either week. Unsaved drafts live in the store
+ * and are kept.
  */
 export default function MealPlanner() {
     const [visit, setVisit] = useState(0);
@@ -95,7 +111,7 @@ export default function MealPlanner() {
     const [, setCurrentWeek] = useState(() => getWeekStartKey());
 
     useEffect(() => {
-        const check = () => {
+        const check = (event: Event) => {
             if (document.visibilityState !== 'visible') return;
             const saved = window.sessionStorage.getItem(MEAL_PLANNER_VIEW_DATE_KEY);
             const now = new Date();
@@ -106,6 +122,7 @@ export default function MealPlanner() {
                 // Stored first, so a second event in the same burst finds this
                 // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
+                if (event.type === 'pointerdown') dropClickOfThisTouch();
                 setVisit(count => count + 1);
             }
             setCurrentWeek(getWeekStartKey(now));
@@ -1528,39 +1545,37 @@ function PlannerHeader({ viewMode, setViewMode, viewDate, onNavigate }: {
                 ))}
             </div>
 
-            {/* Navigation */}
-            <div className="flex items-center gap-4 bg-surface-dark p-2 rounded-xl border border-surface-border">
-                <button
-                    type="button"
-                    aria-label="Previous week"
-                    onClick={() => onNavigate('prev')}
-                    className="p-2 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"
-                >
-                    <span className="material-symbols-outlined">chevron_left</span>
-                </button>
+            {/* Navigation. R9: "This week" sits under the week box at every width, one tap back from any other week. */}
+            <div className="flex flex-col items-center gap-2 md:items-end">
+                <div className="flex items-center gap-4 bg-surface-dark p-2 rounded-xl border border-surface-border">
+                    <button
+                        type="button"
+                        aria-label="Previous week"
+                        onClick={() => onNavigate('prev')}
+                        className="p-2 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"
+                    >
+                        <span className="material-symbols-outlined">chevron_left</span>
+                    </button>
 
-                <div className="text-center min-w-[150px]">
-                    <span className="block text-sm font-bold text-white">
-                        Week of {viewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="text-xs text-text-secondary">
-                        {new Date(viewDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
+                    <div className="text-center min-w-[150px]">
+                        <span className="block text-sm font-bold text-white">
+                            Week of {viewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-xs text-text-secondary">
+                            {new Date(viewDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        aria-label="Next week"
+                        onClick={() => onNavigate('next')}
+                        className="p-2 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"
+                    >
+                        <span className="material-symbols-outlined">chevron_right</span>
+                    </button>
                 </div>
-
-                <button
-                    type="button"
-                    aria-label="Next week"
-                    onClick={() => onNavigate('next')}
-                    className="p-2 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"
-                >
-                    <span className="material-symbols-outlined">chevron_right</span>
-                </button>
-            </div>
-
-            {/* R9: one tap back from any other week. */}
-            {!onThisWeek && (
-                <div className="flex w-full justify-center md:justify-end">
+                {!onThisWeek && (
                     <button
                         type="button"
                         onClick={() => onNavigate('today')}
@@ -1568,8 +1583,8 @@ function PlannerHeader({ viewMode, setViewMode, viewDate, onNavigate }: {
                     >
                         This week
                     </button>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
