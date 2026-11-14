@@ -832,10 +832,11 @@ function MealPlannerScreen() {
     const handleGapRecipeSelect = (recipe: Recipe) => {
         if (!gapSolverData || !displayPlan) return;
 
-        // Add as a new meal
-        // Infer type based on recipe type, or default to dinner if taken?
-        // Let's just use the recipe's natural type
+        // Add as a new meal; nothing is replaced (the pick fills a calorie gap).
+        // GA1: a day shows one meal of each type and every snack. When the day already has
+        // a meal of the recipe's type, the pick is added as a snack, so it gets a card.
         const { dayIndex } = gapSolverData;
+        const typeTaken = displayPlan.days[dayIndex].meals.some(m => m.type === recipe.mealType);
 
         // Prepare to add meal
         // Prepare to add meal
@@ -847,7 +848,7 @@ function MealPlannerScreen() {
             id: crypto.randomUUID(),
             recipeId: recipe.id,
             name: recipe.title,
-            type: recipe.mealType,
+            type: typeTaken ? 'snack' : recipe.mealType,
             calories: recipe.calories,
             protein: recipe.protein,
             carbs: recipe.carbs,
