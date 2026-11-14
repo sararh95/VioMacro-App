@@ -8753,7 +8753,11 @@ test.describe('1.0 G17 Planner shows the right week', () => {
 
     // A week picked on purpose is given up after 4 hours too, however the user comes back.
     for (const [hours, how] of [[6, 'shown'], [11, 'restored']] as [number, G17Return][]) {
-      await settlePlanner(page); // the restarted Planner offers to plan the empty new week, as a fresh visit does
+      // The restarted Planner offers to plan the empty new week, as a fresh visit does.
+      // A pointer in the first quarter second belongs to the gesture that woke the page,
+      // and its click is dropped. A person needs longer than that to read and tap.
+      await page.waitForTimeout(500);
+      await settlePlanner(page);
       await page.getByRole('button', { name: 'Previous week' }).click();
       await expect(g17Header(page)).toHaveText(thisWeek.label);
       await expect(g17ThisWeek(page)).toHaveCount(1);
@@ -8762,27 +8766,44 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     }
   });
 
-  test('R9 the tap that wakes a stale Planner ticks no meal in either week', async ({ page }) => {
-    const { client, uid } = await g4Account(page, 390, 'g17-tap');
+  const g17OldMeal = 'G17 Old Week Dinner';
+  const g17NewMeal = 'G17 New Week Dinner';
+  const g17Tick = (page: Page, meal: string) => page.getByRole('button', { name: `Mark as eaten: ${meal}`, exact: true });
+  const g17Ticked = (page: Page, meal: string) => page.getByRole('button', { name: `Mark as not eaten: ${meal}`, exact: true });
+  // This week and next week each hold an unsaved draft with one Monday dinner.
+  // A draft is drawn at once, with no wait for the server, so right after a
+  // restart the new week's tick button sits where the old week's was.
+  // Returns the point of that tick button.
+  const g17TwoDraftWeeks = async (page: Page, uid: string) => {
     // Tall enough that the Monday dinner tick needs no scrolling, before and after the restart.
     await page.setViewportSize({ width: 390, height: 1600 });
-    const oldMeal = 'G17 Old Week Dinner';
-    const newMeal = 'G17 New Week Dinner';
     const thisWeek = await g17Week(page);
     const nextWeek = await g17Week(page, 1);
-    // Both weeks hold an unsaved draft. A draft is drawn at once, with no wait
-    // for the server, so right after the restart the new week's tick button
-    // sits under the finger that is still on the screen.
     await page.evaluate(([key, drafts]) => window.localStorage.setItem(key, drafts), [`viomacro:plan-drafts:${uid}`,
-      JSON.stringify({ [thisWeek.key]: g17Draft(thisWeek.key, oldMeal), [nextWeek.key]: g17Draft(nextWeek.key, newMeal) })]);
+      JSON.stringify({ [thisWeek.key]: g17Draft(thisWeek.key, g17OldMeal), [nextWeek.key]: g17Draft(nextWeek.key, g17NewMeal) })]);
     await page.goto('/plan');
     await settlePlanner(page);
-    const tick = (meal: string) => page.getByRole('button', { name: `Mark as eaten: ${meal}`, exact: true });
-    const ticked = (meal: string) => page.getByRole('button', { name: `Mark as not eaten: ${meal}`, exact: true });
-    await expect(tick(oldMeal)).toBeVisible();
-    const box = (await tick(oldMeal).boundingBox())!;
+    await expect(g17Tick(page, g17OldMeal)).toBeVisible();
+    const box = (await g17Tick(page, g17OldMeal).boundingBox())!;
     const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
     expect(point.y).toBeLessThan(1600);
+    return { point, thisWeek, nextWeek };
+  };
+  const g17FingerRestsOn = async (page: Page, point: { x: number; y: number }, meal: string) => {
+    const landed = (await g17Tick(page, meal).boundingBox())!;
+    expect(point.x, `the pointer rests on the tick button of ${meal}`).toBeGreaterThan(landed.x);
+    expect(point.x).toBeLessThan(landed.x + landed.width);
+    expect(point.y).toBeGreaterThan(landed.y);
+    expect(point.y).toBeLessThan(landed.y + landed.height);
+  };
+
+  test('R9 the tap that wakes a stale Planner ticks no meal in either week', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g17-tap');
+    const oldMeal = g17OldMeal;
+    const newMeal = g17NewMeal;
+    const { point, nextWeek } = await g17TwoDraftWeeks(page, uid);
+    const tick = (meal: string) => g17Tick(page, meal);
+    const ticked = (meal: string) => g17Ticked(page, meal);
 
     // A finger, not a mouse. First show that a tap at this point is real: it ticks the meal, then unticks it.
     await page.touchscreen.tap(point.x, point.y);
@@ -8798,11 +8819,7 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await expect(g17Header(page), 'R9 the waking tap must bring the Planner to the new week').toHaveText(nextWeek.label);
     await expect(ticked(newMeal), 'R9 the waking tap must not tick a meal in the new week').toHaveCount(0);
     await expect(tick(newMeal), 'the draft of the new week is kept and drawn').toBeVisible();
-    const landed = (await tick(newMeal).boundingBox())!;
-    expect(point.x, 'the finger rests on the tick button of the new week').toBeGreaterThan(landed.x);
-    expect(point.x).toBeLessThan(landed.x + landed.width);
-    expect(point.y).toBeGreaterThan(landed.y);
-    expect(point.y).toBeLessThan(landed.y + landed.height);
+    await g17FingerRestsOn(page, point, newMeal);
 
     // The stale week kept its draft, unticked. The Planner works as usual after it woke up.
     await page.getByRole('button', { name: 'Previous week' }).tap();
@@ -8812,6 +8829,52 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await tick(newMeal).tap();
     await expect(ticked(newMeal)).toHaveAttribute('aria-pressed', 'true');
     expect((await getDocs(collection(client.db, 'users', uid, 'mealPlans'))).size, 'drafts are never saved by a tick').toBe(0);
+  });
+
+  test('R9 a click into a background window wakes the Planner and ticks nothing, and the guard ends with the gesture', async ({ page }) => {
+    const { uid } = await g4Account(page, 390, 'g17-focus-click');
+    const { point, thisWeek, nextWeek } = await g17TwoDraftWeeks(page, uid);
+
+    // Monday 01:00: the window was in the background. The click that brings it
+    // forward gives it focus first, and the pointer arrives just after.
+    await page.clock.setFixedTime(nextWeek.startsAt + g17Hour);
+    // Sent back to back, with no wait for the first to answer, as one physical click does.
+    const focused = page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.touchscreen.tap(point.x, point.y);
+    await focused;
+    await page.waitForTimeout(1000);
+    await expect(g17Header(page), 'R9 the focus must bring the Planner to the new week').toHaveText(nextWeek.label);
+    await expect(g17Ticked(page, g17NewMeal), 'R9 the click that brought the window forward must not tick a meal in the new week').toHaveCount(0);
+    await expect(g17Tick(page, g17NewMeal)).toBeVisible();
+    await g17FingerRestsOn(page, point, g17NewMeal);
+
+    // The guard is over: the next tap is the user's own and ticks the meal. Then it is unticked.
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(g17Ticked(page, g17NewMeal), 'the next tap after the waking gesture must work').toHaveAttribute('aria-pressed', 'true');
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(g17Tick(page, g17NewMeal)).toBeVisible();
+
+    // A waking touch that becomes a scroll has no click. It must not cost the user the next key press.
+    await page.getByRole('button', { name: 'Previous week' }).tap();
+    await expect(g17Header(page)).toHaveText(thisWeek.label);
+    await page.clock.setFixedTime(nextWeek.startsAt + 6 * g17Hour);
+    const touch = await page.context().newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await expect(g17Header(page), 'R9 5 hours after the pick the touch must wake the Planner').toHaveText(nextWeek.label);
+    await expect(g17Ticked(page, g17NewMeal)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Previous week' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(g17Header(page), 'a key press after a waking touch with no click must work').toHaveText(thisWeek.label);
+
+    // Waking with no pointer at all (the user switched to the window with the keyboard): a tap one second later is the user's own.
+    // One second is 4 times the quarter second in which a pointer still counts as the waking gesture.
+    await page.clock.setFixedTime(nextWeek.startsAt + 11 * g17Hour);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await expect(g17Header(page)).toHaveText(nextWeek.label);
+    await page.waitForTimeout(1000);
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(g17Ticked(page, g17NewMeal), 'a tap one second after the window came forward must work').toHaveAttribute('aria-pressed', 'true');
   });
 
   test('R9 another week offers a This week button that returns', async ({ page }) => {

@@ -75,18 +75,54 @@ function getPlanMacroTotals(plan: MealPlan | null) {
 }
 
 /**
- * R9: the touch that wakes a stale Planner was aimed at the old week. A touch
- * screen aims the click when the finger lifts. By then the screen has started
- * again, and a week that is drawn at once (an unsaved draft) already has its
- * buttons under the finger, so the click would tick a meal the user never
- * chose. That one click is dropped. The next touch cancels the guard, so a
- * touch that ends without a click (a scroll) cannot cost the user a later one.
+ * R9: the touch or click that wakes a stale Planner was aimed at the old week.
+ * A touch screen aims the click when the finger lifts. By then the screen has
+ * started again, and a week that is drawn at once (an unsaved draft) already
+ * has its buttons under the finger, so the click would tick a meal the user
+ * never chose. A click into a window that was in the background does the
+ * same: the window gets focus first, which restarts the screen, and the
+ * pointer arrives a few milliseconds after. The click of that one gesture is
+ * dropped. A quarter of a second covers that gap, and nobody can see the new
+ * week and aim a touch at it that fast.
+ *
+ * The guard ends with the gesture, so it cannot cost the user a later click:
+ * it ends when its click is dropped, shortly after the pointer lifts with no
+ * click (a scroll, a long press), on a new touch, on any key, and at once
+ * when the Planner woke without a pointer and none follows.
  */
-function dropClickOfThisTouch() {
-    const drop = (event: Event) => { event.preventDefault(); event.stopPropagation(); };
-    const cancel = () => document.removeEventListener('click', drop, true);
-    document.addEventListener('click', drop, { capture: true, once: true });
-    document.addEventListener('pointerdown', cancel, { capture: true, once: true });
+const WAKING_POINTER_FOLLOWS_MS = 250;
+const CLICK_FOLLOWS_LIFT_MS = 300;
+
+function dropClickOfWakingGesture(wokenBy: Event) {
+    let pointerIsDown = wokenBy.type === 'pointerdown';
+    let timer = 0;
+    const end = () => {
+        window.clearTimeout(timer);
+        document.removeEventListener('click', drop, true);
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('pointerup', onLift, true);
+        document.removeEventListener('pointercancel', onLift, true);
+        document.removeEventListener('keydown', end, true);
+    };
+    const drop = (event: Event) => { event.preventDefault(); event.stopPropagation(); end(); };
+    const onPointerDown = (event: Event) => {
+        if (!pointerIsDown && event.timeStamp - wokenBy.timeStamp < WAKING_POINTER_FOLLOWS_MS) {
+            pointerIsDown = true;
+            window.clearTimeout(timer);
+        } else {
+            end();
+        }
+    };
+    const onLift = () => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(end, CLICK_FOLLOWS_LIFT_MS);
+    };
+    document.addEventListener('click', drop, true);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('pointerup', onLift, true);
+    document.addEventListener('pointercancel', onLift, true);
+    document.addEventListener('keydown', end, true);
+    if (!pointerIsDown) timer = window.setTimeout(end, WAKING_POINTER_FOLLOWS_MS);
 }
 
 /**
@@ -100,9 +136,9 @@ function dropClickOfThisTouch() {
  * from when the Planner was last used. Once it is stale and is not this week,
  * the screen starts again on this week. A new key remounts it, so a dialog
  * left open on the old week closes too. The old screen is gone before the
- * click of the touch that woke it arrives, and that click is dropped, so the
- * touch cannot tick a meal in either week. Unsaved drafts live in the store
- * and are kept.
+ * click of the gesture that woke it arrives, and that click is dropped, so
+ * the gesture cannot tick a meal in either week. Unsaved drafts live in the
+ * store and are kept.
  */
 export default function MealPlanner() {
     const [visit, setVisit] = useState(0);
@@ -122,7 +158,7 @@ export default function MealPlanner() {
                 // Stored first, so a second event in the same burst finds this
                 // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
-                if (event.type === 'pointerdown') dropClickOfThisTouch();
+                dropClickOfWakingGesture(event);
                 setVisit(count => count + 1);
             }
             setCurrentWeek(getWeekStartKey(now));
