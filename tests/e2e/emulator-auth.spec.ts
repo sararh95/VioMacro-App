@@ -9571,6 +9571,7 @@ test.describe('1.0 G20 Grocery page layout', () => {
     return {
       viewport: window.innerWidth,
       main: box(document.querySelector('main')),
+      title: box(title),
       row: box(row),
       line: box(title?.nextElementSibling),
       input: box(document.querySelector('input[placeholder^="Quick add item"]')),
@@ -9653,6 +9654,27 @@ test.describe('1.0 G20 Grocery page layout', () => {
     await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Rice']);
     await expect(g20Row(page, 'G20 Milk')).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('L5 at 768px the Clear button goes under the title when the two do not fit on one line', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 768, 'g20-tablet');
+    const planId = await g20SeedPlan(client.db, uid, [2, 1], 1850);
+    await g20Item(client.db, uid, 'g20-rice', 'G20 Rice', { source: 'generated', mealPlanId: planId, isChecked: true });
+    await g20PinWednesday(page);
+    await g20Open(page, 'G20 Rice');
+    await expect(g20Clear(page)).toHaveText('Clear ticked items (1)');
+    await expect(g20Line(page)).toBeVisible();
+    const boxes = await g20Boxes(page, 'G20 Rice');
+    expect(boxes.viewport).toBe(768);
+    // One line of button text is 44 px high; two lines are 64 px.
+    expect(boxes.clear!.height, 'the button text stays on one line').toBeGreaterThanOrEqual(44);
+    expect(boxes.clear!.height, 'the button text stays on one line').toBeLessThan(60);
+    expect(boxes.title!.height, 'the title stays on one line').toBeLessThan(50);
+    g20Inside(boxes.clear, 768, 'Clear ticked items');
+    g20Inside(boxes.line, 768, 'the summary line');
+    g20Inside(boxes.row, 768, 'the first row');
+    expect(boxes.sideways, 'nothing scrolls sideways').toBeLessThanOrEqual(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
   });
 
   test('L3 a list of another week shows that week and not this week\'s meal count or calories', async ({ page }) => {

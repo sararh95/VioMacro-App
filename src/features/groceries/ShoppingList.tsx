@@ -113,7 +113,7 @@ export default function ShoppingList() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-6 md:p-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:flex-wrap justify-between items-start md:items-center gap-4 mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white mb-2">Smart Grocery List</h1>
                         <p className="text-text-secondary">
