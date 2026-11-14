@@ -130,8 +130,10 @@ test.describe('production build with Firebase emulators', () => {
     await expect(page.getByText('24+')).toBeHidden();
 
     await page.goto('/grocery');
-    await expect(page.getByText('Checkout Coming Soon')).toBeVisible();
-    await expect(page.getByText('Store pricing and checkout integrations are coming soon')).toBeVisible();
+    // G20: the checkout column is gone. Wait for the page first, so "not there" is not read off a blank page.
+    await expect(page.getByRole('heading', { name: 'Smart Grocery List' })).toBeVisible();
+    await expect(page.getByText('Checkout Coming Soon')).toHaveCount(0);
+    await expect(page.getByText('Store pricing and checkout integrations are coming soon')).toHaveCount(0);
     await expect(page.getByText('Week of Oct 24')).toBeHidden();
     await expect(page.getByText('High-Performance Macro Cycle')).toBeHidden();
     await expect(page.getByText('$Total')).toBeHidden();

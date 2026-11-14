@@ -169,6 +169,10 @@ async function deleteInChunks(refs: DocumentReference[]): Promise<void> {
 }
 
 export async function clearCheckedItems(userId: string): Promise<void> {
+    if (consumeDevFailure('clearCheckedItems')) {
+        throw new Error('Injected clearCheckedItems failure');
+    }
+
     const groceryRef = groceryItemsCollection(db, userId);
 
     // AUD-025: this read the whole collection and filtered in JavaScript, so you
