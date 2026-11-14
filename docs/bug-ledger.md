@@ -52,6 +52,60 @@ Required fields:
 
 ## Open Items
 
+### T1 (W7 G17, test only) Two old browser tests depend on the day or on timing
+
+- ID: T1 (W7 G17)
+- Date opened: 2026-11-14
+- Status: Part fixed in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11); part open
+- Severity: P3 (tests only; the app behaves as designed)
+- Workflow/page: tests/e2e/emulator-auth.spec.ts.
+- Expected: Every browser test passes on any day of the week and on a slow machine.
+- Actual: (a) "R11 Planner start from scratch asks and Cancel keeps the saved meals" timed out in CI on a Saturday (UTC): on weekends "Plan Week" first asks "this week or next week?", which the test did not expect. (b) "G-B: a refused meal tick is undone with a message ..." was marked flaky once in CI (line 3587).
+- User impact: None in the app. CI cannot go green on weekends; a flaky mark costs a review.
+- Evidence: CI runs 43557361184 and 43567625251 (R11 failed on both attempts; G-B flaky once). G-B repeated 16 times on BASE source and 16 times on the branch: the line 3587 assertion failed once on BASE, so G17 did not cause it.
+- Suspected area: (a) handlePlanWeekClick weekend prompt, same on base. (b) timing between the undo of the refused tick and the second tick.
+- Cause and fix: (a) fixed in PR #11: the test pins the clock to the Wednesday of this week; assertions unchanged. (b) open.
+- Next action: (b) find the race in the test or the undo path. No browser test covers the weekend prompt yet.
+- Verification target: CI green on a Saturday; G-B 0 failures in 30 repeats.
+- Revisit trigger: the next flaky mark on G-B.
+- Date closed: Pending.
+
+### R9 (audit 2, G17) Planner opens on an old week
+
+- ID: R9 (audit 2, W7 G17)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11)
+- Severity: P2
+- Workflow/page: Meal Planner, week on screen.
+- Expected: The Planner opens on this week. A week the user picked is remembered for a short time only. Any other week offers a way back.
+- Actual: The picked week was kept for the whole life of the browser tab, with no age. A phone tab or laptop window left open showed an old week days later, with no "This week" button.
+- User impact: A meal can be ticked or planned in the wrong week.
+- Evidence: Browser tests fail on the old code: old saved week opens "Week of Jan 6"; an open Planner stays on the old week after hours and after Monday 00:00; 0 "This week" buttons; the tap that wakes a stale Planner ticks a meal. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g17-planner-shows-the-right-week).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx (saved week with no age; week kept in screen state).
+- Cause and fix: The stored record is now the week, the time of last use and whether it was a pick (src/features/meal-planning/lib/planner-week.ts). A pick is kept for 4 hours after the Planner was last used. Being on this week is not a pick, so the Planner follows the calendar. An open Planner checks this when it shows, gets focus, or is touched or typed in, and starts its screen again on this week when needed. The click of the gesture that woke it is dropped inside the Planner. A "This week" button sits under the week box.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: 390 px touch, 768, 1024 and 1440 px; floor 774 plus the new tests.
+- Revisit trigger: PR #11 review. Left open on purpose: the Dashboard, the store's active plan and the top bar still keep last week in a tab left open over Monday (planned with GA4 in G23 and R17 in G25). A page that stays visible with no event re-checks on the first touch. The restart closes a dialog or Guided Cooking that was open on the stale week. The click guard does not cover a press held for more than a second, or a second click that comes more than 0.4 seconds after the wake; a click made by keyboard or screen reader inside the Planner in the first 0.4 seconds after a wake is dropped.
+- Date closed: Pending.
+
+### N1 (audit 2, G17) Day and Month arrows give a week that does not start on Monday
+
+- ID: N1 (audit 2, W7 G17)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11)
+- Severity: P2
+- Workflow/page: Meal Planner, Day and Month views, Start from Scratch.
+- Expected: The week on screen always starts on a Monday. Start from Scratch shows an empty grid for that week.
+- Actual: A Day view arrow moved 1 day and a Month view arrow moved 1 month. The header showed a Tuesday-to-Monday week. Start from Scratch built the plan from the raw date, stored the draft under a key nothing reads, and showed nothing.
+- User impact: Create New Plan seemed to do nothing until a reload.
+- Evidence: Browser tests fail on the old code with "Week of Nov 10" and "Week of Dec 9" where "Week of Nov 16" is expected. Hand test on the old code: 0 grid slots, draft stored under 2026-11-10, no saved plan. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g17-planner-shows-the-right-week).
+- Suspected area: MealPlanner.tsx handleNavigate; src/features/meal-planning/lib/plan-generator.ts.
+- Cause and fix: Every arrow now moves 7 days from the week start. createEmptyPlan, generateWeekPlan and the AI path start from the week's Monday.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Day and Month view arrow, Start from Scratch, Confirm Plan, database read-back of weekStart, weekEnd and day names.
+- Revisit trigger: PR #11 review. Left as is: a draft stored under a non-Monday key by the old code stays in the browser's storage. It was never shown or saved, and it is not used.
+- Date closed: Pending.
+
 ### B23 (1.0 review) Dark design labels have low contrast
 
 - ID: B23 (1.0 review)
