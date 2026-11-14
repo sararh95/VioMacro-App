@@ -1028,6 +1028,7 @@ function MealPlannerScreen() {
                     </div>
                 )}
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
@@ -1048,6 +1049,7 @@ function MealPlannerScreen() {
         return (
             <div className="p-8 max-w-7xl mx-auto flex flex-col min-h-[50vh]">
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
@@ -1085,6 +1087,7 @@ function MealPlannerScreen() {
                     </div>
                 )}
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
@@ -1530,6 +1533,14 @@ function MealPlannerScreen() {
  */
 const PLANNER_BARS = 'sticky top-0 z-30 mb-4 flex flex-col gap-2';
 
+/**
+ * The message bar is drawn before the header on an empty week and in the Day
+ * and Month views, and not while a week loads. One key keeps the header the
+ * same element through these views. Without it React builds a new header each
+ * time a week loads, and the arrow that was pressed loses the keyboard focus.
+ */
+const PLANNER_HEADER = 'planner-header';
+
 function PlannerNoticeBanner({ notice, onDismiss }: {
     notice: Exclude<PlannerNotice, null>;
     onDismiss: () => void;
@@ -1886,7 +1897,7 @@ function EmptySlotButton({ type, onClick }: { type: string, onClick: () => void 
     return (
         <div onClick={onClick} className="h-24 border border-dashed border-surface-border rounded-xl bg-surface-dark/30 flex flex-col items-center justify-center gap-2 p-4 text-center hover:border-primary/50 transition-colors cursor-pointer group">
             <span className="material-symbols-outlined text-text-secondary group-hover:text-primary">add_circle</span>
-            <p className="text-[10px] font-bold uppercase text-text-secondary">Add {type}</p>
+            <p className="text-[10px] xl:text-[9px] 2xl:text-[10px] font-bold uppercase text-text-secondary">Add {type}</p>
         </div>
     );
 }

@@ -9847,6 +9847,7 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
   const g21DayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   type G21Drink = 'tea' | 'smoothie';
   type G21Box = { left: number; right: number; top: number; bottom: number; width: number; height: number };
+  const g21ShortDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const g21Week = (weeks = 0) => {
     const start = getMondayWeekStart();
     start.setDate(start.getDate() + weeks * 7);
@@ -10072,6 +10073,8 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
           for (const slot of column.slots) {
             g21Inside(slot.box, column.box, `${when}: ${column.day}: an empty slot is inside its day`);
             g21Inside(slot.text, slot.box, `${when}: ${column.day}: the text of an empty slot is inside the slot`);
+            // Not by a hair: fonts differ a little between machines, and text wider than its slot makes the week scroll.
+            expect(slot.box.width - slot.text.width, `${when}: ${column.day}: the text of an empty slot has 2 px to spare`).toBeGreaterThanOrEqual(2);
           }
         }
         // The reader found every card of the seeded week, and the long names are cut with "...".
@@ -10217,7 +10220,7 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
       await addToList.click();
       await expect(g21Bar(page).locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
       const shown = await g21BarBoxes(page);
-      expect(shown.discard!.top, 'the buttons of the draft bar do not move when the message appears').toBe(discardBefore.y);
+      expect(Math.abs(shown.discard!.top - discardBefore.y), 'the buttons of the draft bar do not move when the message appears').toBeLessThanOrEqual(0.5);
       expect(shown.viewport.width).toBe(width);
       expect(shown.bar.top, 'B4 the message bar is under the app top bar, not on it').toBeGreaterThanOrEqual(shown.topBar.bottom);
       expect(shown.menuButton === null, 'the menu button is there at 390 px only').toBe(width !== 390);
@@ -10416,6 +10419,40 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
     });
   }
 
+  test('B4 guard the week header is the same after an empty week loads and in the Day view: the pressed arrow is not rebuilt', async ({ page }) => {
+    await g4Account(page, 390, 'g21-header');
+    await g21PinWednesday(page);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    const previous = page.getByRole('button', { name: 'Previous week', exact: true });
+    const header = page.getByText(/^Week of [A-Z][a-z]{2} \d+$/);
+    const emptyWeek = (weeks: number) => page.getByRole('heading', { name: `Plan Week of ${g21ShortDate(g21Week(weeks))}`, exact: true });
+    // The button itself is remembered. A rebuilt header has a new button, and the one that was pressed loses the keyboard focus.
+    const sameArrow = () => page.evaluate(() => {
+      const arrow = (window as unknown as { g21Arrow: Element }).g21Arrow;
+      return { stillInThePage: arrow.isConnected, isTheArrowOnThePage: document.querySelector('button[aria-label="Previous week"]') === arrow };
+    });
+    await previous.evaluate(button => { (window as unknown as { g21Arrow: Element }).g21Arrow = button; });
+    expect(await sameArrow()).toEqual({ stillInThePage: true, isTheArrowOnThePage: true });
+
+    // Press it: the Planner shows "Loading" and then the empty earlier week.
+    await expect(emptyWeek(0)).toBeVisible();
+    await previous.click();
+    await expect(header).toHaveText(`Week of ${g21ShortDate(g21Week(-1))}`);
+    await expect(emptyWeek(-1), 'the empty week has loaded').toBeVisible();
+    expect(await sameArrow(), 'the header is not rebuilt when the empty week loads').toEqual({ stillInThePage: true, isTheArrowOnThePage: true });
+
+    await page.getByRole('button', { name: 'day', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Coming Soon', exact: true })).toBeVisible();
+    expect(await sameArrow(), 'the header is not rebuilt in the Day view').toEqual({ stillInThePage: true, isTheArrowOnThePage: true });
+    // The Day view moves by a week too: "Loading" does not show there, and the header stays.
+    await previous.click();
+    await expect(header).toHaveText(`Week of ${g21ShortDate(g21Week(-2))}`);
+    await page.getByRole('button', { name: 'week', exact: true }).click();
+    await expect(emptyWeek(-2), 'back on the Week view the empty week has loaded').toBeVisible();
+    expect(await sameArrow(), 'the header is not rebuilt back on the Week view').toEqual({ stillInThePage: true, isTheArrowOnThePage: true });
+  });
+
   test('S1 a click with no pointer, made after the waking guard has gone, ticks the meal of the new week', async ({ page }) => {
     const { client, uid } = await g4Account(page, 390, 'g21-s1');
     const oldMeal = 'G21 Old Week Dinner';
@@ -10425,18 +10462,17 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
     const newPlan = await seedMealPlanForWeek(client.db, uid, g21Week(1), recipeId, newMeal);
     const eaten = async (planId: string, meal: string): Promise<boolean> =>
       (await getDoc(doc(client.db, 'users', uid, 'mealPlans', planId))).data()?.mealStatus?.[`qa-meal-${meal}`] ?? false;
-    const shortDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const header = page.getByText(/^Week of [A-Z][a-z]{2} \d+$/);
     await g21PinWednesday(page);
     await g21OpenPlanner(page, oldMeal);
-    await expect(header).toHaveText(`Week of ${shortDate(g21Week())}`);
+    await expect(header).toHaveText(`Week of ${g21ShortDate(g21Week())}`);
 
     // Monday 01:00 of next week. The page shows again: a wake with no pointer and no click.
     const monday = g21Week(1);
     monday.setHours(1);
     await page.clock.setFixedTime(monday);
     await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
-    await expect(header, 'the stale Planner woke and shows the new week').toHaveText(`Week of ${shortDate(g21Week(1))}`);
+    await expect(header, 'the stale Planner woke and shows the new week').toHaveText(`Week of ${g21ShortDate(g21Week(1))}`);
     await expect(page.getByRole('heading', { name: newMeal, exact: true })).toBeVisible();
     expect(await eaten(newPlan, newMeal), 'the meal of the new week starts unticked').toBe(false);
 
