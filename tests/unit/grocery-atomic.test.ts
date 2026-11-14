@@ -578,3 +578,23 @@ test('1.0 G18 GA3: the service still replaces the generated items of every week 
         [['Manual', 'manual', null], ['Rice', 'generated', '2026-11-16']]);
     assert.deepEqual(h.state.commits, [2]);
 });
+
+test('1.0 G18 GA6: the same amount added up in another order keeps its tick', async () => {
+    // Review round 1 (F1): amounts that are not counted in whole items are sums of fractions, and the sum
+    // depends on the order of the days: 0.3 + 0.2 + 0.1 = 0.6, but 0.2 + 0.1 + 0.3 = 0.6000000000000001.
+    // Moving a meal to another day does not make the amount grow, so the tick stays.
+    const h = await harness({});
+    h.state.recipes = [0.1, 0.2, 0.3, 0.0001].map(quantity => ({ id: `r${quantity}`, title: 'Rice', servings: 1, ingredients: [{ item: 'Rice', quantity: String(quantity), unit: 'cups' }] }));
+    const week = (...order: number[]) => ({ id: 'week-new', days: order.map(quantity => ({ meals: [{ recipeId: `r${quantity}` }] })) }) as never;
+    assert.equal((await h.generate(week(0.3, 0.2, 0.1))).success, true);
+    const [[firstId, first]] = g18Generated(h);
+    assert.equal(first.quantity, 0.6);
+    h.state.records.set(firstId, { ...first, isChecked: true }); // ticked in the shop
+
+    await h.generate(week(0.2, 0.1, 0.3)); // Monday's meal moved to Wednesday
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.quantity, value.isChecked]), [['Rice', 0.6000000000000001, true]]);
+
+    // A real, small growth still drops the tick.
+    await h.generate(week(0.2, 0.1, 0.3, 0.0001));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', false]]);
+});
