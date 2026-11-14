@@ -81,41 +81,43 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * has its buttons under the finger, so the click would tick a meal the user
  * never chose. A click into a window that was in the background does the
  * same: the window gets focus first, which restarts the screen, and the
- * pointer arrives a few milliseconds after. The click of that one gesture is
- * dropped. A quarter of a second covers that gap, and nobody can see the new
- * week and aim a touch at it that fast.
+ * pointer arrives a few milliseconds after. A double tap sends a second click
+ * the same way.
  *
- * Only a click that lands inside the Planner is dropped. The menu and the top
- * bar did not change under the pointer, so a click or a key press there is
- * what the user meant.
+ * So for a short quiet time after the restart, a click inside the Planner is
+ * dropped: nobody can see the new week and aim at it that fast. The click of
+ * a pointer that went down in the quiet time is dropped too, whenever the
+ * pointer lifts. The menu and the top bar did not change under the pointer,
+ * so a click there is what the user meant and is never dropped.
  *
- * The guard ends with the gesture, so it cannot cost the user a later click:
- * it ends at the first click, on the next touch that is not the waking one,
- * and on any key.
+ * The guard is gone after one second. A finger held longer than that makes no
+ * click, and a later click, made by any means, is the user's own.
  */
-const WAKING_POINTER_FOLLOWS_MS = 250;
+const WAKING_QUIET_MS = 400;
+const WAKING_GUARD_MS = 1000;
 
-function dropClickOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | null) {
-    let pointerIsDown = wokenBy.type === 'pointerdown';
-    const end = () => {
-        document.removeEventListener('click', drop, true);
-        document.removeEventListener('pointerdown', onPointerDown, true);
-        document.removeEventListener('keydown', end, true);
-    };
-    const drop = (event: Event) => {
-        if (event.target instanceof Node && planner()?.contains(event.target)) {
+function dropClicksOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | null) {
+    const inQuietTime = (event: Event) => event.timeStamp - wokenBy.timeStamp < WAKING_QUIET_MS;
+    let pointerWentDownInQuietTime = wokenBy.type === 'pointerdown';
+    const onPointerDown = (event: Event) => { pointerWentDownInQuietTime = inQuietTime(event); };
+    // A key press is not the pointer: its click (Enter, Space) is judged by the quiet time alone.
+    const onKeyDown = () => { pointerWentDownInQuietTime = false; };
+    const onClick = (event: Event) => {
+        const fromWakingGesture = pointerWentDownInQuietTime || inQuietTime(event);
+        pointerWentDownInQuietTime = false;
+        if (fromWakingGesture && event.target instanceof Node && planner()?.contains(event.target)) {
             event.preventDefault();
             event.stopPropagation();
         }
-        end();
     };
-    const onPointerDown = (event: Event) => {
-        if (!pointerIsDown && event.timeStamp - wokenBy.timeStamp < WAKING_POINTER_FOLLOWS_MS) pointerIsDown = true;
-        else end();
-    };
-    document.addEventListener('click', drop, true);
+    document.addEventListener('click', onClick, true);
     document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('keydown', end, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    window.setTimeout(() => {
+        document.removeEventListener('click', onClick, true);
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+    }, WAKING_GUARD_MS);
 }
 
 /**
@@ -152,7 +154,7 @@ export default function MealPlanner() {
                 // Stored first, so a second event in the same burst finds this
                 // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
-                dropClickOfWakingGesture(event, () => plannerRef.current);
+                dropClicksOfWakingGesture(event, () => plannerRef.current);
                 setVisit(count => count + 1);
             }
             setCurrentWeek(getWeekStartKey(now));
