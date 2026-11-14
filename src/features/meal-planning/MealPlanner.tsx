@@ -175,7 +175,8 @@ function MealPlannerScreen() {
         activePlan: contextActivePlan,
         toggleMealCompletion,
         refreshPlan,
-        refreshGrocery
+        refreshGrocery,
+        groceryItems
     } = useAppStore();
 
     // Navigation & View State
@@ -921,6 +922,12 @@ function MealPlannerScreen() {
 
     const handleAddToShoppingList = async () => {
         if (!user || addingToList || !displayPlan) return;
+        // GA3 (D9): this is one list for all weeks, and a refresh replaces every
+        // generated item. Ask before the items of another plan go. Manual items
+        // and items with no source are never replaced, so they never ask.
+        const listPlanId = displayPlan.id ?? displayPlan.weekStart;
+        if (groceryItems.some(item => item.source === 'generated' && item.mealPlanId !== listPlanId)
+            && !window.confirm(`Replace your shopping list with the week of ${formatDateKey(displayPlan.weekStart, { month: 'short', day: 'numeric' }, 'en-US')}? The items from another week's plan will be removed.`)) return;
         // AUD-085: this used to share the `saving` flag with Save Plan, so each
         // reported the other's progress.
         setAddingToList(true);

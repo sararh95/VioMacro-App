@@ -301,7 +301,8 @@ test('G1 normalization retains checked state across equivalent cup/cups units', 
 });
 
 test('G1 actual form countable units round after yield aggregation and preserve checked aliases', async () => {
-    const h = await harness({ old: item('Onion', { unit: ' UNITS ', mealPlanId: 'five-portions' }), manual: item('Manual', { source: 'manual' }) });
+    // G18 GA6: 9 were bought, so the 4 needed now are covered and the tick is carried (the default 2 would not cover 4).
+    const h = await harness({ old: item('Onion', { quantity: 9, unit: ' UNITS ', mealPlanId: 'five-portions' }), manual: item('Manual', { source: 'manual' }) });
     h.state.recipes = [recipe([
         ...['Unit', 'Large', 'Medium', 'Small', 'Stick'].map((unit, index) => ({ item: ['Onion', 'Eggs', 'Apples', 'Lemons', 'Butter'][index], quantity: '3', unit })),
         { item: 'Rice', quantity: '3', unit: 'Cup' },
@@ -367,7 +368,8 @@ for (const [portions, expectedCans, expectedLargeCans, expectedRice] of [[1, 1, 
     for (const reverse of [false, true]) {
         test(`VM037: actual refresh writes one mixed-package total for ${portions} portions, reverse=${reverse}`, async () => {
             const h = await harness({
-                old: item('Tomatoes', { unit: '(14 oz) CANS', mealPlanId: 'mixed-package-week' }),
+                // G18 GA6: 9 cans were bought, so the 1 or 3 needed now are covered and the tick is carried.
+                old: item('Tomatoes', { quantity: 9, unit: '(14 oz) CANS', mealPlanId: 'mixed-package-week' }),
                 stale: item('Stale generated'),
                 manual: item('Manual sentinel', { quantity: 7, unit: 'sticks', source: 'manual' }),
                 legacy: item('Legacy sentinel', { quantity: 9, unit: 'cups', source: undefined }),
@@ -564,4 +566,15 @@ test('1.0 G18 GA7: grocery items saved at the same moment keep one order, by nam
         'id-5 Zzz earlier', 'id-3 Apple', 'id-9 Apple', 'id-2 Mango', 'id-1 Zucchini', 'id-4 Aaa later',
         'id-6 Old figs', 'id-7 Old pears', 'id-8 Old pears',
     ]);
+});
+
+test('1.0 G18 GA3: the service still replaces the generated items of every week (the Planner asks first) and keeps manual ones', async () => {
+    const h = await harness({
+        thisWeek: item('Chicken', { isChecked: false, unit: 'lbs', mealPlanId: '2026-11-09' }),
+        manual: item('Manual', { source: 'manual' }),
+    });
+    assert.equal((await h.generate(g18Draft())).success, true);
+    assert.deepEqual(h.snapshot().map(([, value]) => [value.name, value.source, value.mealPlanId ?? null]),
+        [['Manual', 'manual', null], ['Rice', 'generated', '2026-11-16']]);
+    assert.deepEqual(h.state.commits, [2]);
 });

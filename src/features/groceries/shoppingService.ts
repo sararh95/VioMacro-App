@@ -57,15 +57,20 @@ export async function getGroceryList(userId: string): Promise<GroceryItem[]> {
     const snapshot = await getDocs(query(groceryRef, limit(MAX_GROCERY_ITEMS)));
     const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroceryItem));
 
+    // GA7: one refresh gives every generated item the same createdAt, and a tie
+    // used to keep the order of the read (the random document id), so rows
+    // changed places after every Add to List. Ties go by name, then by id.
+    const byName = (a: GroceryItem, b: GroceryItem) =>
+        a.name.localeCompare(b.name) || (a.id ?? '').localeCompare(b.id ?? '');
     return items.sort((a, b) => {
         // Legacy items have no createdAt. Keep them together at the end in a
         // stable order rather than letting them jump around.
         const aMs = a.createdAt?.toMillis?.();
         const bMs = b.createdAt?.toMillis?.();
-        if (aMs === undefined && bMs === undefined) return a.name.localeCompare(b.name);
+        if (aMs === undefined && bMs === undefined) return byName(a, b);
         if (aMs === undefined) return 1;
         if (bMs === undefined) return -1;
-        return aMs - bMs;
+        return aMs - bMs || byName(a, b);
     });
 }
 
@@ -121,10 +126,12 @@ export async function replaceGeneratedGroceryItems(userId: string, items: Omit<G
 
     const key = (mealPlanId: string | undefined, name: string, unit: string) =>
         JSON.stringify([mealPlanId, groceryIngredientKey(name, unit)]);
-    const checked = new Set(existing.docs.flatMap(snapshot => {
+    // GA6: remember how much was ticked. A tick is carried only when the
+    // amount needed now is not more than the amount that was bought.
+    const checked = new Map(existing.docs.flatMap(snapshot => {
         const item = snapshot.data();
         return item.isChecked === true && typeof item.mealPlanId === 'string' && typeof item.name === 'string' && typeof item.unit === 'string'
-            ? [key(item.mealPlanId, item.name, item.unit)] : [];
+            ? [[key(item.mealPlanId, item.name, item.unit), item.quantity] as [string, number]] : [];
     }));
     const createdAt = Timestamp.now();
     const batch = writeBatch(db);
@@ -132,7 +139,7 @@ export async function replaceGeneratedGroceryItems(userId: string, items: Omit<G
     items.forEach(item => batch.set(doc(groceryRef), {
         ...item,
         source: 'generated',
-        isChecked: checked.has(key(item.mealPlanId, item.name, item.unit)),
+        isChecked: item.quantity <= (checked.get(key(item.mealPlanId, item.name, item.unit)) ?? 0),
         createdAt,
     }));
     await batch.commit();

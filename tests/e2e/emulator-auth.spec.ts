@@ -3023,7 +3023,10 @@ test.describe('emulator authenticated smoke', () => {
     // PR-5 replaced the blocking alert() with an inline notice (AUD-079), so
     // there is no dialog to wait for. The assertion is the same in substance:
     // the user is told, in a way they can see, that items were added.
+    // G18 GA3: the stale generated item belongs to no known plan, so Add to List asks first. Accept.
+    const question = acceptNextDialog(page);
     await page.getByRole('button', { name: /Add to List/ }).click();
+    expect(await question).toMatch(/^Replace your shopping list with the week of [A-Z][a-z]{2} \d+\? The items from another week's plan will be removed\.$/);
     await expect(page.getByRole('alert')).toContainText('Added');
 
     await page.goto('/grocery');
@@ -7334,7 +7337,10 @@ test.describe('1.0 G2 R2 grocery ticks per week', () => {
 
     await page.goto('/plan');
     await settlePlanner(page);
+    // G18 GA3: the list belongs to last week's plan, so Add to List asks first. Accept.
+    const question = acceptNextDialog(page);
     await page.getByRole('button', { name: 'Add to List', exact: true }).click();
+    expect(await question).toBe(`Replace your shopping list with the week of ${thisWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}? The items from another week's plan will be removed.`);
     await expect(page.getByRole('alert').locator('p')).toHaveText(/^Added 1 item to your shopping list\./);
 
     const items = (await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(record => record.data());
