@@ -52,6 +52,96 @@ Required fields:
 
 ## Open Items
 
+### N9 (audit 2, G21) The left menu takes the page on a tablet
+
+- ID: N9 (audit 2, W7 G21)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#15](https://github.com/sararh95/VioMacro-App/pull/15)
+- Severity: P2
+- Workflow/page: Every page, 768 to 1023 px wide (tablet, small laptop window).
+- Expected: The page has room for the layout it draws.
+- Actual: The fixed left menu showed from 768 px and left 480 px for the page, while every page switched to its computer layout at the same width. On the Planner "Confirm Plan" was cut at the card's edge (it ended 105 px past the card), the date broke into two lines and the macro labels did not fit their cards.
+- User impact: On a tablet most pages look broken and some buttons are half hidden.
+- Evidence: New browser tests fail on the old code: at 768 px the fixed menu is shown; Confirm Plan ends at 841 px and its card at 736 px. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g21-layout-fits-shell-and-planner).
+- Suspected area: src/app/AppLayout.tsx (7 classes showed the fixed menu and its top bar from 768 px).
+- Cause and fix: The fixed menu, the top bar title and the week label now show from 1024 px. Below that the page has the full width, and the menu button opens the same slide-in menu a phone has. No page file changed.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: The shell at 768, 1000 and 1024 px; the Planner header card and macro cards at 768 px; pictures of Dashboard, Recipes and Grocery at 768 and 1024 px.
+- Revisit trigger: PR #15 review. Left as is: page layouts that are tight below 1024 px for their own reasons (part b, a later group); menu entries hidden behind the profile block on a low screen (B10).
+- Date closed: Pending.
+
+### N14 (audit 2, G21) The week does not fit a computer screen
+
+- ID: N14, with the drink row of N11 (audit 2, W7 G21)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#15](https://github.com/sararh95/VioMacro-App/pull/15)
+- Severity: P2
+- Workflow/page: Planner, week view, 1280 px and wider. The drink row: every width.
+- Expected: The 7 days are all in view on a computer. A day with one drink shows it like any other card.
+- Actual: The week needed 1200 px and the page gave 928 px (at 1280), 1088 px (at 1440) and 1184 px (at 1536, Sara's screen). Sunday was cut and the week scrolled sideways with no sign. A day with only a smoothie or only a tea showed it in half a row beside an empty half.
+- User impact: Sara does not see Sunday without a sideways scroll she is not told about.
+- Evidence: New browser tests fail on the old code: the week is 1200 px wide in a 928, 1088 and 1184 px box; a lone smoothie is 85 px narrower than the day's meal cards. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g21-layout-fits-shell-and-planner).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx (the week grid's fixed 1200 px; the drink row's fixed two columns).
+- Cause and fix: From 1280 px up the 7 days share the width of the page. Below 1280 px the week keeps 1200 px and its sideways scroll. In a narrow card the two numbers may go on two lines, so none is cut. From 1280 to 1535 px the label of an empty slot is one pixel smaller, so it fits a half-width slot. A day that shows one drink gives it the whole row; two drinks share the row as before.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: The week at 1280, 1440 and 1536 px with a full week, also with tea and smoothie switched on; 1100 and 1279 px still scroll; the drink row at 390 and 1440 px.
+- Revisit trigger: PR #15 review. Left as is: the rows of the days do not line up when only some days have a drink; at 1280 px a two-word day label ("HIGH CARBS") takes two lines and that day's cards start 15 px lower; no scroll hint below 1280 px.
+- Date closed: Pending.
+
+### B4 (1.0 review, G21) The Planner message bar covers buttons until it is closed
+
+- ID: B4 and B5 (1.0 review; audit 2, W7 G21)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#15](https://github.com/sararh95/VioMacro-App/pull/15)
+- Severity: P2
+- Workflow/page: Planner, every width; worst on a phone.
+- Expected: A message never hides a control. Dialogs, the menu and the recipe page are above it.
+- Actual: The green or red message bar was fixed at the top of the window above everything. On a phone it lay on the app's top bar and the menu button. It was drawn over dialogs, over the open phone menu and over the recipe page and its back button. It stayed until closed.
+- User impact: After "Add to List" on a phone the menu button cannot be pressed until the message is closed.
+- Evidence: New browser tests fail on the old code: the bar starts 16 px from the top of the window (the top bar ends at 64 px); a click on the bar's place hits the bar while the Plan Settings dialog is open. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g21-layout-fits-shell-and-planner).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx PlannerNoticeBanner ("fixed ... top-4 z-[80]").
+- Cause and fix: The bar is now part of the page: it sits at the top of the Planner, under the app's top bar, and stays there while the page scrolls. With an unsaved draft it sits right under the "Not saved yet" bar, in one box, so neither covers the other and the draft bar's buttons do not move. Dialogs, the phone menu and the recipe page cover it. It keeps its text, colours and Dismiss button, and still closes only by Dismiss or by the next action. After "Clone Last Week" finds nothing to clone, the "Plan for Week" question no longer opens again by itself, because it would cover the message that says so. The week header keeps its place when a week loads (one key), so it is not built again now that the bar is drawn before it.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: The bar at 390 and 1440 px with a draft, not scrolled and scrolled; real clicks on the menu button, Discard changes and Confirm Plan; the Plan Settings dialog, the phone menu and the recipe page over the bar; the bar on an empty week and on the Day view; the pressed week arrow is the same button after the week loads.
+- Revisit trigger: PR #15 review. Left as is: no automatic close; the bar is as wide as the Planner content (it was at most 672 px, centred); a message set while a dialog stays open is under that dialog (the Plan Wizard's AI errors; AI is off in 1.0).
+- Date closed: Pending.
+
+### N11 (audit 2, G21) "DAILY CALORIES" runs into the card's corner icon on a phone
+
+- ID: N11, label part (audit 2, W7 G21). The drink row part is in N14 above.
+- Date opened: 2026-11-13
+- Status: Fix in PR [#15](https://github.com/sararh95/VioMacro-App/pull/15)
+- Severity: P4
+- Workflow/page: Planner macro cards at 390 px.
+- Expected: The label and the faint corner icon do not touch.
+- Actual: The label "DAILY CALORIES" ran under the icon.
+- User impact: Looks unfinished.
+- Evidence: New browser test fails on the old code: the label's text box and the icon's box overlap. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g21-layout-fits-shell-and-planner).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx MacroCard (label as wide as the card, icon in the top right corner).
+- Cause and fix: The label keeps 32 px free on its right. At 390 px "DAILY CALORIES" takes two lines.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: The 4 macro cards at 390 px.
+- Revisit trigger: PR #15 review.
+- Date closed: Pending.
+
+### S1 (W7 G17 follow-up, G21) A click with no pointer after a stale Planner woke
+
+- ID: S1 (G17 review follow-up, W7 G21)
+- Date opened: 2026-11-14
+- Status: No defect. Guard test in PR [#15](https://github.com/sararh95/VioMacro-App/pull/15)
+- Severity: P4
+- Workflow/page: Planner left open for hours, then used with a screen reader or voice control.
+- Expected: A click made with no pointer is dropped for no longer than the guard's one second.
+- Actual: As expected. The click guard removes its listeners after 1000 ms (since commit 5be0e03). No source changed.
+- User impact: None found.
+- Evidence: New browser test S1 passes on the old code and on the branch: the Planner wakes on next Monday with no click, and 1.2 seconds later a click with no pointer ticks the meal and the tick is saved. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g21-layout-fits-shell-and-planner).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx dropClicksOfWakingGesture.
+- Cause and fix: None needed. The test guards the behaviour.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Browser test S1.
+- Revisit trigger: Any change to the click guard.
+- Date closed: Pending.
+
 ### Sara-G (audit 2, G20) The grocery list sits between two columns that do nothing
 
 - ID: Sara-G, with D2 on the Grocery page (audit 2, W7 G20)

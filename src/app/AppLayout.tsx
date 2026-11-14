@@ -184,7 +184,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex h-screen bg-background-dark text-white font-display antialiased overflow-hidden">
-            <aside className="w-72 h-full bg-sidebar-dark border-r border-white/5 hidden md:flex flex-col justify-between shrink-0">
+            <aside className="w-72 h-full bg-sidebar-dark border-r border-white/5 hidden lg:flex flex-col justify-between shrink-0">
                 <div className="px-6 py-8 flex items-center gap-3">
                     <div className="relative flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-primary/80 to-primary/40 shadow-[0_0_15px_rgba(167,139,250,0.3)]">
                         <span className="material-symbols-outlined text-white" style={{ fontSize: '24px', fontWeight: 700 }}>bolt</span>
@@ -247,13 +247,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         aria-label="Open navigation menu"
                         aria-expanded={mobileMenuOpen}
                         aria-controls="mobile-navigation-drawer"
-                        className="md:hidden text-white p-2"
+                        className="lg:hidden text-white p-2"
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     >
                         <span className="material-symbols-outlined">menu</span>
                     </button>
 
-                    <h2 className="text-xl font-semibold text-white hidden md:block">
+                    <h2 className="text-xl font-semibold text-white hidden lg:block">
                         {getShellTitle()}
                     </h2>
 
@@ -267,8 +267,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             <span className="material-symbols-outlined">notifications</span>
                             <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-background-dark"></span>
                         </button>
-                        <div className="hidden md:block h-8 w-px bg-white/10"></div>
-                        <span className="hidden md:block text-sm text-gray-400">
+                        <div className="hidden lg:block h-8 w-px bg-white/10"></div>
+                        <span className="hidden lg:block text-sm text-gray-400">
                             Week of {getStartOfWeek().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Planning
                         </span>
                     </div>
@@ -297,13 +297,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {mobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-40 md:hidden"
+                    className="fixed inset-0 bg-black/60 z-40 lg:hidden"
                     onClick={() => setMobileMenuOpen(false)}
                 />
             )}
 
             <aside className={clsx(
-                "fixed top-0 left-0 h-full w-72 bg-sidebar-dark border-r border-white/5 flex flex-col z-50 transform transition-transform duration-300 md:hidden",
+                "fixed top-0 left-0 h-full w-72 bg-sidebar-dark border-r border-white/5 flex flex-col z-50 transform transition-transform duration-300 lg:hidden",
                 mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}
                 id="mobile-navigation-drawer"

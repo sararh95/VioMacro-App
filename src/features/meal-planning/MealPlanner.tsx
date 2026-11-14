@@ -1019,19 +1019,22 @@ function MealPlannerScreen() {
     if (isDayView || isMonthView) {
         return (
             <div className="p-8 max-w-7xl mx-auto">
+                {plannerNotice && (
+                    <div className={PLANNER_BARS}>
+                        <PlannerNoticeBanner
+                            notice={plannerNotice}
+                            onDismiss={() => setPlannerNotice(null)}
+                        />
+                    </div>
+                )}
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
                     onNavigate={handleNavigate}
                 />
                 {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
-                {plannerNotice && (
-                    <PlannerNoticeBanner
-                        notice={plannerNotice}
-                        onDismiss={() => setPlannerNotice(null)}
-                    />
-                )}
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-text-secondary">
                     <span className="material-symbols-outlined text-6xl mb-4">construction</span>
                     <h2 className="text-2xl font-bold">Coming Soon</h2>
@@ -1046,6 +1049,7 @@ function MealPlannerScreen() {
         return (
             <div className="p-8 max-w-7xl mx-auto flex flex-col min-h-[50vh]">
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
@@ -1074,19 +1078,22 @@ function MealPlannerScreen() {
     if (!displayPlan) {
         return (
             <div className="p-8 max-w-7xl mx-auto flex flex-col min-h-[50vh]">
+                {plannerNotice && (
+                    <div className={PLANNER_BARS}>
+                        <PlannerNoticeBanner
+                            notice={plannerNotice}
+                            onDismiss={() => setPlannerNotice(null)}
+                        />
+                    </div>
+                )}
                 <PlannerHeader
+                    key={PLANNER_HEADER}
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     viewDate={viewDate}
                     onNavigate={handleNavigate}
                 />
                 {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
-                {plannerNotice && (
-                    <PlannerNoticeBanner
-                        notice={plannerNotice}
-                        onDismiss={() => setPlannerNotice(null)}
-                    />
-                )}
 
                 <div className="flex-1 flex flex-col items-center justify-center text-center mt-12">
                     <div className="bg-surface-dark p-8 rounded-xl border border-surface-border shadow-2xl max-w-md w-full">
@@ -1126,7 +1133,9 @@ function MealPlannerScreen() {
                             setWizardOpen(true);
                         }}
                         onClone={() => {
-                            setPromptModalOpen(false);
+                            // B4: the message bar is under every dialog. When there is nothing to clone, this
+                            // question must not open again over the message that says so.
+                            handleClosePromptModal();
                             handleCloneLastWeek();
                         }}
                         weekDate={viewDate}
@@ -1138,41 +1147,51 @@ function MealPlannerScreen() {
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
-            {isDirty && (
-                <div role="status" className="sticky top-0 z-20 mb-4 rounded-xl border border-primary/50 bg-surface-dark p-3 shadow-lg">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-white">Not saved yet</p>
-                            <p className="text-xs text-text-secondary">{draftStorageError || 'Draft kept on this device. Confirm to save your plan.'}</p>
-                        </div>
-                        <button
-                            onClick={() => {
-                                if (saving) return;
-                                const weekStart = getWeekStartKey(viewDate);
-                                setDraftPlan(null, { weekStart });
-                                setConflict(null);
-                                setSaved(false);
-                                setPlannerNotice(null);
-                                setDismissedPromptWeek(weekStart);
-                                setWeekLoadAttempt(attempt => attempt + 1);
-                            }}
-                            disabled={saving}
-                            className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border disabled:cursor-wait disabled:opacity-50"
-                        >
-                            Discard changes
-                        </button>
-                    </div>
-                    {conflict?.week === getWeekStartKey(viewDate) && (
-                        <div className="mt-3 rounded-lg border border-amber-300/50 p-3 text-sm text-white">
-                            <p>This week was changed on another device since this draft.</p>
-                            <p className="mt-1 text-xs text-text-secondary">Replace the saved week, or discard these changes to keep it.</p>
-                            <button onClick={() => handleConfirmPlan(conflict.version)} disabled={saving}
-                                className="mt-2 min-h-10 rounded-lg bg-primary px-3 font-bold text-background-dark disabled:opacity-50">
-                                Replace saved week
-                            </button>
+            {(isDirty || plannerNotice) && (
+                <div className={PLANNER_BARS}>
+                    {isDirty && (
+                        <div role="status" className="rounded-xl border border-primary/50 bg-surface-dark p-3 shadow-lg">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-white">Not saved yet</p>
+                                    <p className="text-xs text-text-secondary">{draftStorageError || 'Draft kept on this device. Confirm to save your plan.'}</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (saving) return;
+                                        const weekStart = getWeekStartKey(viewDate);
+                                        setDraftPlan(null, { weekStart });
+                                        setConflict(null);
+                                        setSaved(false);
+                                        setPlannerNotice(null);
+                                        setDismissedPromptWeek(weekStart);
+                                        setWeekLoadAttempt(attempt => attempt + 1);
+                                    }}
+                                    disabled={saving}
+                                    className="h-10 shrink-0 rounded-lg border border-surface-border px-3 text-xs font-bold text-white hover:bg-surface-border disabled:cursor-wait disabled:opacity-50"
+                                >
+                                    Discard changes
+                                </button>
+                            </div>
+                            {conflict?.week === getWeekStartKey(viewDate) && (
+                                <div className="mt-3 rounded-lg border border-amber-300/50 p-3 text-sm text-white">
+                                    <p>This week was changed on another device since this draft.</p>
+                                    <p className="mt-1 text-xs text-text-secondary">Replace the saved week, or discard these changes to keep it.</p>
+                                    <button onClick={() => handleConfirmPlan(conflict.version)} disabled={saving}
+                                        className="mt-2 min-h-10 rounded-lg bg-primary px-3 font-bold text-background-dark disabled:opacity-50">
+                                        Replace saved week
+                                    </button>
+                                </div>
+                            )}
+                            <div className="mt-3">{plannerActions}</div>
                         </div>
                     )}
-                    <div className="mt-3">{plannerActions}</div>
+                    {plannerNotice && (
+                        <PlannerNoticeBanner
+                            notice={plannerNotice}
+                            onDismiss={() => setPlannerNotice(null)}
+                        />
+                    )}
                 </div>
             )}
             <PlannerHeader
@@ -1182,12 +1201,6 @@ function MealPlannerScreen() {
                 onNavigate={handleNavigate}
             />
             {draftStorageError && !isDirty && <p role="alert" className="mb-4 rounded-xl border border-red-400/40 bg-surface-dark p-3 text-sm text-red-100">{draftStorageError}</p>}
-            {plannerNotice && (
-                <PlannerNoticeBanner
-                    notice={plannerNotice}
-                    onDismiss={() => setPlannerNotice(null)}
-                />
-            )}
 
             {/* Page Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-4 rounded-xl bg-surface-dark border border-surface-border mb-6 overflow-hidden">
@@ -1374,7 +1387,7 @@ function MealPlannerScreen() {
 
             {/* Weekly Meal Horizontal Scroll */}
             <div className="overflow-x-auto pb-6">
-                <div className="min-w-[1200px] grid grid-cols-7 gap-4">
+                <div className="min-w-[1200px] xl:min-w-0 grid grid-cols-7 gap-4">
                     {displayPlan.days.map((day, index) => (
                         <DayColumn
                             key={day.date}
@@ -1511,6 +1524,23 @@ function MealPlannerScreen() {
     );
 }
 
+/**
+ * B4, B5: the Planner's bars (the unsaved-draft bar and the message bar) sit in
+ * the page flow, at the top of the Planner, and stay under the app's top bar
+ * while the page scrolls. One box holds both, so neither covers the other.
+ * z-30 is above the meal cards' tick buttons (z-20) and below the phone menu
+ * (z-40) and every dialog and the recipe page (z-50 and up).
+ */
+const PLANNER_BARS = 'sticky top-0 z-30 mb-4 flex flex-col gap-2';
+
+/**
+ * The message bar is drawn before the header on an empty week and in the Day
+ * and Month views, and not while a week loads. One key keeps the header the
+ * same element through these views. Without it React builds a new header each
+ * time a week loads, and the arrow that was pressed loses the keyboard focus.
+ */
+const PLANNER_HEADER = 'planner-header';
+
 function PlannerNoticeBanner({ notice, onDismiss }: {
     notice: Exclude<PlannerNotice, null>;
     onDismiss: () => void;
@@ -1529,7 +1559,7 @@ function PlannerNoticeBanner({ notice, onDismiss }: {
     return (
         <div
             role="alert"
-            className={`fixed left-4 right-4 top-4 z-[80] mx-auto flex max-w-2xl items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl backdrop-blur md:left-1/2 md:right-auto md:w-full md:-translate-x-1/2 ${toneClasses}`}
+            className={`flex items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl backdrop-blur ${toneClasses}`}
         >
             <span className="material-symbols-outlined mt-0.5 text-xl" aria-hidden="true">{iconName}</span>
             <p className="flex-1 text-sm font-semibold leading-6">{notice.message}</p>
@@ -1646,7 +1676,7 @@ function MacroCard({ label, value, unit, current, icon, color, status }: {
             <div className={`absolute top-0 right-0 p-3 transition-opacity ${isOver ? 'opacity-20' : 'opacity-10 group-hover:opacity-20'}`}>
                 <span className={`material-symbols-outlined text-4xl ${isOver ? 'text-red-500' : 'text-primary'}`}>{isOver ? 'warning' : icon}</span>
             </div>
-            <p className="text-text-secondary text-sm font-medium uppercase tracking-wide">{label}</p>
+            <p className="pr-8 text-text-secondary text-sm font-medium uppercase tracking-wide">{label}</p>
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <div className="flex min-w-0 max-w-full flex-wrap items-baseline gap-1">
                     <span className={`text-2xl font-bold ${isOver ? 'text-red-400' : 'text-white'}`}>{Math.round(current)}</span>
@@ -1693,6 +1723,9 @@ function DayColumn({ day, dayIndex, dailyTargets, onMealClick, onAddMeal, onTogg
     const tea = day.meals.find(m => m.type === 'tea');
     const dinner = day.meals.find(m => m.type === 'dinner');
     const snacks = day.meals.filter(m => m.type === 'snack');
+    // N14, N11: a day that shows only one drink gives it the whole row.
+    const showTea = !!tea || !!includeTea;
+    const showSmoothie = !!smoothie || !!includeSmoothie;
 
     // Real adherence calculation
     const caloriePercent = Math.round((day.totalCalories / targetCalories) * 100);
@@ -1777,8 +1810,8 @@ function DayColumn({ day, dayIndex, dailyTargets, onMealClick, onAddMeal, onTogg
             <div className="space-y-4">
                 {/* Beverage Row (Tea & Smoothie) */}
                 {(includeTea || includeSmoothie || tea || smoothie) && (
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-2">
+                    <div className={`grid gap-3 ${showTea && showSmoothie ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        <div className={showTea ? 'flex flex-col gap-2' : 'hidden'}>
                             {(tea || includeTea) && (
                                 tea ? (
                                     <MealCard
@@ -1792,7 +1825,7 @@ function DayColumn({ day, dayIndex, dailyTargets, onMealClick, onAddMeal, onTogg
                                 )
                             )}
                         </div>
-                        <div className="flex flex-col gap-2">
+                        <div className={showSmoothie ? 'flex flex-col gap-2' : 'hidden'}>
                             {(smoothie || includeSmoothie) && (
                                 smoothie ? (
                                     <MealCard
@@ -1864,7 +1897,7 @@ function EmptySlotButton({ type, onClick }: { type: string, onClick: () => void 
     return (
         <div onClick={onClick} className="h-24 border border-dashed border-surface-border rounded-xl bg-surface-dark/30 flex flex-col items-center justify-center gap-2 p-4 text-center hover:border-primary/50 transition-colors cursor-pointer group">
             <span className="material-symbols-outlined text-text-secondary group-hover:text-primary">add_circle</span>
-            <p className="text-[10px] font-bold uppercase text-text-secondary">Add {type}</p>
+            <p className="text-[10px] xl:text-[9px] 2xl:text-[10px] font-bold uppercase text-text-secondary">Add {type}</p>
         </div>
     );
 }
@@ -1921,7 +1954,7 @@ function MealCard({ meal, onClick, onSwap, onToggle }: {
             <div className="p-2">
                 <p className="text-[9px] font-bold uppercase text-primary">{mealLabel}</p>
                 <h4 className={`text-xs font-bold truncate text-white ${isEaten ? 'line-through decoration-white/50' : ''}`}>{meal.name}</h4>
-                <div className="flex items-center gap-2 text-[9px] font-medium text-text-secondary mt-0.5">
+                <div className="flex items-center gap-2 xl:flex-wrap xl:gap-y-0 text-[9px] font-medium text-text-secondary mt-0.5">
                     <span className="flex items-center gap-0.5"><span className="w-1 h-1 rounded-full bg-primary"></span>{meal.calories} kcal</span>
                     <span>P: {meal.protein}g</span>
                 </div>
