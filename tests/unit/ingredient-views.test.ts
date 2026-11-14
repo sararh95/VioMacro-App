@@ -64,3 +64,22 @@ test('VM-031: cooking uses the servings selected in detail for list and tooltip'
     assert.match(html, /1\/2 cup/);
     assert.match(html, /12 oz Chicken/);
 });
+
+// 1.0 G19 (audit 2: N8, GB6): the two recipe views read amounts through the same parser as the grocery list.
+test('1.0 G19: recipe detail and cooking keep the words of a form-made "to taste" and compute with a decimal comma', async () => {
+    const { default: Detail } = await import(sourceModule('src/features/recipes/components/RecipeDetail.tsx'));
+    const { default: Cooking } = await import(sourceModule('src/features/recipes/components/GuidedCooking.tsx'));
+    const recipe = { ...base, instructions: [{ step: 'Season with Salt and Pepper, then fold in the Flour.' }], ingredients: [
+        { item: 'Salt', quantity: '', unit: 'to taste', amount: '' },
+        { item: 'Pepper', quantity: '', unit: 'Pinch', amount: '' },
+        { item: 'Flour', quantity: '1,5', unit: 'Cup', amount: '' },
+    ] };
+    const detail = renderToStaticMarkup(createElement(Detail, { recipe, onClose() {}, onStartCooking() {} }));
+    // The list row and the tooltip of the step: the same words as before this group, and no stray zero or "undefined".
+    for (const line of ['to taste Salt', 'Pinch Pepper', '1,5 Cup Flour']) assert.equal((detail.match(new RegExp(line, 'g')) || []).length, 2, line);
+    assert.doesNotMatch(detail, /undefined|\b[01] to taste|\b[01] Pinch/);
+    // Half the recipe (2 of 4 servings): a qualitative amount is not scaled, the decimal comma is.
+    const cooking = renderToStaticMarkup(createElement(Cooking, { recipe, servings: 2, onExit() {} }));
+    for (const line of ['to taste Salt', 'Pinch Pepper', '3/4 Cup Flour']) assert.match(cooking, new RegExp(line), line);
+    assert.doesNotMatch(cooking, /undefined|\b[01] to taste|\b[01] Pinch|1,5 Cup/);
+});

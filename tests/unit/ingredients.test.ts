@@ -376,3 +376,141 @@ test('G10b R13 quick add does not treat constructor as a known unit alias', () =
     assert.deepEqual(parseGroceryInput('1 constructor milk'), { name: 'constructor milk', quantity: 1, unit: 'pcs', aisle: 'Dairy' });
     assert.deepEqual(parseGroceryInput('3 g beans'), { ...g10bBeans, name: 'beans' });
 });
+
+// 1.0 G19 (audit 2: N8, B16, GB6). The recipe form saves salt as a blank quantity with the unit "to taste" or "Pinch".
+test('1.0 G19 N8: a blank quantity with a qualitative unit is 1 x that unit and reaches the list', () => {
+    for (const [quantity, unit] of [['', 'to taste'], ['', 'Pinch'], ['   ', 'a pinch'], ['', 'DASH'], ['', ' As Needed '], ['', 'pinch of']] as const) {
+        const ingredient = { item: 'Salt', quantity, unit, amount: '' };
+        assert.deepEqual(parse(ingredient), { min: 1, max: 1, unit: unit.trim(), quantityText: '', separator: '', qualitative: true }, unit);
+        // Planned twice: still one line, never 2 x "to taste".
+        assert.deepEqual(aggregate([{ ingredient, factor: 0.25 }, { ingredient, factor: 0.25 }]),
+            { items: [{ name: 'Salt', quantity: 1, unit: unit.trim().toLowerCase(), aisle: 'Other' }], skippedCount: 0 }, unit);
+    }
+});
+
+test('1.0 G19 B16: a zero quantity with a qualitative unit is 1 x that unit, not a skipped zero', () => {
+    for (const quantity of ['0', 0, '0.0']) {
+        const ingredient = { item: 'Salt', quantity, unit: 'to taste' };
+        assert.deepEqual(parse(ingredient), { min: 1, max: 1, unit: 'to taste', quantityText: '', separator: '', qualitative: true }, JSON.stringify(quantity));
+        assert.deepEqual(aggregate([{ ingredient, factor: 5 }]), { items: [{ name: 'Salt', quantity: 1, unit: 'to taste', aisle: 'Other' }], skippedCount: 0 });
+        // The one text that changes: recipe views showed "0 to taste" for a saved zero.
+        assert.equal(format(ingredient), 'to taste');
+        assert.equal(format(ingredient, 3), 'to taste');
+    }
+});
+
+test('1.0 G19 GB6: a decimal comma reads as a decimal point, with 1 or 2 digits after it', () => {
+    for (const [quantity, value, doubled] of [['1,5', 1.5, '3'], ['0,25', 0.25, '1/2'], ['2,50', 2.5, '5'], ['10,5', 10.5, '21']] as const) {
+        const ingredient = { item: 'Flour', quantity, unit: 'Cup' };
+        assert.deepEqual(parse(ingredient), { min: value, max: value, unit: 'Cup', quantityText: quantity, separator: '', qualitative: false }, quantity);
+        assert.equal(format(ingredient), `${quantity} Cup`, 'the unscaled text keeps the cook\'s own spelling');
+        assert.equal(format(ingredient, 2), `${doubled} Cup`, 'a scaled view computes with the number');
+    }
+    const legacy = { item: 'Flour', amount: '1,5 cups' };
+    assert.deepEqual(parse(legacy), { min: 1.5, max: 1.5, unit: 'cups', quantityText: '1,5', separator: '', qualitative: false });
+    assert.equal(format(legacy), '1,5 cups');
+    assert.equal(format(legacy, 2), '3 cups');
+    for (const ingredient of [{ item: 'Flour', quantity: '0,5-1,5', unit: 'Cup' }, { item: 'Flour', amount: '0,5-1,5 Cup' }]) {
+        const range = parse(ingredient);
+        assert.deepEqual([range?.min, range?.max, range?.unit], [0.5, 1.5, 'Cup']);
+        assert.equal(format(ingredient), '0,5-1,5 Cup');
+        assert.equal(format(ingredient, 2), '1-3 Cup');
+    }
+    // Two half portions of 1,5 cups are 1.5 cups (0.75 + 0.75 is exact in binary).
+    assert.deepEqual(aggregate(Array.from({ length: 2 }, () => ({ ingredient: { item: 'Flour', quantity: '1,5', unit: 'Cup' }, factor: 0.5 }))),
+        { items: [{ name: 'Flour', quantity: 1.5, unit: 'cups', aisle: 'Pantry' }], skippedCount: 0 });
+    assert.deepEqual(parseGroceryInput('1,5 cups flour'), { name: 'flour', quantity: 1.5, unit: 'cups', aisle: 'Pantry' });
+    assert.deepEqual(parseGroceryInput('0,5 lb butter'), { name: 'butter', quantity: 0.5, unit: 'lbs', aisle: 'Dairy' });
+});
+
+test('1.0 G19 N8: a blank quantity is still skipped without a qualitative unit, and a number stays a number', () => {
+    for (const ingredient of [
+        { item: 'Flour', quantity: '', unit: 'Cup' }, { item: 'Flour', quantity: '', unit: '' }, { item: 'Flour', quantity: '' },
+        { item: 'Flour', quantity: '0', unit: 'Cup' }, { item: 'Flour', quantity: 0, unit: 'tasteful' }, { item: 'Flour', quantity: '', unit: 5 },
+        // A quantity that is neither blank nor zero is not rescued by the unit.
+        { item: 'Salt', quantity: 'some', unit: 'to taste' }, { item: 'Salt', quantity: '-1', unit: 'to taste' }, { item: 'Salt', quantity: null, unit: 'to taste' },
+        // The unit rule is for the form's quantity field only: a legacy amount row is read from its amount, as before.
+        { item: 'Salt', amount: '', unit: 'to taste' }, { item: 'Salt', amount: '0', unit: 'to taste' }, { item: 'Salt', unit: 'to taste' },
+    ]) {
+        assert.equal(parse(ingredient), null, JSON.stringify(ingredient));
+        assert.deepEqual(aggregate([{ ingredient, factor: 1 }]), { items: [], skippedCount: 1 }, JSON.stringify(ingredient));
+    }
+    const pinches = { item: 'Salt', quantity: '2', unit: 'Pinch' };
+    assert.deepEqual(parse(pinches), { min: 2, max: 2, unit: 'Pinch', quantityText: '2', separator: '', qualitative: false });
+    assert.equal(format(pinches, 2), '4 Pinch');
+    assert.deepEqual(aggregate([{ ingredient: pinches, factor: 0.5 }, { ingredient: pinches, factor: 0.5 }]),
+        { items: [{ name: 'Salt', quantity: 2, unit: 'pinch', aisle: 'Other' }], skippedCount: 0 });
+});
+
+test('1.0 G19 N8: recipe views show a form-made qualitative ingredient with the same words at every serving size', () => {
+    for (const [unit, shown] of [['to taste', 'to taste'], ['Pinch', 'Pinch'], [' to taste ', 'to taste']] as const) {
+        // On the old code this text came from joining the blank quantity and the unit: the same words.
+        for (const factor of [1, 0.25, 3]) assert.equal(format({ item: 'Salt', quantity: '', unit, amount: '' }, factor), shown);
+    }
+    assert.equal(format({ item: 'Flour', quantity: '', unit: 'Cup' }, 2), 'Cup');
+    assert.equal(format({ item: 'Flour', quantity: '0', unit: 'Cup' }, 2), '0 Cup');
+});
+
+test('1.0 G19 GB6: a comma that is not a decimal comma is still not a number', () => {
+    for (const quantity of ['1,000', '2,000', '1,555', '1,', ',5', '1,5,5', '1, 5', '1 ,5', '1,5.2', '1.5,2']) {
+        assert.equal(parse({ item: 'Flour', quantity, unit: 'g' }), null, quantity);
+    }
+    for (const amount of ['1,000 g', '2,000 g', '1,555 g', '1, 5 cups', '1,5,5 cups', '1,5.2 cups']) {
+        assert.equal(parse({ item: 'Flour', amount }), null, amount);
+        assert.equal(parseGroceryInput(`${amount} flour`), null, amount);
+    }
+    assert.equal(parse({ item: 'Lemon', amount: '2, juice and zest' })?.max, 2);
+    assert.equal(parse({ item: 'Flour', quantity: '1.5', unit: 'Cup' })?.max, 1.5);
+    // The comma is read only where the number is: a name with a comma in it is untouched.
+    assert.deepEqual(parseGroceryInput('2 cups rice, 1,5 kg bag'), { name: 'rice, 1,5 kg bag', quantity: 2, unit: 'cups', aisle: 'Pantry' });
+});
+
+// 1.0 G19 Part 2 (audit 2: GA11, GA12).
+test('1.0 G19 GA11: quick add reads common short forms and a unit word with one trailing dot', () => {
+    for (const [input, name, quantity, unit, aisle] of [
+        ['2 tbs olive oil', 'olive oil', 2, 'tbsp', 'Pantry'],
+        ['3 tbsps butter', 'butter', 3, 'tbsp', 'Dairy'],
+        ['2 tsps sugar', 'sugar', 2, 'tsp', 'Pantry'],
+        ['1 lb. ground beef', 'ground beef', 1, 'lbs', 'Proteins'],
+        ['1 tsp. salt', 'salt', 1, 'tsp', 'Other'],
+        ['8 oz. cheese', 'cheese', 8, 'oz', 'Dairy'],
+        ['2 Tbsp. flour', 'flour', 2, 'tbsp', 'Pantry'],
+        ['1 bunch cilantro', 'cilantro', 1, 'bunches', 'Produce'],
+        ['2 bunches kale', 'kale', 2, 'bunches', 'Other'],
+        ['1 head lettuce', 'lettuce', 1, 'heads', 'Produce'],
+        ['2 heads garlic', 'garlic', 2, 'heads', 'Produce'],
+    ] as const) {
+        assert.deepEqual(parseGroceryInput(input), { name, quantity, unit, aisle }, input);
+    }
+});
+
+test('1.0 G19 GA11: quick add keeps a name that only looks like a unit with a dot', () => {
+    // "mr" is no unit, so the whole text stays the name, dot and all.
+    assert.deepEqual(parseGroceryInput('2 mr. clean sponges'), { name: 'mr. clean sponges', quantity: 2, unit: 'pcs', aisle: 'Other' });
+    // Two dots are not "one trailing dot".
+    assert.deepEqual(parseGroceryInput('2 lb.. beef'), { name: 'lb.. beef', quantity: 2, unit: 'pcs', aisle: 'Proteins' });
+    // A unit word with nothing after it is the name, as "2 cups" is.
+    assert.deepEqual(parseGroceryInput('1 bunch'), { name: 'bunch', quantity: 1, unit: 'pcs', aisle: 'Other' });
+    assert.deepEqual(parseGroceryInput('2 cups'), { name: 'cups', quantity: 2, unit: 'pcs', aisle: 'Other' });
+});
+
+test('1.0 G19 GA12: heads and bunches are whole items; singular, plural and dotted units are one row', () => {
+    const total = (entries: [string, string, number][], item = 'Lettuce') =>
+        aggregate(entries.map(([quantity, unit, factor]) => ({ ingredient: { item, quantity, unit }, factor }))).items.map(row => [row.quantity, row.unit]);
+    // A quarter of a head is one head to buy; five quarters are two (rounded once, after the sum).
+    assert.deepEqual(total([['1', 'head', 0.25]]), [[1, 'heads']]);
+    assert.deepEqual(total(Array.from({ length: 5 }, () => ['1', 'Head', 0.25] as [string, string, number])), [[2, 'heads']]);
+    assert.deepEqual(total([['1', 'bunch', 0.25], ['2', 'Bunches', 0.25]], 'Cilantro'), [[1, 'bunches']]);
+    // "tsp." and "tsp" are one measure, still fractional: 1 + 0.5 = 1.5 (exact in binary).
+    assert.deepEqual(total([['1', 'tsp.', 1], ['0.5', 'tsp', 1]], 'Salt'), [[1.5, 'tsp']]);
+    assert.deepEqual(total([['1', 'tbs', 0.25], ['1', 'Tbsp.', 0.25]], 'Oil'), [[0.5, 'tbsp']]);
+    for (const [left, right] of [['bunch', 'Bunches'], ['head', 'heads'], ['tsp.', 'tsp'], ['lb.', 'lbs'], ['tbs', 'tablespoons'], ['tsps', 'teaspoon']]) {
+        assert.equal(groceryIngredientKey('Food', left), groceryIngredientKey(' food ', right), `${left} / ${right}`);
+    }
+    // An unknown unit keeps its dot: nothing says "glass." and "glass" are the same thing.
+    assert.deepEqual(total([['1', 'glass.', 1], ['1', 'glass', 1]], 'Milk'), [[1, 'glass.'], [1, 'glass']]);
+    assert.equal(formatGroceryAmount(1, 'heads'), '1 head');
+    assert.equal(formatGroceryAmount(2, 'heads'), '2 heads');
+    assert.equal(formatGroceryAmount(1, 'bunches'), '1 bunch');
+    assert.equal(formatGroceryAmount(3, 'Bunches'), '3 Bunches');
+});

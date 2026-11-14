@@ -16,7 +16,8 @@ export interface IngredientAmount {
 }
 
 const vulgar: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4', '⅐': '1/7', '⅑': '1/9', '⅒': '1/10', '⅓': '1/3', '⅔': '2/3', '⅕': '1/5', '⅖': '2/5', '⅗': '3/5', '⅘': '4/5', '⅙': '1/6', '⅚': '5/6', '⅛': '1/8', '⅜': '3/8', '⅝': '5/8', '⅞': '7/8' };
-const numericToken = '(?:(?:\\d+\\s+)?\\d+\\s*/\\s*\\d+|\\+?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?)';
+// GB6: "1,5" is a decimal comma (1 or 2 digits after it). "1,000" leaves a digit behind and is refused below.
+const numericToken = '(?:(?:\\d+\\s+)?\\d+\\s*/\\s*\\d+|\\+?(?:\\d+,\\d{1,2}|\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?)';
 const numericPrefix = new RegExp(`^(${numericToken})(\\s*(?:[-–]|\\bto\\b)\\s*(${numericToken}))?\\s*(.*)$`, 'i');
 const qualitativeUnit = /^(?:(?:a\s+)?(?:pinch|dash)\b.*|to taste|as needed)$/i;
 
@@ -45,16 +46,23 @@ export function parseIngredientAmount(ingredient: IngredientInput): IngredientAm
     const value = structured ? ingredient.quantity : ingredient.amount;
     if (typeof value !== 'string' && typeof value !== 'number') return null;
     const raw = String(value).trim();
+    // N8/B16: the recipe form saves salt as a blank quantity with the unit "to taste"
+    // or "Pinch"; an imported recipe may hold 0. Then the unit is the amount: 1 x
+    // that unit. Number('') is 0, so one check covers blank and zero.
+    const formUnit = structured && typeof ingredient.unit === 'string' ? ingredient.unit.trim() : '';
+    if (Number(raw) === 0 && qualitativeUnit.test(formUnit)) {
+        return { min: 1, max: 1, unit: formUnit, quantityText: '', separator: '', qualitative: true };
+    }
     if (!raw) return null;
     if (qualitativeUnit.test(raw)) {
         return { min: 1, max: 1, unit: raw, quantityText: '', separator: '', qualitative: true };
     }
     const match = asciiFractions(raw).match(numericPrefix);
     if (!match || (structured && match[4])) return null;
-    const min = scalar(match[1]);
-    const max = match[3] === undefined ? min : scalar(match[3]);
+    const min = scalar(match[1].replace(',', '.'));
+    const max = match[3] === undefined ? min : scalar(match[3].replace(',', '.'));
     if (min === null || max === null || max < min) return null;
-    const unit = structured ? (typeof ingredient.unit === 'string' ? ingredient.unit.trim() : '') : match[4].trim();
+    const unit = structured ? formUnit : match[4].trim();
     // Legacy suffixes may start with descriptive punctuation, e.g. ", juice
     // and zest" or "(14 oz) cans", but never a broken numeric continuation.
     if (!structured && (/^[\d./+\-–]|^,\s*\d|^to\b/i.test(unit))) return null;
@@ -119,12 +127,15 @@ const aliases: Record<string, string> = {
     // registering them also lets quick-add recognize the same vocabulary.
     large: 'large', medium: 'medium', small: 'small',
     can: 'cans', cans: 'cans', slice: 'slices', slices: 'slices', stalk: 'stalks', stalks: 'stalks',
+    // GA11/GA12: short forms people type in quick add, and two more things bought whole.
+    tbs: 'tbsp', tbsps: 'tbsp', tsps: 'tsp', bunch: 'bunches', bunches: 'bunches', head: 'heads', heads: 'heads',
 };
 
 export function normalizeIngredientUnit(unit: string): string {
     const clean = unit.trim().toLowerCase().replace(/\s+/g, ' ');
     // A leading package size describes one unit; normalize the count noun only.
-    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b/, (_match, size, word) => `${size || ''}${Object.hasOwn(aliases, word) ? aliases[word] : word}`);
+    // GA11: a known unit word loses one trailing dot ("tsp." is "tsp"); an unknown word keeps it.
+    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b(\.?)/, (_match, size, word, dot) => `${size || ''}${Object.hasOwn(aliases, word) ? aliases[word] : word + dot}`);
 }
 
 export function groceryIngredientKey(name: string, unit: string): string {
@@ -141,7 +152,7 @@ export function groceryIngredientKey(name: string, unit: string): string {
 
 function countable(unit: string): boolean {
     const countUnit = unit.replace(/^\([^)]*\)\s*/, '');
-    return /^(?:pcs|cloves|eggs|cans|slices|stalks|sticks|large|medium|small)\b/.test(countUnit) || unit.startsWith(',');
+    return /^(?:pcs|cloves|eggs|cans|slices|stalks|sticks|large|medium|small|heads|bunches)\b/.test(countUnit) || unit.startsWith(',');
 }
 
 function roundedGroceryQuantity(quantity: number, unit: string): number {
@@ -216,7 +227,8 @@ export function parseGroceryInput(text: string): IngredientTotal | null {
     const parsed = parseIngredientAmount({ item: '', amount: raw });
     if (!parsed) return null;
     const tail = parsed.unit;
-    const first = tail.match(/^((?:\([^)]*\)\s*)?([a-z]+)(?:\s+\([^)]*\))?)\s+(.+)$/i);
+    // GA11: the unit word may end in one dot ("1 lb. ground beef").
+    const first = tail.match(/^((?:\([^)]*\)\s*)?([a-z]+)\.?(?:\s+\([^)]*\))?)\s+(.+)$/i);
     const unit = first && Object.hasOwn(aliases, first[2].toLowerCase()) ? first[1] : 'pcs';
     const name = unit === 'pcs' && !first?.[2].match(/^(?:pcs?|pieces?)$/i) ? tail : first![3];
     if (tail === 'pcs' || !name.trim()) return null;
@@ -228,7 +240,7 @@ const grocerySingularUnits: Record<string, string> = {
     cups: 'cup', tablespoons: 'tablespoon', teaspoons: 'teaspoon', grams: 'gram', kilograms: 'kilogram',
     pounds: 'pound', lbs: 'lb', ounces: 'ounce', milliliters: 'milliliter', liters: 'liter',
     cloves: 'clove', eggs: 'egg', pieces: 'piece', pcs: 'pc', units: 'unit', sticks: 'stick',
-    cans: 'can', slices: 'slice', stalks: 'stalk',
+    cans: 'can', slices: 'slice', stalks: 'stalk', heads: 'head', bunches: 'bunch',
 };
 
 export function formatGroceryAmount(quantity: number, unit: string): string {
