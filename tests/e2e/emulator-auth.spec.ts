@@ -8644,6 +8644,13 @@ test.describe('1.0 G17 Planner shows the right week', () => {
       label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
     };
   }, weeks);
+  const g17NextMonday = (page: Page) => page.evaluate(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const day = start.getDay();
+    start.setDate(start.getDate() - day + (day === 0 ? -6 : 1) + 7);
+    return start.getTime();
+  });
   // The user comes back to a page that stayed open: the clock moved on, and the
   // page shows again or, on a screen that never went dark, is simply touched.
   const g17ComeBack = async (page: Page, at: number, how: 'shown' | 'touched' = 'shown') => {
@@ -8696,16 +8703,79 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await expect(g17ThisWeek(page)).toHaveCount(0);
   });
 
-  test('R9 a Planner left open over the weekend moves on to the new week', async ({ page }) => {
+  test('R9 a Planner left open on this week moves on when Monday starts', async ({ page }) => {
     await g4Account(page, 390, 'g17-rollover');
     await page.goto('/plan');
     await settlePlanner(page);
     const thisWeek = await g17Week(page);
     const nextWeek = await g17Week(page, 1);
     await expect(g17Header(page)).toHaveText(thisWeek.label);
+    const nextMonday = await g17NextMonday(page);
 
-    await g17ComeBack(page, Date.now() + 7 * 24 * 3_600_000, 'touched');
-    await expect(g17Header(page), 'R9 one week later the open Planner must show the new week').toHaveText(nextWeek.label);
+    await g17ComeBack(page, nextMonday - 3_600_000, 'touched');
+    await expect(g17Header(page), 'on Sunday at 23:00 it is still this week').toHaveText(thisWeek.label);
+    await g17ComeBack(page, nextMonday + 3_600_000, 'touched');
+    await expect(g17Header(page), 'R9 on Monday at 01:00, two hours later, the open Planner must show the new week')
+      .toHaveText(nextWeek.label);
+    await expect(g17ThisWeek(page)).toHaveCount(0);
+  });
+
+  test('R9 the tap that wakes a stale Planner does not tick a meal in the new week', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g17-tap');
+    // Tall enough that the Monday dinner tick needs no scrolling, before and after the restart.
+    await page.setViewportSize({ width: 390, height: 1600 });
+    const oldMeal = 'G17 Old Week Dinner';
+    const newMeal = 'G17 New Week Dinner';
+    const monday = getMondayWeekStart();
+    const following = new Date(monday);
+    following.setDate(monday.getDate() + 7);
+    const oldPlan = await seedMealPlanForWeek(client.db, uid, monday, await seedRecipe(client.db, uid, oldMeal), oldMeal);
+    const newPlan = await seedMealPlanForWeek(client.db, uid, following, await seedRecipe(client.db, uid, newMeal), newMeal);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    const nextWeek = await g17Week(page, 1);
+    const nextMonday = await g17NextMonday(page);
+    const oldTick = page.getByRole('button', { name: `Mark as eaten: ${oldMeal}`, exact: true });
+    await expect(oldTick).toBeVisible();
+    const box = (await oldTick.boundingBox())!;
+    const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+    expect(point.y).toBeLessThan(1600);
+
+    // A finger, not a mouse. First show that this tap is a real tap: it ticks the meal, then unticks it.
+    const oldUntick = page.getByRole('button', { name: `Mark as not eaten: ${oldMeal}`, exact: true });
+    const savedTicks = async (planId: string) => Object.values(
+      (await getDoc(doc(client.db, 'users', uid, 'mealPlans', planId))).data()!.mealStatus ?? {}).filter(Boolean).length;
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(oldUntick, 'a tap at this point must tick the meal under the finger').toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => savedTicks(oldPlan)).toBe(1);
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(oldTick).toBeVisible();
+    await expect.poll(() => savedTicks(oldPlan)).toBe(0);
+
+    // Monday 01:00 of the next week: the same tap now wakes a stale Planner.
+    await page.evaluate(() => {
+      const clicks: string[] = [];
+      (window as unknown as { g17Clicks: string[] }).g17Clicks = clicks;
+      document.addEventListener('click', event => clicks.push(
+        (event.target as Element).closest('button')?.getAttribute('aria-label') ?? (event.target as Element).tagName), true);
+    });
+    await page.clock.setFixedTime(nextMonday + 3_600_000);
+    await page.touchscreen.tap(point.x, point.y);
+    const newTick = page.getByRole('button', { name: `Mark as eaten: ${newMeal}`, exact: true });
+    await expect(g17Header(page)).toHaveText(nextWeek.label);
+    await expect(newTick).toBeVisible();
+    await page.waitForTimeout(1000);
+    console.log('[G17 waking tap clicks]', JSON.stringify(await page.evaluate(() => (window as unknown as { g17Clicks: string[] }).g17Clicks)));
+    expect(await page.getByRole('button', { name: `Mark as not eaten: ${newMeal}`, exact: true }).count(),
+      'R9 the waking tap must not tick a meal in the new week').toBe(0);
+    expect(await savedTicks(oldPlan), 'R9 the waking tap must not tick the meal of the old week').toBe(0);
+    expect(await savedTicks(newPlan)).toBe(0);
+
+    // The Planner works as usual after it woke up.
+    await newTick.tap();
+    await expect(page.getByRole('button', { name: `Mark as not eaten: ${newMeal}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => Object.values((await getDoc(doc(client.db, 'users', uid, 'mealPlans', newPlan))).data()!.mealStatus ?? {})
+      .filter(Boolean).length).toBe(1);
   });
 
   test('R9 another week offers a This week button that returns', async ({ page }) => {

@@ -54,9 +54,26 @@ test('R9: a week picked 4 hours ago or more opens this week', () => {
     }
 });
 
-test('R9: a time stamp from the future is not trusted', () => {
-    assert.equal(shown(record(NEXT_WEEK, NOW.getTime() + 1)), THIS_WEEK);
-    assert.equal(shown(record(NEXT_WEEK, NOW.getTime() + 30 * 24 * HOUR)), THIS_WEEK);
+test('R9: a clock that steps back a little keeps the choice; a far future stamp is not trusted', () => {
+    for (const ahead of [1, 60_000, 4 * HOUR - 1]) {
+        const saved = record(NEXT_WEEK, NOW.getTime() + ahead);
+        assert.equal(shown(saved), NEXT_WEEK, `stamp ${ahead} ms ahead`);
+        assert.equal(isPlannerWeekOutdated(saved, NOW), false, `stamp ${ahead} ms ahead`);
+        assert.deepEqual(JSON.parse(renewPlannerWeekChoice(saved, NOW)!), { week: NEXT_WEEK, at: NOW.getTime() });
+    }
+    for (const ahead of [4 * HOUR, 30 * 24 * HOUR]) {
+        assert.equal(shown(record(NEXT_WEEK, NOW.getTime() + ahead)), THIS_WEEK, `stamp ${ahead} ms ahead`);
+    }
+});
+
+test('R9: being on this week is not a pick, so it is never renewed or kept', () => {
+    for (const age of [0, 60_000, 3 * HOUR, 5 * HOUR]) {
+        const saved = record(THIS_WEEK, ago(age));
+        assert.deepEqual(readPlannerWeekChoice(saved, NOW), { week: THIS_WEEK, fresh: false }, `age ${age} ms`);
+        assert.equal(renewPlannerWeekChoice(saved, NOW), null, `age ${age} ms`);
+        assert.equal(isPlannerWeekOutdated(saved, NOW), false, `age ${age} ms`);
+        assert.equal(shown(saved), THIS_WEEK, `age ${age} ms`);
+    }
 });
 
 test('R9: a damaged record opens this week and never throws', () => {
@@ -114,19 +131,42 @@ test('R9: an open Planner is outdated only when its choice is stale and is anoth
     assert.equal(isPlannerWeekOutdated('2026-10-26', NOW), false);
 });
 
-test('R9: the week changing on Monday outdates a Planner left open overnight', () => {
+test('R9: a Planner that was on this week follows the calendar from Monday 00:00', () => {
     const sundayEvening = new Date(2026, 10, 15, 23, 0);
     const saved = encodePlannerWeekChoice(sundayEvening, sundayEvening);
     assert.equal(JSON.parse(saved).week, THIS_WEEK);
+    assert.equal(isPlannerWeekOutdated(saved, new Date(2026, 10, 15, 23, 59, 59)), false);
+    assert.equal(renewPlannerWeekChoice(saved, new Date(2026, 10, 15, 23, 30)), null);
 
-    const mondayMorning = new Date(2026, 10, 16, 7, 0);
-    assert.equal(isPlannerWeekOutdated(saved, mondayMorning), true);
-    assert.equal(toLocalDateKey(resolvePlannerWeek(saved, mondayMorning)), NEXT_WEEK);
+    // Used again minutes or hours later: it must not stay on last week.
+    for (const later of [new Date(2026, 10, 16, 0, 0), new Date(2026, 10, 16, 0, 10), new Date(2026, 10, 16, 1, 0), new Date(2026, 10, 16, 7, 0)]) {
+        assert.equal(isPlannerWeekOutdated(saved, later), true, later.toString());
+        assert.equal(renewPlannerWeekChoice(saved, later), null, later.toString());
+        assert.equal(toLocalDateKey(resolvePlannerWeek(saved, later)), NEXT_WEEK, later.toString());
+    }
+});
 
-    // Still in use just after midnight: the week on screen stays.
+test('R9: a week picked on purpose stays across Monday 00:00 while it is fresh', () => {
+    const sundayEvening = new Date(2026, 10, 15, 23, 0);
     const justAfterMidnight = new Date(2026, 10, 16, 0, 10);
-    assert.equal(isPlannerWeekOutdated(saved, justAfterMidnight), false);
-    assert.equal(toLocalDateKey(resolvePlannerWeek(saved, justAfterMidnight)), THIS_WEEK);
+
+    // On Sunday evening the user went back to the week of 2 November.
+    const earlier = encodePlannerWeekChoice(new Date(2026, 10, 2), sundayEvening);
+    assert.equal(isPlannerWeekOutdated(earlier, justAfterMidnight), false);
+    assert.equal(toLocalDateKey(resolvePlannerWeek(earlier, justAfterMidnight)), '2026-11-02');
+
+    // Just after midnight the user goes back one week to tick Sunday's dinner.
+    const backToSunday = encodePlannerWeekChoice(new Date(2026, 10, 9), justAfterMidnight);
+    assert.deepEqual(readPlannerWeekChoice(backToSunday, new Date(2026, 10, 16, 1, 0)), { week: THIS_WEEK, fresh: true });
+    assert.deepEqual(readPlannerWeekChoice(backToSunday, new Date(2026, 10, 16, 4, 10)), { week: THIS_WEEK, fresh: false });
+
+    // A pick of next week, still in use when that week starts, is then simply this week.
+    const ahead = encodePlannerWeekChoice(new Date(2026, 10, 16), sundayEvening);
+    const renewed = renewPlannerWeekChoice(ahead, justAfterMidnight);
+    assert.deepEqual(JSON.parse(renewed!), { week: NEXT_WEEK, at: justAfterMidnight.getTime() });
+    const mondayMorning = new Date(2026, 10, 16, 9, 0);
+    assert.equal(isPlannerWeekOutdated(renewed, mondayMorning), false);
+    assert.equal(toLocalDateKey(resolvePlannerWeek(renewed, mondayMorning)), NEXT_WEEK);
 });
 
 test('N1: the arrows move whole weeks from any day and always land on a Monday', () => {

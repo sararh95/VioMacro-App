@@ -84,8 +84,9 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * a fresh visit uses. While it is fresh, its age is reset: the memory runs
  * from when the Planner was last used. Once it is stale and is not this week,
  * the screen starts again on this week. A new key remounts it, so a dialog
- * left open on the old week closes too, and the touch that woke a stale page
- * cannot land in the wrong week. Unsaved drafts live in the store and are kept.
+ * left open on the old week closes too. The old screen is gone before the
+ * click of the touch that woke it arrives, so that touch cannot tick a meal in
+ * the stale week. Unsaved drafts live in the store and are kept.
  */
 export default function MealPlanner() {
     const [visit, setVisit] = useState(0);
@@ -102,8 +103,8 @@ export default function MealPlanner() {
             if (renewed) {
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, renewed);
             } else if (isPlannerWeekOutdated(saved, now)) {
-                // Stored first, so a second event in the same burst finds a
-                // fresh choice and the screen restarts once.
+                // Stored first, so a second event in the same burst finds this
+                // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
                 setVisit(count => count + 1);
             }
