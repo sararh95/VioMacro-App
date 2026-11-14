@@ -376,3 +376,49 @@ test('G10b R13 quick add does not treat constructor as a known unit alias', () =
     assert.deepEqual(parseGroceryInput('1 constructor milk'), { name: 'constructor milk', quantity: 1, unit: 'pcs', aisle: 'Dairy' });
     assert.deepEqual(parseGroceryInput('3 g beans'), { ...g10bBeans, name: 'beans' });
 });
+
+// 1.0 G19 (audit 2: N8, B16, GB6). The recipe form saves salt as a blank quantity with the unit "to taste" or "Pinch".
+test('1.0 G19 N8: a blank quantity with a qualitative unit is 1 x that unit and reaches the list', () => {
+    for (const [quantity, unit] of [['', 'to taste'], ['', 'Pinch'], ['   ', 'a pinch'], ['', 'DASH'], ['', ' As Needed '], ['', 'pinch of']] as const) {
+        const ingredient = { item: 'Salt', quantity, unit, amount: '' };
+        assert.deepEqual(parse(ingredient), { min: 1, max: 1, unit: unit.trim(), quantityText: '', separator: '', qualitative: true }, unit);
+        // Planned twice: still one line, never 2 x "to taste".
+        assert.deepEqual(aggregate([{ ingredient, factor: 0.25 }, { ingredient, factor: 0.25 }]),
+            { items: [{ name: 'Salt', quantity: 1, unit: unit.trim().toLowerCase(), aisle: 'Other' }], skippedCount: 0 }, unit);
+    }
+});
+
+test('1.0 G19 B16: a zero quantity with a qualitative unit is 1 x that unit, not a skipped zero', () => {
+    for (const quantity of ['0', 0, '0.0']) {
+        const ingredient = { item: 'Salt', quantity, unit: 'to taste' };
+        assert.deepEqual(parse(ingredient), { min: 1, max: 1, unit: 'to taste', quantityText: '', separator: '', qualitative: true }, JSON.stringify(quantity));
+        assert.deepEqual(aggregate([{ ingredient, factor: 5 }]), { items: [{ name: 'Salt', quantity: 1, unit: 'to taste', aisle: 'Other' }], skippedCount: 0 });
+        // The one text that changes: recipe views showed "0 to taste" for a saved zero.
+        assert.equal(format(ingredient), 'to taste');
+        assert.equal(format(ingredient, 3), 'to taste');
+    }
+});
+
+test('1.0 G19 GB6: a decimal comma reads as a decimal point, with 1 or 2 digits after it', () => {
+    for (const [quantity, value, doubled] of [['1,5', 1.5, '3'], ['0,25', 0.25, '1/2'], ['2,50', 2.5, '5'], ['10,5', 10.5, '21']] as const) {
+        const ingredient = { item: 'Flour', quantity, unit: 'Cup' };
+        assert.deepEqual(parse(ingredient), { min: value, max: value, unit: 'Cup', quantityText: quantity, separator: '', qualitative: false }, quantity);
+        assert.equal(format(ingredient), `${quantity} Cup`, 'the unscaled text keeps the cook\'s own spelling');
+        assert.equal(format(ingredient, 2), `${doubled} Cup`, 'a scaled view computes with the number');
+    }
+    const legacy = { item: 'Flour', amount: '1,5 cups' };
+    assert.deepEqual(parse(legacy), { min: 1.5, max: 1.5, unit: 'cups', quantityText: '1,5', separator: '', qualitative: false });
+    assert.equal(format(legacy), '1,5 cups');
+    assert.equal(format(legacy, 2), '3 cups');
+    for (const ingredient of [{ item: 'Flour', quantity: '0,5-1,5', unit: 'Cup' }, { item: 'Flour', amount: '0,5-1,5 Cup' }]) {
+        const range = parse(ingredient);
+        assert.deepEqual([range?.min, range?.max, range?.unit], [0.5, 1.5, 'Cup']);
+        assert.equal(format(ingredient), '0,5-1,5 Cup');
+        assert.equal(format(ingredient, 2), '1-3 Cup');
+    }
+    // Two half portions of 1,5 cups are 1.5 cups (0.75 + 0.75 is exact in binary).
+    assert.deepEqual(aggregate(Array.from({ length: 2 }, () => ({ ingredient: { item: 'Flour', quantity: '1,5', unit: 'Cup' }, factor: 0.5 }))),
+        { items: [{ name: 'Flour', quantity: 1.5, unit: 'cups', aisle: 'Pantry' }], skippedCount: 0 });
+    assert.deepEqual(parseGroceryInput('1,5 cups flour'), { name: 'flour', quantity: 1.5, unit: 'cups', aisle: 'Pantry' });
+    assert.deepEqual(parseGroceryInput('0,5 lb butter'), { name: 'butter', quantity: 0.5, unit: 'lbs', aisle: 'Dairy' });
+});

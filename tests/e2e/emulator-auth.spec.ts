@@ -9347,3 +9347,154 @@ test.describe('1.0 G18 The grocery list keeps what it should', () => {
     await expect.poll(shown).toEqual(['G18 Apple', 'G18 Mango', 'G18 Zucchini']);
   });
 });
+
+test.describe('1.0 G19 Every form ingredient reaches the list', () => {
+  type G19Item = { id: string; name: string; quantity: number; unit: string; isChecked: boolean; source?: string };
+  const g19Items = async (db: Firestore, uid: string) => (await getDocs(collection(db, 'users', uid, 'groceryItems'))).docs
+    .map(record => ({ id: record.id, ...record.data() }) as G19Item)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const g19List = async (db: Firestore, uid: string) => (await g19Items(db, uid)).map(item => [item.name, item.quantity, item.unit]);
+  // "Add to List" works on the week on screen and a weekend shows another prompt first, so every test
+  // runs on the Wednesday of this week, whatever day the suite runs.
+  const g19PinWednesday = async (page: Page) => {
+    const wednesday = getMondayWeekStart();
+    wednesday.setDate(wednesday.getDate() + 2);
+    wednesday.setHours(12);
+    await page.clock.setFixedTime(wednesday);
+  };
+  const g19AddToList = (page: Page) => page.getByRole('button', { name: 'Add to List', exact: true });
+  const g19Notice = (page: Page) => page.getByRole('alert').locator('p');
+  const g19CloseNotice = async (page: Page) => {
+    await page.getByRole('button', { name: 'Dismiss meal planner message', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  };
+  const g19Amount = (page: Page, name: string) => page.getByRole('heading', { name, exact: true }).locator('xpath=following-sibling::p[1]');
+
+  test('N8 B13 salt entered in the recipe form with no number reaches the grocery list', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g19-form');
+    const title = 'G19 Form Dinner';
+    await g19PinWednesday(page);
+
+    // The real recipe form. Salt and pepper get no number, as a cook enters them: only a unit.
+    const rows = [['2', 'Cup', 'G19 Rice'], ['', 'to taste', 'G19 Salt'], ['', 'Pinch', 'G19 Pepper'], ['', 'Cup', 'G19 Flour']];
+    await page.goto('/recipes');
+    await page.getByRole('button', { name: 'New Recipe', exact: true }).click();
+    await page.getByPlaceholder('e.g., Mediterranean Chicken Bowl').fill(title);
+    await page.getByRole('button', { name: /^Ingredients/ }).click();
+    for (const [index, [quantity, unit, name]] of rows.entries()) {
+      await page.getByRole('button', { name: '+ Add Item', exact: true }).click();
+      if (quantity) await page.getByLabel(`Ingredient ${index + 1} quantity`, { exact: true }).fill(quantity);
+      await page.getByLabel(`Ingredient ${index + 1} unit`, { exact: true }).selectOption(unit);
+      await page.getByLabel(`Ingredient ${index + 1} name`, { exact: true }).fill(name);
+    }
+    await page.getByRole('button', { name: /^Instructions/ }).click();
+    await page.getByRole('button', { name: '+ Add Step', exact: true }).click();
+    await page.getByPlaceholder('Step 1 details...').fill('Cook everything.');
+    await page.getByRole('button', { name: /Create Recipe$/ }).click();
+    await expect(page.getByRole('heading', { name: 'New Recipe', exact: true })).toBeHidden();
+
+    // What the form saved: a blank quantity and the unit, nothing else.
+    const savedRecipe = async () => (await getDocs(collection(client.db, 'users', uid, 'recipes'))).docs
+      .map(record => ({ id: record.id, ...record.data() }) as { id: string; title: string; servings: number; ingredients: { item: string; quantity: string; unit: string }[] })
+      .find(recipe => recipe.title === title);
+    await expect.poll(async () => (await savedRecipe())?.ingredients.map(row => [row.quantity, row.unit, row.item])).toEqual(rows);
+    const recipe = (await savedRecipe())!;
+    expect(recipe.servings, 'the form default: one planned meal is a quarter of the recipe').toBe(4);
+
+    // The recipe page reads them as before (this part passes on the old code too).
+    await g4OpenDetail(page, title);
+    for (const line of ['2 Cup G19 Rice', 'to taste G19 Salt', 'Pinch G19 Pepper', 'Cup G19 Flour']) {
+      await expect(page.getByText(line, { exact: true })).toBeVisible();
+    }
+
+    const planId = await seedCurrentMealPlan(client.db, uid, recipe.id, title);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g19AddToList(page).click();
+    await expect(g19Notice(page)).not.toBeEmpty();
+    // Poll the database: the message follows the write, a single read may not.
+    await expect.poll(() => g19List(client.db, uid), 'N8 salt "to taste" and pepper "Pinch" from the form must reach the list')
+      .toEqual([['G19 Pepper', 1, 'pinch'], ['G19 Rice', 0.5, 'cups'], ['G19 Salt', 1, 'to taste']]);
+    await expect(g19Notice(page), 'B13 flour with a blank number and the unit Cup is still skipped, in plain words')
+      .toHaveText('Added 3 items to your shopping list. Skipped 1 ingredient that could not be added.');
+    expect((await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(record => [record.data().source, record.data().mealPlanId]))
+      .toEqual([['generated', planId], ['generated', planId], ['generated', planId]]);
+
+    await page.goto('/grocery');
+    await expect(page.getByRole('button', { name: 'Mark as purchased: G19 Salt', exact: true })).toBeVisible();
+    await expect(g19Amount(page, 'G19 Salt')).toHaveText('to taste');
+    await expect(g19Amount(page, 'G19 Pepper')).toHaveText('pinch');
+    await expect(g19Amount(page, 'G19 Rice')).toHaveText('1/2 cups');
+    await expect(page.getByText('G19 Flour')).toHaveCount(0);
+  });
+
+  test('N6 the Planner says how many meals were left out because their recipe was deleted', async ({ page }) => {
+    const { client, uid } = await g4Account(page, 390, 'g19-deleted');
+    const kept = 'G19 Kept Dinner';
+    const gone = 'G19 Gone Lunch';
+    // The kept recipe has one ingredient that cannot be added, so the message also has a "Skipped" part.
+    const keptId = await seedRecipe(client.db, uid, kept, {
+      ingredients: [
+        { item: 'G19 Chicken', quantity: '6', unit: 'oz', amount: '', swaps: [] },
+        { item: 'G19 Mystery', quantity: 'some', unit: 'cups', amount: '', swaps: [] },
+      ],
+    });
+    const goneId = await seedRecipe(client.db, uid, gone, { ingredients: [{ item: 'G19 Beans', quantity: '2', unit: 'cups', amount: '', swaps: [] }] });
+    const monday = getMondayWeekStart();
+    const dateKey = (index: number) => { const date = new Date(monday); date.setDate(date.getDate() + index); return toDateKey(date); };
+    const meal = (id: string, name: string, type: string, recipeId?: string) => ({
+      id, ...(recipeId && { recipeId }), name, type, calories: 520, protein: 42, carbs: 55, fat: 14, isEaten: false,
+    });
+    // The kept recipe twice, the other recipe once, and one meal that never had a recipe.
+    await setDoc(doc(client.db, 'users', uid, 'mealPlans', dateKey(0)), {
+      weekStart: dateKey(0), weekEnd: dateKey(6), goal: 'G19 deleted recipe', isAiGenerated: false,
+      dailyTargets: { calories: 1850, protein: 140, carbs: 185, fat: 60 },
+      days: [
+        { date: dateKey(0), dayName: 'Monday', totalCalories: 1040, meals: [meal('g19-mon-dinner', kept, 'dinner', keptId), meal('g19-mon-snack', 'G19 Apple', 'snack')] },
+        { date: dateKey(1), dayName: 'Tuesday', totalCalories: 520, meals: [meal('g19-tue-lunch', gone, 'lunch', goneId)] },
+        { date: dateKey(2), dayName: 'Wednesday', totalCalories: 520, meals: [meal('g19-wed-dinner', kept, 'dinner', keptId)] },
+      ],
+      createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+    });
+    const removeRecipe = async (id: string) => {
+      const batch = writeBatch(client.db);
+      batch.delete(doc(client.db, 'users', uid, 'recipes', id));
+      await batch.commit();
+      await expect.poll(async () => (await getDoc(doc(client.db, 'users', uid, 'recipes', id))).exists()).toBe(false);
+    };
+    await g19PinWednesday(page);
+
+    // Every recipe is there: two items, two skipped ingredients (the kept recipe is planned twice) and no word about meals.
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g19AddToList(page).click();
+    await expect(g19Notice(page)).toHaveText(/^Added 2 items to your shopping list\. Skipped 2 ingredients [^.]*\.$/);
+    await expect.poll(() => g19List(client.db, uid)).toEqual([['G19 Beans', 0.5, 'cups'], ['G19 Chicken', 3, 'oz']]);
+    await g19CloseNotice(page);
+
+    // The lunch recipe is deleted. Its meal is still in the plan.
+    await removeRecipe(goneId);
+    const plannedIds = ((await getDoc(doc(client.db, 'users', uid, 'mealPlans', dateKey(0)))).data()!.days as { meals: { recipeId?: string }[] }[])
+      .flatMap(day => day.meals.map(planned => planned.recipeId ?? null));
+    expect(plannedIds, 'the plan still holds the meal of the deleted recipe').toEqual([keptId, null, goneId, keptId]);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g19AddToList(page).click();
+    await expect(g19Notice(page), 'N6 the meal of the deleted recipe is left out, and the Planner must say so')
+      .toHaveText(/ 1 meal has no recipe any more and was left out\.$/);
+    await expect(g19Notice(page))
+      .toHaveText('Added 1 item to your shopping list. Skipped 2 ingredients that could not be added. 1 meal has no recipe any more and was left out.');
+    await expect.poll(() => g19List(client.db, uid)).toEqual([['G19 Chicken', 3, 'oz']]);
+    const listBefore = await g19Items(client.db, uid);
+    await g19CloseNotice(page);
+
+    // The last recipe is deleted too: nothing can be added, the list stays, and the Planner still says why.
+    await removeRecipe(keptId);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await g19AddToList(page).click();
+    await expect(g19Notice(page))
+      .toHaveText('No addable ingredients found. Your shopping list has not changed. 3 meals have no recipe any more and were left out.');
+    expect(await g19Items(client.db, uid), 'nothing could be added, so the list is the same documents').toEqual(listBefore);
+  });
+});
