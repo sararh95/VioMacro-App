@@ -2545,10 +2545,11 @@ test.describe('emulator authenticated smoke', () => {
     await page.goto('/grocery');
 
     await expect(page.getByRole('heading', { name: 'Smart Grocery List' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Share Coming Soon' })).toBeDisabled();
-    await expect(page.getByText('Checkout Coming Soon')).toBeVisible();
-    await expect(page.getByText('Store pricing and checkout integrations are coming soon')).toBeVisible();
-    await expect(page.getByText('Store matching and delivery availability are coming soon.')).toBeVisible();
+    // G20: Sara asked for the columns without a function to go, so these are no longer on the page.
+    await expect(page.getByRole('button', { name: 'Share Coming Soon' })).toHaveCount(0);
+    await expect(page.getByText('Checkout Coming Soon')).toHaveCount(0);
+    await expect(page.getByText('Store pricing and checkout integrations are coming soon')).toHaveCount(0);
+    await expect(page.getByText('Store matching and delivery availability are coming soon.')).toHaveCount(0);
     await expect(page.getByText('Week of Oct 24')).toBeHidden();
     await expect(page.getByText('High-Performance Macro Cycle')).toBeHidden();
     await expect(page.getByText('$Total')).toBeHidden();
@@ -2562,7 +2563,7 @@ test.describe('emulator authenticated smoke', () => {
 
     await signIn(page);
     await page.goto('/grocery');
-    await page.getByRole('link', { name: 'View Full Meal Plan' }).click();
+    await page.getByRole('link', { name: 'View plan' }).click();
 
     await expect(page).toHaveURL(/\/plan$/);
     await expect(page.getByRole('heading', { name: /Plan/ }).first()).toBeVisible();
@@ -2905,7 +2906,8 @@ test.describe('emulator authenticated smoke', () => {
     await page.goto('/grocery');
     await expect(page.getByRole('heading', { name: 'Smart Grocery List' })).toBeVisible();
     await expect(page.getByText('Manual List Mode')).toBeHidden();
-    await expect(page.getByText('Meal Plan Connected')).toBeVisible();
+    // G20: the "Meal Plan Connected" box is gone; the summary line counts the meals only when a plan is saved.
+    await expect(page.getByText(/\d+ meals? planned/)).toBeVisible();
 
     expect(failures).toEqual([]);
   });
@@ -9245,48 +9247,41 @@ test.describe('1.0 G18 The grocery list keeps what it should', () => {
     });
     await g18PinWednesday(page);
     const line = page.getByRole('heading', { name: 'Smart Grocery List', exact: true }).locator('xpath=following-sibling::p[1]');
-    const card = page.getByRole('heading', { name: 'Meal Plan Source', exact: true }).locator('xpath=following-sibling::p[1]');
     const open = async () => {
       await page.goto('/grocery');
       await expect(page.getByRole('heading', { name: 'G18 Label Rice', exact: true })).toBeVisible();
     };
-    const thisWeekLine = `Week of ${g18ShortDate(week)} - QA Grocery Data Loss`;
-    const thisWeekCard = 'Generated from your active plan: QA Grocery Data Loss.';
+    // G20: the line also holds the meal count and calorie target of this week's plan, and a link to the plan.
+    const thisWeekLine = `Week of ${g18ShortDate(week)} - QA Grocery Data Loss · 1 meal planned · 1850 kcal / day · View plan`;
 
     // The list was made from next week's plan. A new week's plan is saved under its week start.
     await listItem('Rice', 'generated', toDateKey(nextWeek));
     await open();
-    await expect(line, 'GA3 the header names the week of the list').toHaveText(`Week of ${g18ShortDate(nextWeek)} - From your meal plan`);
-    await expect(card, 'GA3 the side card names the week of the list')
-      .toHaveText(`Generated from your plan for the week of ${g18ShortDate(nextWeek)}.`);
+    await expect(line, 'GA3 the header names the week of the list').toHaveText(`Week of ${g18ShortDate(nextWeek)} - From your meal plan · View plan`);
 
     // The list belongs to a plan this page does not know, or to no plan at all: no week is named.
     for (const mealPlanId of ['g18-plan-that-is-gone', undefined]) {
       await listItem('Rice', 'generated', mealPlanId);
       await open();
-      await expect(line, `GA3 a list of an unknown plan (${mealPlanId}) names no week`).toHaveText('Shopping list - From your meal plan');
-      await expect(card).toHaveText('Generated from a meal plan.');
+      await expect(line, `GA3 a list of an unknown plan (${mealPlanId}) names no week`).toHaveText('Shopping list - From your meal plan · View plan');
     }
 
     // Items of two plans in one list: no week is named.
     await listItem('Rice', 'generated', planId);
     await listItem('Beans', 'generated', toDateKey(nextWeek));
     await open();
-    await expect(line, 'GA3 a list of two plans names no week').toHaveText('Shopping list - From your meal plan');
-    await expect(card).toHaveText('Generated from a meal plan.');
+    await expect(line, 'GA3 a list of two plans names no week').toHaveText('Shopping list - From your meal plan · View plan');
 
     // The list of this week's plan reads as before.
     await listItem('Beans', 'generated', planId);
     await open();
     await expect(line).toHaveText(thisWeekLine);
-    await expect(card).toHaveText(thisWeekCard);
 
     // Only hand-added items: as before.
     await listItem('Rice', 'manual');
     await listItem('Beans', 'manual');
     await open();
     await expect(line).toHaveText(thisWeekLine);
-    await expect(card).toHaveText(thisWeekCard);
   });
 
   test('GA6 a tick is dropped when the amount needed grew and kept when it did not', async ({ page }) => {
@@ -9761,16 +9756,21 @@ test.describe('1.0 G20 Grocery page layout', () => {
   test('C3 a failed clear says so, keeps every item and works on the next click', async ({ page }) => {
     const { client, uid } = await g4Account(page, 390, 'g20-fail');
     await g20SeedTicked(client.db, uid);
-    const before = await g8GrocerySnapshot(client.db, uid);
     const confirmBox = g20Answer(page, true);
     await g20Open(page, 'G20 Carrots');
     const clear = g20Clear(page);
     await expect(clear).toHaveText('Clear ticked items (2)');
+    // An item saved from another device after this page read its list: the page does not show it yet.
+    await g20Item(client.db, uid, 'g20-dates', 'G20 Dates');
+    const before = await g8GrocerySnapshot(client.db, uid);
+    expect(before).toHaveLength(4);
+    await expect(g20Row(page, 'G20 Dates')).toHaveCount(0);
 
     await setDevFailure(page, 'clearCheckedItems');
     await clear.click();
     await expect(page.getByRole('alert'), 'N5 a failed clear shows the error bar').toHaveText('Could not clear the ticked items. Please try again.');
     expect(await g8GrocerySnapshot(client.db, uid), 'the database still has every item').toEqual(before);
+    await expect(g20Row(page, 'G20 Dates'), 'after a failed clear the list is read again: it is as the database has it').toBeVisible();
     await expect(clear, 'the button is back').toHaveText('Clear ticked items (2)');
     await expect(clear).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Mark as not purchased: G20 Apples', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -9778,7 +9778,7 @@ test.describe('1.0 G20 Grocery page layout', () => {
 
     // The next click works, so the first one could have deleted.
     await clear.click();
-    await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Carrots']);
+    await expect.poll(() => g20Names(client.db, uid)).toEqual(['G20 Carrots', 'G20 Dates']);
     expect(confirmBox.asked).toHaveLength(2);
     await expect(page.getByRole('alert'), 'the error bar goes after a clear that worked').toHaveCount(0);
     await expect(clear).toHaveCount(0);
@@ -9799,6 +9799,8 @@ test.describe('1.0 G20 Grocery page layout', () => {
       await expect.poll(() => hold.count(), 'the delete is on its way and held').toBeGreaterThan(0);
       expect(confirmBox.asked, 'N5 the second click starts nothing').toEqual(['Remove the 2 ticked items from your list?']);
       await expect(clear, 'the button is off while the clear runs').toBeDisabled();
+      // The clear is a save like the others: the shell warns while it has not landed.
+      await expect(page.getByRole('status').filter({ hasText: 'Not saved yet. Keep this page open until your changes are saved.' })).toBeVisible();
       // No guess on the screen: the ticked rows stay until the database answers.
       await expect(g20Row(page, 'G20 Apples')).toBeVisible();
       await expect(g20Row(page, 'G20 Beans')).toBeVisible();

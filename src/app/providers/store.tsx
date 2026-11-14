@@ -186,6 +186,7 @@ interface AppContextType extends AppState {
     toggleGroceryCheck: (itemId: string, isChecked: boolean) => Promise<boolean>;
     addGroceryItem: (item: Omit<GroceryItem, 'id'>) => Promise<boolean>;
     deleteGroceryItem: (itemId: string) => Promise<boolean>;
+    clearCheckedGroceryItems: () => Promise<boolean>;
     setSelectedDay: (date: string) => void;
     updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
     saveCheckIn: (data: userService.WeightCheckIn) => Promise<void>;
@@ -673,6 +674,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [user, refreshGrocery]);
 
+    // N5: no optimistic update. The list is read again after the delete, and also when it failed.
+    const clearCheckedGroceryItems = useCallback(async () => {
+        if (!user) return false;
+
+        try {
+            await trackSave(shoppingService.clearCheckedItems(user.uid));
+            await refreshGrocery();
+            return true;
+        } catch (err) {
+            console.error(err);
+            await refreshGrocery();
+            return false;
+        }
+    }, [user, refreshGrocery]);
+
     const setSelectedDay = useCallback((date: string) => {
         dispatch({ type: 'SET_SELECTED_DAY', payload: date });
     }, []);
@@ -796,6 +812,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleGroceryCheck,
         addGroceryItem,
         deleteGroceryItem,
+        clearCheckedGroceryItems,
         setSelectedDay,
         setDraftPlan,
         confirmPlan,
@@ -811,6 +828,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleGroceryCheck,
         addGroceryItem,
         deleteGroceryItem,
+        clearCheckedGroceryItems,
         setSelectedDay,
         setDraftPlan,
         confirmPlan,

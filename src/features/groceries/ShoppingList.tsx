@@ -14,11 +14,15 @@ export default function ShoppingList() {
         loading: storeLoading,
         addGroceryItem,
         toggleGroceryCheck,
-        deleteGroceryItem
+        deleteGroceryItem,
+        clearCheckedGroceryItems
     } = useAppStore();
     const [quickAddText, setQuickAddText] = useState('');
     const addingRef = useRef(false);
     const [listError, setListError] = useState<string | null>(null);
+    const clearingRef = useRef(false);
+    const [clearing, setClearing] = useState(false);
+    const tickedCount = items.filter(item => item.isChecked).length;
     const plannedMealsCount = activePlan?.days.reduce((sum, day) => sum + day.meals.length, 0) || 0;
     const dailyTarget = activePlan?.dailyTargets?.calories;
     // GA3: this is one list for all weeks. Its labels come from the plan its
@@ -83,6 +87,19 @@ export default function ShoppingList() {
         setListError(deleted ? null : 'Could not delete that grocery item. Please try again.');
     };
 
+    // N5: one question, then every ticked item is removed. The ref stops a second click that comes
+    // before the page has drawn the disabled button.
+    const handleClearTicked = async () => {
+        if (clearingRef.current) return;
+        if (!window.confirm(`Remove the ${tickedCount} ticked ${tickedCount === 1 ? 'item' : 'items'} from your list?`)) return;
+        clearingRef.current = true;
+        setClearing(true);
+        const cleared = await clearCheckedGroceryItems();
+        setListError(cleared ? null : 'Could not clear the ticked items. Please try again.');
+        clearingRef.current = false;
+        setClearing(false);
+    };
+
     const categories = ['Produce', 'Proteins', 'Pantry', 'Dairy', 'Other'] as const;
     const getCategoryItems = (category: string) =>
         items.filter(item => item.aisle === category);
@@ -93,62 +110,6 @@ export default function ShoppingList() {
 
     return (
         <div className="flex h-full">
-            {/* Sidebar */}
-            <aside className="w-64 bg-sidebar-dark border-r border-surface-border p-4 hidden lg:flex flex-col shrink-0">
-                {/* Meal Plan Source Card */}
-                <div className="bg-surface-dark rounded-xl border border-surface-border p-4 mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        {/* AUD-091: was a decorative Unsplash photo, fetched on
-                            every visit to this page. Now a local gradient. */}
-                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/30 to-surface-dark flex items-center justify-center">
-                            <span className="material-symbols-outlined text-primary/70">restaurant_menu</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-background-dark bg-primary px-2 py-0.5 rounded uppercase">Source</span>
-                    </div>
-                    <h4 className="text-white font-semibold text-sm mb-1">Meal Plan Source</h4>
-                    <p className="text-xs text-text-secondary mb-3">
-                        {!listIsActivePlans
-                            ? (listWeekDate ? `Generated from your plan for the week of ${listWeekDate}.` : 'Generated from a meal plan.')
-                            : activePlan
-                            ? `Generated from your active plan: ${activePlan.goal}.`
-                            : 'No active meal plan is connected yet. You can still build a manual grocery list.'}
-                    </p>
-                    <div className="space-y-2 text-xs">
-                        <div className="flex items-center gap-2 text-text-secondary">
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>restaurant</span>
-                            <span className="text-white font-medium">{plannedMealsCount} Meals Planned</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-text-secondary">
-                            <span className="text-xs">{activePlan ? 'From saved meal plan' : 'Manual items only'}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-text-secondary">
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>local_fire_department</span>
-                            <span className="text-white font-medium">{dailyTarget ? `${dailyTarget} kcal / day` : 'No target connected'}</span>
-                        </div>
-                        <div className="text-xs text-text-secondary">{dailyTarget ? 'Average target' : 'Create or save a plan to connect targets'}</div>
-                    </div>
-                    <Link to="/plan" className="block w-full mt-4 text-primary text-xs font-medium hover:underline text-center">
-                        View Full Meal Plan
-                    </Link>
-                </div>
-
-                <div className="text-xs text-text-secondary flex items-center gap-2 mt-auto">
-                    <span>Status</span>
-                    <span className="text-primary font-medium">Local list ready</span>
-                </div>
-
-                {/* Bottom status */}
-                <div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-                    <div className="flex items-center gap-2 text-primary text-xs font-medium mb-1">
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
-                        {activePlan ? 'Meal Plan Connected' : 'Manual List Mode'}
-                    </div>
-                    <p className="text-[10px] text-text-secondary">
-                        {activePlan ? 'Changes here update your shopping workflow.' : 'Add items manually or create a plan to generate a list later.'}
-                    </p>
-                </div>
-            </aside>
-
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-6 md:p-8">
                 {/* Header */}
@@ -157,17 +118,20 @@ export default function ShoppingList() {
                         <h1 className="text-3xl font-bold text-white mb-2">Smart Grocery List</h1>
                         <p className="text-text-secondary">
                             {weekLabel} - <span className="text-primary">{listIsActivePlans ? activePlan?.goal || 'Manual grocery list' : 'From your meal plan'}</span>
+                            {listIsActivePlans && activePlan && ` · ${plannedMealsCount} ${plannedMealsCount === 1 ? 'meal' : 'meals'} planned${dailyTarget ? ` · ${dailyTarget} kcal / day` : ''}`}
+                            {' · '}
+                            <Link to="/plan" className="text-primary underline hover:no-underline">View plan</Link>
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    {tickedCount > 0 && (
                         <button
-                            disabled
-                            className="bg-surface-dark text-text-secondary px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-surface-border flex items-center gap-2 opacity-70 cursor-not-allowed"
+                            onClick={handleClearTicked}
+                            disabled={clearing}
+                            className="min-h-11 bg-surface-dark text-white px-4 py-2 rounded-lg text-sm font-medium border border-surface-border hover:bg-surface-border/60 transition-colors disabled:opacity-60"
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>share</span>
-                            Share Coming Soon
+                            Clear ticked items ({tickedCount})
                         </button>
-                    </div>
+                    )}
                 </div>
 
                 {/* Quick Add */}
@@ -264,44 +228,6 @@ export default function ShoppingList() {
                     })}
                 </div>
             </div>
-
-            {/* Right Sidebar - Checkout */}
-            <aside className="w-64 bg-sidebar-dark border-l border-surface-border p-4 hidden xl:flex flex-col shrink-0">
-                <div className="mb-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <h3 className="text-white font-semibold">Checkout</h3>
-                        <span className="text-xs bg-primary text-background-dark px-2 py-0.5 rounded font-bold">Delivery</span>
-                    </div>
-                    <div className="text-center py-6">
-                        <p className="text-xs text-text-secondary mb-1">Estimated Total</p>
-                        <p className="text-3xl font-bold text-white">Unavailable</p>
-                        <p className="text-xs text-text-secondary">Store pricing and checkout integrations are coming soon</p>
-                    </div>
-
-                    <button
-                        disabled
-                        className="w-full bg-primary/50 text-white font-bold py-3 rounded-lg mb-3 flex items-center justify-center gap-2 opacity-70 cursor-not-allowed"
-                    >
-                        Checkout Coming Soon
-                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>open_in_new</span>
-                    </button>
-
-                    <button
-                        disabled
-                        className="w-full bg-surface-dark border border-surface-border text-text-secondary font-medium py-2 rounded-lg flex items-center justify-center gap-2 opacity-70 cursor-not-allowed"
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>print</span>
-                        Print / PDF Coming Soon
-                    </button>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-surface-border">
-                    <h4 className="text-sm font-semibold text-white mb-3">Store Availability</h4>
-                    <p className="text-xs text-text-secondary">
-                        Store matching and delivery availability are coming soon.
-                    </p>
-                </div>
-            </aside>
         </div>
     );
 }
