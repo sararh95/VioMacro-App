@@ -96,3 +96,40 @@ export function isPlannerWeekOutdated(saved: string | null | undefined, now: Dat
 export function stepPlannerWeek(viewDate: Date, direction: 'prev' | 'next'): Date {
     return addDays(getStartOfWeek(viewDate), direction === 'next' ? 7 : -7);
 }
+
+/** How long after a stale Planner woke a click cannot have been aimed at the new week. */
+export const WAKING_QUIET_MS = 400;
+
+/**
+ * R9: which clicks belong to the gesture that woke a stale Planner.
+ *
+ * The touch or click that wakes it was aimed at the old week. A touch screen
+ * aims the click when the finger lifts. By then the screen has started again,
+ * and a week that is drawn at once (an unsaved draft) already has its buttons
+ * under the finger. A click into a window that was in the background does the
+ * same: the window gets focus first, which restarts the screen, and the
+ * pointer arrives a few milliseconds after. A double tap sends a second click
+ * the same way.
+ *
+ * So a click in the quiet time after the wake belongs to that gesture: nobody
+ * can see the new week and aim at it that fast. So does the click of a pointer
+ * that went down in the quiet time, or that woke the Planner, however late it
+ * lifts. Every other click is the user's own.
+ *
+ * Times are `event.timeStamp` values in milliseconds.
+ */
+export function wakingGestureClicks(wokenAt: number, wokenByPointer: boolean) {
+    const inQuietTime = (at: number) => at - wokenAt < WAKING_QUIET_MS;
+    let pointerWentDownInQuietTime = wokenByPointer;
+    return {
+        pointerDown(at: number): void {
+            pointerWentDownInQuietTime = inQuietTime(at);
+        },
+        /** True when the click at this time belongs to the waking gesture. Each pointer counts for one click. */
+        isFromWakingGesture(at: number): boolean {
+            const fromWakingGesture = pointerWentDownInQuietTime || inQuietTime(at);
+            pointerWentDownInQuietTime = false;
+            return fromWakingGesture;
+        },
+    };
+}

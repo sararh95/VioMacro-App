@@ -5,7 +5,7 @@ import { getRecipes, getRecipe, type Recipe } from '../recipes/recipeService';
 import { createEmptyPlan } from './lib/plan-generator';
 import {
     MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice, isPlannerWeekOutdated, renewPlannerWeekChoice,
-    resolvePlannerWeek, stepPlannerWeek,
+    resolvePlannerWeek, stepPlannerWeek, wakingGestureClicks,
 } from './lib/planner-week';
 import { generateAiMealPlan } from '../../services/aiService';
 import { generateGroceryList } from '../groceries/shopping-generator';
@@ -75,48 +75,31 @@ function getPlanMacroTotals(plan: MealPlan | null) {
 }
 
 /**
- * R9: the touch or click that wakes a stale Planner was aimed at the old week.
- * A touch screen aims the click when the finger lifts. By then the screen has
- * started again, and a week that is drawn at once (an unsaved draft) already
- * has its buttons under the finger, so the click would tick a meal the user
- * never chose. A click into a window that was in the background does the
- * same: the window gets focus first, which restarts the screen, and the
- * pointer arrives a few milliseconds after. A double tap sends a second click
- * the same way.
+ * R9: drops the clicks of the gesture that woke a stale Planner (the rule is
+ * `wakingGestureClicks`). Only a click that lands inside the Planner is
+ * dropped. The menu and the top bar did not change under the pointer, so a
+ * click or a key press there is what the user meant.
  *
- * So for a short quiet time after the restart, a click inside the Planner is
- * dropped: nobody can see the new week and aim at it that fast. The click of
- * a pointer that went down in the quiet time is dropped too, whenever the
- * pointer lifts. The menu and the top bar did not change under the pointer,
- * so a click there is what the user meant and is never dropped.
- *
- * The guard is gone after one second. A finger held longer than that makes no
- * click, and a later click, made by any means, is the user's own.
+ * The guard is gone after one second, so a later click, made by any means, is
+ * the user's own. Known limits: a press held for more than a second, and a
+ * second click that comes after the quiet time, are not dropped.
  */
-const WAKING_QUIET_MS = 400;
 const WAKING_GUARD_MS = 1000;
 
 function dropClicksOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | null) {
-    const inQuietTime = (event: Event) => event.timeStamp - wokenBy.timeStamp < WAKING_QUIET_MS;
-    let pointerWentDownInQuietTime = wokenBy.type === 'pointerdown';
-    const onPointerDown = (event: Event) => { pointerWentDownInQuietTime = inQuietTime(event); };
-    // A key press is not the pointer: its click (Enter, Space) is judged by the quiet time alone.
-    const onKeyDown = () => { pointerWentDownInQuietTime = false; };
+    const gesture = wakingGestureClicks(wokenBy.timeStamp, wokenBy.type === 'pointerdown');
+    const onPointerDown = (event: Event) => gesture.pointerDown(event.timeStamp);
     const onClick = (event: Event) => {
-        const fromWakingGesture = pointerWentDownInQuietTime || inQuietTime(event);
-        pointerWentDownInQuietTime = false;
-        if (fromWakingGesture && event.target instanceof Node && planner()?.contains(event.target)) {
+        if (gesture.isFromWakingGesture(event.timeStamp) && event.target instanceof Node && planner()?.contains(event.target)) {
             event.preventDefault();
             event.stopPropagation();
         }
     };
     document.addEventListener('click', onClick, true);
     document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('keydown', onKeyDown, true);
     window.setTimeout(() => {
         document.removeEventListener('click', onClick, true);
         document.removeEventListener('pointerdown', onPointerDown, true);
-        document.removeEventListener('keydown', onKeyDown, true);
     }, WAKING_GUARD_MS);
 }
 

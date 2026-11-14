@@ -52,6 +52,24 @@ Required fields:
 
 ## Open Items
 
+### T1 (W7 G17, test only) Two old browser tests depend on the day or on timing
+
+- ID: T1 (W7 G17)
+- Date opened: 2026-11-14
+- Status: Part fixed in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11); part open
+- Severity: P3 (tests only; the app behaves as designed)
+- Workflow/page: tests/e2e/emulator-auth.spec.ts.
+- Expected: Every browser test passes on any day of the week and on a slow machine.
+- Actual: (a) "R11 Planner start from scratch asks and Cancel keeps the saved meals" timed out in CI on a Saturday (UTC): on weekends "Plan Week" first asks "this week or next week?", which the test did not expect. (b) "G-B: a refused meal tick is undone with a message ..." was marked flaky once in CI (line 3587).
+- User impact: None in the app. CI cannot go green on weekends; a flaky mark costs a review.
+- Evidence: CI runs 43557361184 and 43567625251 (R11 failed on both attempts; G-B flaky once). G-B repeated 16 times on BASE source and 16 times on the branch: the line 3587 assertion failed once on BASE, so G17 did not cause it.
+- Suspected area: (a) handlePlanWeekClick weekend prompt, same on base. (b) timing between the undo of the refused tick and the second tick.
+- Cause and fix: (a) fixed in PR #11: the test pins the clock to the Wednesday of this week; assertions unchanged. (b) open.
+- Next action: (b) find the race in the test or the undo path. No browser test covers the weekend prompt yet.
+- Verification target: CI green on a Saturday; G-B 0 failures in 30 repeats.
+- Revisit trigger: the next flaky mark on G-B.
+- Date closed: Pending.
+
 ### R9 (audit 2, G17) Planner opens on an old week
 
 - ID: R9 (audit 2, W7 G17)
@@ -67,7 +85,7 @@ Required fields:
 - Cause and fix: The stored record is now the week, the time of last use and whether it was a pick (src/features/meal-planning/lib/planner-week.ts). A pick is kept for 4 hours after the Planner was last used. Being on this week is not a pick, so the Planner follows the calendar. An open Planner checks this when it shows, gets focus, or is touched or typed in, and starts its screen again on this week when needed. The click of the gesture that woke it is dropped inside the Planner. A "This week" button sits under the week box.
 - Next action: Coordinator merge gate; exact-head CI.
 - Verification target: 390 px touch, 768, 1024 and 1440 px; floor 774 plus the new tests.
-- Revisit trigger: PR #11 review. Left open on purpose: the Dashboard, the store's active plan and the top bar still keep last week in a tab left open over Monday (planned with GA4 in G23 and R17 in G25). A page that stays visible with no event re-checks on the first touch. The restart closes a dialog or Guided Cooking that was open on the stale week.
+- Revisit trigger: PR #11 review. Left open on purpose: the Dashboard, the store's active plan and the top bar still keep last week in a tab left open over Monday (planned with GA4 in G23 and R17 in G25). A page that stays visible with no event re-checks on the first touch. The restart closes a dialog or Guided Cooking that was open on the stale week. The click guard does not cover a press held for more than a second, or a second click that comes more than 0.4 seconds after the wake; a click made by keyboard or screen reader inside the Planner in the first 0.4 seconds after a wake is dropped.
 - Date closed: Pending.
 
 ### N1 (audit 2, G17) Day and Month arrows give a week that does not start on Monday

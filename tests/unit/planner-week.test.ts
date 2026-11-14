@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     PLANNER_WEEK_MEMORY_MS, encodePlannerWeekChoice, isPlannerWeekOutdated, readPlannerWeekChoice,
-    renewPlannerWeekChoice, resolvePlannerWeek, stepPlannerWeek,
+    renewPlannerWeekChoice, resolvePlannerWeek, stepPlannerWeek, wakingGestureClicks, WAKING_QUIET_MS,
 } from '../../src/features/meal-planning/lib/planner-week.ts';
 import { createEmptyPlan, generateWeekPlan } from '../../src/features/meal-planning/lib/plan-generator.ts';
 import { toLocalDateKey } from '../../src/shared/date-utils.ts';
@@ -192,6 +192,73 @@ test('R9: whether a week was picked is stored, not worked out again from the tim
     assert.deepEqual(readPlannerWeekChoice(JSON.stringify(asIfFurtherEast), mondayEarly), { week: THIS_WEEK, fresh: false });
     assert.equal(isPlannerWeekOutdated(JSON.stringify(asIfFurtherEast), mondayEarly), true);
     assert.equal(renewPlannerWeekChoice(JSON.stringify(asIfFurtherEast), mondayEarly), null);
+});
+
+// The waking gesture. Times are event time stamps in milliseconds; the Planner woke at 1000.
+const WOKE = 1000;
+
+test('R9: the click of the touch that woke the Planner is dropped, however late the finger lifts', () => {
+    assert.equal(WAKING_QUIET_MS, 400);
+    for (const lift of [1, 80, 399, 400, 900, 5000]) {
+        const gesture = wakingGestureClicks(WOKE, true);
+        assert.equal(gesture.isFromWakingGesture(WOKE + lift), true, `finger lifts after ${lift} ms`);
+    }
+});
+
+test('R9: after the waking touch, a click with no new touch is the user\'s own once the quiet time is over', () => {
+    const gesture = wakingGestureClicks(WOKE, true);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 60), true);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 399), true, 'still in the quiet time');
+    assert.equal(gesture.isFromWakingGesture(WOKE + 400), false);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 900), false);
+});
+
+test('R9: a click into a background window: focus wakes the Planner and the pointer follows', () => {
+    for (const [down, lift] of [[5, 90], [0, 30], [399, 460], [300, 2400]]) {
+        const gesture = wakingGestureClicks(WOKE, false);
+        gesture.pointerDown(WOKE + down);
+        assert.equal(gesture.isFromWakingGesture(WOKE + lift), true, `pointer down after ${down} ms, click after ${lift} ms`);
+    }
+    // A pointer stamped a little before the focus event is the same gesture.
+    const early = wakingGestureClicks(WOKE, false);
+    early.pointerDown(WOKE - 10);
+    assert.equal(early.isFromWakingGesture(WOKE + 500), true);
+});
+
+test('R9: a pointer that goes down after the quiet time is the user\'s own', () => {
+    for (const down of [400, 401, 650, 5000]) {
+        const gesture = wakingGestureClicks(WOKE, false);
+        gesture.pointerDown(WOKE + down);
+        assert.equal(gesture.isFromWakingGesture(WOKE + down + 50), false, `pointer down after ${down} ms`);
+    }
+    // The same after a waking touch that made no click (a scroll).
+    const scrolled = wakingGestureClicks(WOKE, true);
+    scrolled.pointerDown(WOKE + 700);
+    assert.equal(scrolled.isFromWakingGesture(WOKE + 750), false);
+});
+
+test('R9: a click made with no pointer is dropped only in the quiet time', () => {
+    for (const [at, dropped] of [[0, true], [200, true], [399, true], [400, false], [1300, false]] as const) {
+        assert.equal(wakingGestureClicks(WOKE, false).isFromWakingGesture(WOKE + at), dropped, `click after ${at} ms`);
+    }
+});
+
+test('R9: a double tap that wakes the Planner loses both clicks, and a later tap is kept', () => {
+    const gesture = wakingGestureClicks(WOKE, true);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 50), true, 'first tap');
+    gesture.pointerDown(WOKE + 150);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 200), true, 'second tap 150 ms after the first');
+    gesture.pointerDown(WOKE + 380);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 440), true, 'third tap went down in the quiet time');
+    gesture.pointerDown(WOKE + 700);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 750), false, 'a tap after the quiet time');
+});
+
+test('R9 known limit: a second tap that goes down after the quiet time is kept', () => {
+    const gesture = wakingGestureClicks(WOKE, true);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 50), true);
+    gesture.pointerDown(WOKE + 450);
+    assert.equal(gesture.isFromWakingGesture(WOKE + 500), false);
 });
 
 test('N1: the arrows move whole weeks from any day and always land on a Monday', () => {
