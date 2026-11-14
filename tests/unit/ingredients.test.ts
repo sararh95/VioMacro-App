@@ -464,3 +464,53 @@ test('1.0 G19 GB6: a comma that is not a decimal comma is still not a number', (
     // The comma is read only where the number is: a name with a comma in it is untouched.
     assert.deepEqual(parseGroceryInput('2 cups rice, 1,5 kg bag'), { name: 'rice, 1,5 kg bag', quantity: 2, unit: 'cups', aisle: 'Pantry' });
 });
+
+// 1.0 G19 Part 2 (audit 2: GA11, GA12).
+test('1.0 G19 GA11: quick add reads common short forms and a unit word with one trailing dot', () => {
+    for (const [input, name, quantity, unit, aisle] of [
+        ['2 tbs olive oil', 'olive oil', 2, 'tbsp', 'Pantry'],
+        ['3 tbsps butter', 'butter', 3, 'tbsp', 'Dairy'],
+        ['2 tsps sugar', 'sugar', 2, 'tsp', 'Pantry'],
+        ['1 lb. ground beef', 'ground beef', 1, 'lbs', 'Proteins'],
+        ['1 tsp. salt', 'salt', 1, 'tsp', 'Other'],
+        ['8 oz. cheese', 'cheese', 8, 'oz', 'Dairy'],
+        ['2 Tbsp. flour', 'flour', 2, 'tbsp', 'Pantry'],
+        ['1 bunch cilantro', 'cilantro', 1, 'bunches', 'Produce'],
+        ['2 bunches kale', 'kale', 2, 'bunches', 'Other'],
+        ['1 head lettuce', 'lettuce', 1, 'heads', 'Produce'],
+        ['2 heads garlic', 'garlic', 2, 'heads', 'Produce'],
+    ] as const) {
+        assert.deepEqual(parseGroceryInput(input), { name, quantity, unit, aisle }, input);
+    }
+});
+
+test('1.0 G19 GA11: quick add keeps a name that only looks like a unit with a dot', () => {
+    // "mr" is no unit, so the whole text stays the name, dot and all.
+    assert.deepEqual(parseGroceryInput('2 mr. clean sponges'), { name: 'mr. clean sponges', quantity: 2, unit: 'pcs', aisle: 'Other' });
+    // Two dots are not "one trailing dot".
+    assert.deepEqual(parseGroceryInput('2 lb.. beef'), { name: 'lb.. beef', quantity: 2, unit: 'pcs', aisle: 'Proteins' });
+    // A unit word with nothing after it is the name, as "2 cups" is.
+    assert.deepEqual(parseGroceryInput('1 bunch'), { name: 'bunch', quantity: 1, unit: 'pcs', aisle: 'Other' });
+    assert.deepEqual(parseGroceryInput('2 cups'), { name: 'cups', quantity: 2, unit: 'pcs', aisle: 'Other' });
+});
+
+test('1.0 G19 GA12: heads and bunches are whole items; singular, plural and dotted units are one row', () => {
+    const total = (entries: [string, string, number][], item = 'Lettuce') =>
+        aggregate(entries.map(([quantity, unit, factor]) => ({ ingredient: { item, quantity, unit }, factor }))).items.map(row => [row.quantity, row.unit]);
+    // A quarter of a head is one head to buy; five quarters are two (rounded once, after the sum).
+    assert.deepEqual(total([['1', 'head', 0.25]]), [[1, 'heads']]);
+    assert.deepEqual(total(Array.from({ length: 5 }, () => ['1', 'Head', 0.25] as [string, string, number])), [[2, 'heads']]);
+    assert.deepEqual(total([['1', 'bunch', 0.25], ['2', 'Bunches', 0.25]], 'Cilantro'), [[1, 'bunches']]);
+    // "tsp." and "tsp" are one measure, still fractional: 1 + 0.5 = 1.5 (exact in binary).
+    assert.deepEqual(total([['1', 'tsp.', 1], ['0.5', 'tsp', 1]], 'Salt'), [[1.5, 'tsp']]);
+    assert.deepEqual(total([['1', 'tbs', 0.25], ['1', 'Tbsp.', 0.25]], 'Oil'), [[0.5, 'tbsp']]);
+    for (const [left, right] of [['bunch', 'Bunches'], ['head', 'heads'], ['tsp.', 'tsp'], ['lb.', 'lbs'], ['tbs', 'tablespoons'], ['tsps', 'teaspoon']]) {
+        assert.equal(groceryIngredientKey('Food', left), groceryIngredientKey(' food ', right), `${left} / ${right}`);
+    }
+    // An unknown unit keeps its dot: nothing says "glass." and "glass" are the same thing.
+    assert.deepEqual(total([['1', 'glass.', 1], ['1', 'glass', 1]], 'Milk'), [[1, 'glass.'], [1, 'glass']]);
+    assert.equal(formatGroceryAmount(1, 'heads'), '1 head');
+    assert.equal(formatGroceryAmount(2, 'heads'), '2 heads');
+    assert.equal(formatGroceryAmount(1, 'bunches'), '1 bunch');
+    assert.equal(formatGroceryAmount(3, 'Bunches'), '3 Bunches');
+});

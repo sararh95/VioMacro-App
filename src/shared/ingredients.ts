@@ -127,12 +127,15 @@ const aliases: Record<string, string> = {
     // registering them also lets quick-add recognize the same vocabulary.
     large: 'large', medium: 'medium', small: 'small',
     can: 'cans', cans: 'cans', slice: 'slices', slices: 'slices', stalk: 'stalks', stalks: 'stalks',
+    // GA11/GA12: short forms people type in quick add, and two more things bought whole.
+    tbs: 'tbsp', tbsps: 'tbsp', tsps: 'tsp', bunch: 'bunches', bunches: 'bunches', head: 'heads', heads: 'heads',
 };
 
 export function normalizeIngredientUnit(unit: string): string {
     const clean = unit.trim().toLowerCase().replace(/\s+/g, ' ');
     // A leading package size describes one unit; normalize the count noun only.
-    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b/, (_match, size, word) => `${size || ''}${Object.hasOwn(aliases, word) ? aliases[word] : word}`);
+    // GA11: a known unit word loses one trailing dot ("tsp." is "tsp"); an unknown word keeps it.
+    return clean.replace(/^(\([^)]*\)\s*)?([a-z]+)\b(\.?)/, (_match, size, word, dot) => `${size || ''}${Object.hasOwn(aliases, word) ? aliases[word] : word + dot}`);
 }
 
 export function groceryIngredientKey(name: string, unit: string): string {
@@ -149,7 +152,7 @@ export function groceryIngredientKey(name: string, unit: string): string {
 
 function countable(unit: string): boolean {
     const countUnit = unit.replace(/^\([^)]*\)\s*/, '');
-    return /^(?:pcs|cloves|eggs|cans|slices|stalks|sticks|large|medium|small)\b/.test(countUnit) || unit.startsWith(',');
+    return /^(?:pcs|cloves|eggs|cans|slices|stalks|sticks|large|medium|small|heads|bunches)\b/.test(countUnit) || unit.startsWith(',');
 }
 
 function roundedGroceryQuantity(quantity: number, unit: string): number {
@@ -224,7 +227,8 @@ export function parseGroceryInput(text: string): IngredientTotal | null {
     const parsed = parseIngredientAmount({ item: '', amount: raw });
     if (!parsed) return null;
     const tail = parsed.unit;
-    const first = tail.match(/^((?:\([^)]*\)\s*)?([a-z]+)(?:\s+\([^)]*\))?)\s+(.+)$/i);
+    // GA11: the unit word may end in one dot ("1 lb. ground beef").
+    const first = tail.match(/^((?:\([^)]*\)\s*)?([a-z]+)\.?(?:\s+\([^)]*\))?)\s+(.+)$/i);
     const unit = first && Object.hasOwn(aliases, first[2].toLowerCase()) ? first[1] : 'pcs';
     const name = unit === 'pcs' && !first?.[2].match(/^(?:pcs?|pieces?)$/i) ? tail : first![3];
     if (tail === 'pcs' || !name.trim()) return null;
@@ -236,7 +240,7 @@ const grocerySingularUnits: Record<string, string> = {
     cups: 'cup', tablespoons: 'tablespoon', teaspoons: 'teaspoon', grams: 'gram', kilograms: 'kilogram',
     pounds: 'pound', lbs: 'lb', ounces: 'ounce', milliliters: 'milliliter', liters: 'liter',
     cloves: 'clove', eggs: 'egg', pieces: 'piece', pcs: 'pc', units: 'unit', sticks: 'stick',
-    cans: 'can', slices: 'slice', stalks: 'stalk',
+    cans: 'can', slices: 'slice', stalks: 'stalk', heads: 'head', bunches: 'bunch',
 };
 
 export function formatGroceryAmount(quantity: number, unit: string): string {
