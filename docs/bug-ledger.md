@@ -52,6 +52,42 @@ Required fields:
 
 ## Open Items
 
+### GA5 (audit 2, G22a) "Save Targets" with nothing changed turns the week into a draft
+
+- ID: GA5 (audit 2, W7 G22a)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#16](https://github.com/sararh95/VioMacro-App/pull/16)
+- Severity: P2
+- Workflow/page: Planner, Preferences (the Plan Settings box), then a meal tick; Dashboard.
+- Expected: Pressing "Save Targets" with the same four numbers changes nothing. A meal ticked after that is saved.
+- Actual: The saved week became "Not saved yet". A meal ticked after that showed as ticked but was not sent to the server. The Dashboard said "0 consumed", and "Discard changes" deleted the tick.
+- User impact: Sara ticks her meals, the Dashboard does not count them, and she can lose the ticks with one button.
+- Evidence: New browser test S1 fails on the old code: the "Not saved yet" bar is shown after a no-change save, Confirm Plan is enabled, and the tick never reaches the server plan. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g22a-planner-saves-what-you-see).
+- Suspected area: src/features/meal-planning/components/PlanSettingsModal.tsx (handleSave always sent the numbers to the Planner, which always made a draft).
+- Cause and fix: "Save Targets" now sends the numbers only when one of the four differs from the number the box opened with. If none differs it only closes the box. A real change makes a draft as before. A week that is already a draft stays a draft. Cancel, X and a click outside are unchanged.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: A saved week: no-change save, tick, server plan, Dashboard. Each of the four numbers changed alone. A no-change save on a draft.
+- Revisit trigger: PR #16 review. Left as is: a tick on a week that is a draft for a real reason still waits for Confirm Plan (by design; "send a tick at once" is a new save path). A blank field is saved as 0 (G24 owns blank numbers).
+- Date closed: Pending.
+
+### GA1 (audit 2, G22a) A "Magic Suggest" pick can become a meal the day does not show
+
+- ID: GA1 (audit 2, W7 G22a)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#16](https://github.com/sararh95/VioMacro-App/pull/16)
+- Severity: P2
+- Workflow/page: Planner, week view, the wand on a day ("Magic Suggest: Fill daily gap").
+- Expected: A picked suggestion shows as a card on that day. The saved plan and the grocery list hold what the day shows.
+- Actual: A day shows one breakfast, one lunch, one dinner, one smoothie, and every snack. A suggested dinner on a day that had a dinner was added as a second dinner: the day total went up, no card appeared, and the meal could not be ticked, swapped or removed. It was saved with the plan and went to the grocery list. The same for a second breakfast, lunch or smoothie.
+- User impact: The day's calories do not match the cards, and Sara buys food for a meal she cannot see.
+- Evidence: New browser tests M1 and M3 fail on the old code: after the pick the day total is 1950 and the day shows 3 cards, not 4. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g22a-planner-saves-what-you-see).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx (handleGapRecipeSelect added the meal with the recipe's own type and removed nothing).
+- Cause and fix: When the day already has a meal of the recipe's type, the pick is added as a snack. Every snack has a card, so it can be ticked and swapped. When the day has no meal of that type, the pick keeps the recipe's type as before. Nothing is removed or replaced: the suggestion fills a calorie gap.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: A suggested dinner on a day with and without a dinner; a second breakfast, lunch and smoothie; tick and swap of the new card; the saved plan after Confirm Plan; the grocery list after "Add to List".
+- Revisit trigger: PR #16 review. Left as is: a plan that already holds a hidden second meal is not repaired (the day still shows the first one and counts both; read in the code, not run: a swap of the shown meal takes out only that one, so the hidden one comes into view). The new card is labelled "Snack" also when the recipe is a dinner. There is still no Remove button (N4).
+- Date closed: Pending.
+
 ### N9 (audit 2, G21) The left menu takes the page on a tablet
 
 - ID: N9 (audit 2, W7 G21)

@@ -10486,3 +10486,251 @@ test.describe('1.0 G21 Layout fits: shell and Planner', () => {
     expect(await eaten(oldPlan, oldMeal), 'the old week is not ticked').toBe(false);
   });
 });
+test.describe('1.0 G22a Planner saves what you see', () => {
+  test.setTimeout(90_000);
+  const g22Days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const g22Targets = { calories: 1850, protein: 140, carbs: 185, fat: 60 };
+  const g22Fields = [['Daily Calories', 'calories'], ['Protein', 'protein'], ['Carbs', 'carbs'], ['Fat', 'fat']] as const;
+  type G22Recipe = { id: string; title: string; mealType: string; calories: number; item: string };
+  type G22StoredMeal = { id: string; recipeId: string; name: string; type: string };
+  // The Planner asks a question on a weekend and the week changes on Monday, so every test
+  // runs on the Wednesday of this week, whatever day the suite runs. Called before the first page load.
+  const g22PinWednesday = async (page: Page) => {
+    const wednesday = getMondayWeekStart();
+    wednesday.setDate(wednesday.getDate() + 2);
+    wednesday.setHours(12);
+    await page.clock.setFixedTime(wednesday);
+  };
+  // A recipe with its own grocery item, so the shopping list can be read back by name.
+  const g22Recipe = async (db: Firestore, uid: string, title: string, mealType: string, calories: number): Promise<G22Recipe> => {
+    const item = `${title} Item`;
+    const id = await seedRecipe(db, uid, title, {
+      mealType, folders: [mealType], calories, protein: 30, carbs: 40, fat: 10,
+      ingredients: [{ item, quantity: '2', unit: 'cups', amount: '', swaps: [] }],
+    });
+    return { id, title, mealType, calories, item };
+  };
+  // A saved plan of this week. `days` gives the recipes of each day (0 is Monday); a meal has its recipe's type.
+  const g22SeedWeek = async (db: Firestore, uid: string, days: Record<number, G22Recipe[]>) => {
+    const monday = getMondayWeekStart();
+    const dateKey = (index: number) => { const date = new Date(monday); date.setDate(date.getDate() + index); return toDateKey(date); };
+    await setDoc(doc(db, 'users', uid, 'mealPlans', dateKey(0)), {
+      weekStart: dateKey(0), weekEnd: dateKey(6), goal: 'G22a Week', isAiGenerated: false, dailyTargets: g22Targets,
+      days: g22Days.map((dayName, index) => {
+        const meals = (days[index] ?? []).map(recipe => ({
+          id: `g22a-${recipe.mealType}-${index}`, recipeId: recipe.id, name: recipe.title, type: recipe.mealType,
+          calories: recipe.calories, protein: 30, carbs: 40, fat: 10, isEaten: false,
+        }));
+        return { date: dateKey(index), dayName, totalCalories: meals.reduce((sum, meal) => sum + meal.calories, 0), meals };
+      }),
+      createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+    });
+    return dateKey(0);
+  };
+  const g22Stored = async (db: Firestore, uid: string, planId: string) =>
+    (await getDoc(doc(db, 'users', uid, 'mealPlans', planId))).data();
+  // What the database holds for one day: type and recipe of each meal, in the saved order.
+  const g22StoredDay = async (db: Firestore, uid: string, planId: string, day: number) =>
+    ((await g22Stored(db, uid, planId))?.days[day].meals as G22StoredMeal[]).map(meal => [meal.type, meal.recipeId, meal.name]);
+  const g22OpenPlanner = async (page: Page, mealName: string) => {
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await expect(page.getByRole('button', { name: `Mark as eaten: ${mealName}`, exact: true })).toBeVisible();
+  };
+  const g22DraftBar = (page: Page) => page.getByRole('status').filter({ hasText: 'Not saved yet' });
+  const g22OpenSettings = async (page: Page) => {
+    await page.getByRole('button', { name: /Preferences/ }).first().click();
+    await expect(page.getByRole('heading', { name: /Plan Settings/ })).toBeVisible();
+    return g4Settings(page);
+  };
+  const g22SaveTargets = async (page: Page) => {
+    await g4Settings(page).getByRole('button', { name: 'Save Targets', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /Plan Settings/ })).toBeHidden();
+  };
+  // Every meal card of a day has one tick button, a snack card too: the cards a day shows.
+  const g22Ticks = (page: Page, day: string) => g4Day(page, day).getByRole('button', { name: /^Mark as (not )?eaten: / });
+  const g22Shown = (page: Page, day: string) => g22Ticks(page, day)
+    .evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')!.replace(/^Mark as (not )?eaten: /, '')));
+  // The day total in the day header, and the kcal each card of that day shows.
+  const g22Calories = (page: Page, day: string) => g4Day(page, day).evaluate(column => {
+    const text = (column as HTMLElement).innerText;
+    return { total: Number(/(\d+) \/ \d+/.exec(text)![1]), cards: [...text.matchAll(/(\d+) kcal/gi)].map(match => Number(match[1])) };
+  });
+  // "Magic Suggest" on one day: open it, show the recipes of one type, pick one by its name.
+  const g22Suggest = async (page: Page, day: string, recipe: G22Recipe) => {
+    await page.getByRole('button', { name: `Show suggestions for ${day}`, exact: true }).click();
+    const box = page.getByRole('button', { name: `Close suggestions for ${day}`, exact: true }).locator('..').locator('..');
+    await box.getByRole('button', { name: recipe.mealType, exact: true }).click();
+    await box.getByRole('heading', { name: recipe.title, exact: true }).click();
+    await expect(page.getByRole('heading', { name: `Complete ${day}` })).toBeHidden();
+  };
+  const g22Confirm = async (page: Page) => {
+    await page.getByRole('button', { name: /Confirm Plan$/ }).click();
+    await expect(page.getByRole('button', { name: /Saved!$/ })).toBeVisible();
+    await expect(g22DraftBar(page)).toHaveCount(0);
+  };
+
+  test('S1 GA5 Save Targets with no change makes no draft: the next tick is saved and the Dashboard shows it', async ({ page }) => {
+    await g22PinWednesday(page);
+    const { client, uid } = await g4Account(page, 1280, 'g22a-same');
+    const breakfast = await g22Recipe(client.db, uid, 'G22a Same Breakfast', 'breakfast', 400);
+    const dinner = await g22Recipe(client.db, uid, 'G22a Same Dinner', 'dinner', 615);
+    const planId = await g22SeedWeek(client.db, uid, { 2: [breakfast, dinner] });
+    const ticked = async () => (await g22Stored(client.db, uid, planId))?.mealStatus?.['g22a-dinner-2'] ?? false;
+    await g22OpenPlanner(page, dinner.title);
+    await expect(g22DraftBar(page)).toHaveCount(0);
+
+    // The box opens with the four numbers of the saved plan. One is typed again, changed and put back.
+    const box = await g22OpenSettings(page);
+    for (const [label, field] of g22Fields) await expect(box.getByLabel(label, { exact: true })).toHaveValue(String(g22Targets[field]));
+    await box.getByLabel('Daily Calories', { exact: true }).fill('1900');
+    await box.getByLabel('Daily Calories', { exact: true }).fill('1850');
+    await g22SaveTargets(page);
+    await expect.soft(g22DraftBar(page), 'GA5 Save Targets with the same four numbers must not make a "Not saved yet" draft').toBeHidden();
+    await expect.soft(page.getByRole('button', { name: /Confirm Plan$/ }), 'GA5 the week is still the saved plan: nothing to confirm').toBeDisabled();
+
+    // The harm: a tick after that save stayed in the draft and never reached the server or the Dashboard.
+    await page.getByRole('button', { name: `Mark as eaten: ${dinner.title}`, exact: true }).click();
+    await expect(page.getByRole('button', { name: `Mark as not eaten: ${dinner.title}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(ticked, 'GA5 the tick after a no-change Save Targets is saved in the plan on the server').toBe(true);
+    expect((await g22Stored(client.db, uid, planId))?.dailyTargets, 'the saved targets are untouched').toEqual(g22Targets);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Hydration', exact: true })).toBeVisible();
+    await expect(page.getByText('615 consumed', { exact: true }), 'GA5 the Dashboard counts the ticked dinner of today').toBeVisible();
+  });
+
+  test('S2 GA5 a change of any one of the four numbers still makes a draft, and a draft stays a draft', async ({ page }) => {
+    await g22PinWednesday(page);
+    const { client, uid } = await g4Account(page, 1280, 'g22a-changed');
+    const dinner = await g22Recipe(client.db, uid, 'G22a Changed Dinner', 'dinner', 615);
+    const planId = await g22SeedWeek(client.db, uid, { 2: [dinner] });
+    await g22OpenPlanner(page, dinner.title);
+
+    for (const [label, field] of g22Fields) {
+      const changed = String(g22Targets[field] + 1);
+      await expect(g22DraftBar(page)).toHaveCount(0);
+      let box = await g22OpenSettings(page);
+      for (const [other, key] of g22Fields) await expect(box.getByLabel(other, { exact: true })).toHaveValue(String(g22Targets[key]));
+      await box.getByLabel(label, { exact: true }).fill(changed);
+      await g22SaveTargets(page);
+      await expect(g22DraftBar(page), `a change of ${label} alone makes a draft`).toBeVisible();
+
+      // The week is a draft now. Save Targets with no change leaves it a draft and keeps the new number.
+      box = await g22OpenSettings(page);
+      await expect(box.getByLabel(label, { exact: true })).toHaveValue(changed);
+      await g22SaveTargets(page);
+      await expect(g22DraftBar(page), 'a draft stays a draft after a no-change Save Targets').toBeVisible();
+      box = await g22OpenSettings(page);
+      await expect(box.getByLabel(label, { exact: true }), 'the draft keeps the changed number').toHaveValue(changed);
+      await box.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+      await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+      await expect(page.getByRole('button', { name: `Mark as eaten: ${dinner.title}`, exact: true })).toBeVisible();
+    }
+    expect((await g22Stored(client.db, uid, planId))?.dailyTargets, 'a draft writes nothing to the server').toEqual(g22Targets);
+  });
+
+  test('M1 GA1 a suggested dinner for a day that has a dinner shows as one more card, and the saved plan and the list hold what the day shows', async ({ page }) => {
+    await g22PinWednesday(page);
+    const { client, uid } = await g4Account(page, 1280, 'g22a-suggest');
+    const breakfast = await g22Recipe(client.db, uid, 'G22a Plan Breakfast', 'breakfast', 400);
+    const lunch = await g22Recipe(client.db, uid, 'G22a Plan Lunch', 'lunch', 500);
+    const dinner = await g22Recipe(client.db, uid, 'G22a Plan Dinner', 'dinner', 600);
+    const suggested = await g22Recipe(client.db, uid, 'G22a Suggested Dinner', 'dinner', 450);
+    const swap = await g22Recipe(client.db, uid, 'G22a Swap Snack', 'snack', 150);
+    const planId = await g22SeedWeek(client.db, uid, { 2: [breakfast, lunch, dinner] });
+    await g22OpenPlanner(page, dinner.title);
+    await expect(g22Ticks(page, 'Wednesday')).toHaveCount(3);
+    expect(await g22Calories(page, 'Wednesday')).toEqual({ total: 1500, cards: [400, 500, 600] });
+
+    await g22Suggest(page, 'Wednesday', suggested);
+    // The pick is in the day: its total went up by the 450 kcal of the recipe.
+    await expect(g4Day(page, 'Wednesday').getByText('1950 / 1850', { exact: true })).toBeVisible();
+    // The harm: the total went up and no card came, because the day shows one dinner only.
+    await expect(g22Ticks(page, 'Wednesday'), 'GA1 the suggested meal shows as one more card on that day').toHaveCount(4);
+    expect(await g22Shown(page, 'Wednesday')).toEqual([breakfast.title, lunch.title, dinner.title, suggested.title]);
+    const shown = await g22Calories(page, 'Wednesday');
+    expect(shown, 'GA1 the day total is the sum of the cards the day shows').toEqual({ total: 1950, cards: [400, 500, 600, 450] });
+    expect(shown.cards.reduce((sum, kcal) => sum + kcal, 0)).toBe(shown.total);
+
+    // The new card can be ticked.
+    await g4Day(page, 'Wednesday').getByRole('button', { name: `Mark as eaten: ${suggested.title}`, exact: true }).click();
+    await expect(g4Day(page, 'Wednesday').getByRole('button', { name: `Mark as not eaten: ${suggested.title}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    // Confirm Plan saves exactly the meals the day shows: one dinner, and the pick as a snack. Nothing was removed.
+    await g22Confirm(page);
+    const expected = [['breakfast', breakfast.id, breakfast.title], ['lunch', lunch.id, lunch.title],
+      ['dinner', dinner.id, dinner.title], ['snack', suggested.id, suggested.title]];
+    await expect.poll(() => g22StoredDay(client.db, uid, planId, 2), 'GA1 the saved day holds the shown meals and no second dinner').toEqual(expected);
+    expect((await g22StoredDay(client.db, uid, planId, 2)).map(meal => meal[2])).toEqual(await g22Shown(page, 'Wednesday'));
+    const saved = await g22Stored(client.db, uid, planId);
+    const pick = (saved?.days[2].meals as G22StoredMeal[]).find(meal => meal.recipeId === suggested.id)!;
+    expect(saved?.mealStatus?.[pick.id], 'the tick on the new card is saved with the plan').toBe(true);
+    expect(saved?.days[2].totalCalories).toBe(1950);
+
+    // "Add to List" adds the items of the shown meals, and only those.
+    await page.getByRole('button', { name: 'Add to List', exact: true }).click();
+    await expect(page.getByRole('alert').locator('p')).toHaveText(/^Added \d+ items to your shopping list\.$/);
+    const listed = async () => (await getDocs(collection(client.db, 'users', uid, 'groceryItems'))).docs.map(item => item.data().name as string).sort();
+    await expect.poll(listed, 'GA1 the list holds one item per shown meal').toEqual([breakfast.item, lunch.item, dinner.item, suggested.item].sort());
+
+    // The new card can be swapped: a click on it opens the recipe picker for that card.
+    await g4Day(page, 'Wednesday').getByText(suggested.title, { exact: true }).click();
+    await page.getByRole('heading', { name: swap.title, exact: true }).click();
+    await expect(g4Day(page, 'Wednesday').getByText(swap.title, { exact: true })).toBeVisible();
+    expect(await g22Shown(page, 'Wednesday'), 'GA1 the swap replaced the new card only').toEqual([breakfast.title, lunch.title, dinner.title, swap.title]);
+  });
+
+  test('M2 GA1 a suggested dinner for a day with no dinner is added as the dinner', async ({ page }) => {
+    await g22PinWednesday(page);
+    const { client, uid } = await g4Account(page, 1280, 'g22a-free-slot');
+    const breakfast = await g22Recipe(client.db, uid, 'G22a Free Breakfast', 'breakfast', 400);
+    const lunch = await g22Recipe(client.db, uid, 'G22a Free Lunch', 'lunch', 500);
+    const suggested = await g22Recipe(client.db, uid, 'G22a Free Dinner', 'dinner', 450);
+    // Thursday has a breakfast and a lunch and no dinner.
+    const planId = await g22SeedWeek(client.db, uid, { 3: [breakfast, lunch] });
+    await g22OpenPlanner(page, lunch.title);
+    const thursday = g4Day(page, 'Thursday');
+    await expect(g22Ticks(page, 'Thursday')).toHaveCount(2);
+    await expect(thursday.getByText('Add Dinner', { exact: true })).toBeVisible();
+
+    await g22Suggest(page, 'Thursday', suggested);
+    await expect(g22Ticks(page, 'Thursday')).toHaveCount(3);
+    // It took the empty dinner place: a dinner card (only those have a Swap button), not a snack card.
+    await expect(thursday.getByRole('button', { name: `Swap ${suggested.title}`, exact: true }), 'the pick is a dinner card').toBeVisible();
+    await expect(thursday.getByText('Add Dinner', { exact: true }), 'the empty dinner place is taken').toHaveCount(0);
+    expect(await g22Calories(page, 'Thursday')).toEqual({ total: 1350, cards: [400, 500, 450] });
+    await g22Confirm(page);
+    await expect.poll(() => g22StoredDay(client.db, uid, planId, 3), 'the pick is saved as the dinner of that day').toEqual([
+      ['breakfast', breakfast.id, breakfast.title], ['lunch', lunch.id, lunch.title], ['dinner', suggested.id, suggested.title]]);
+  });
+
+  test('M3 GA1 the same holds for a suggested breakfast, lunch and smoothie: a second one shows as one more card', async ({ page }) => {
+    await g22PinWednesday(page);
+    const { client, uid } = await g4Account(page, 1280, 'g22a-siblings');
+    const cases: { day: string; index: number; planned: G22Recipe; suggested: G22Recipe }[] = [];
+    for (const [index, type] of (['breakfast', 'lunch', 'smoothie'] as const).entries()) {
+      cases.push({
+        day: g22Days[index], index,
+        planned: await g22Recipe(client.db, uid, `G22a Planned ${type}`, type, 300),
+        suggested: await g22Recipe(client.db, uid, `G22a Second ${type}`, type, 250),
+      });
+    }
+    // Monday has a breakfast, Tuesday a lunch, Wednesday a smoothie.
+    const planId = await g22SeedWeek(client.db, uid, Object.fromEntries(cases.map(item => [item.index, [item.planned]])));
+    await g22OpenPlanner(page, cases[0].planned.title);
+    for (const { day, planned, suggested } of cases) {
+      await expect(g22Ticks(page, day)).toHaveCount(1);
+      await g22Suggest(page, day, suggested);
+      await expect(g4Day(page, day).getByText('550 / 1850', { exact: true })).toBeVisible();
+      await expect(g22Ticks(page, day), `GA1 a second ${suggested.mealType} shows as one more card on ${day}`).toHaveCount(2);
+      expect(await g22Shown(page, day)).toEqual([planned.title, suggested.title]);
+      expect(await g22Calories(page, day)).toEqual({ total: 550, cards: [300, 250] });
+    }
+    await g22Confirm(page);
+    for (const { index, planned, suggested } of cases) {
+      await expect.poll(() => g22StoredDay(client.db, uid, planId, index), `the saved day has one ${planned.mealType} and the pick as a snack`).toEqual([
+        [planned.mealType, planned.id, planned.title], ['snack', suggested.id, suggested.title]]);
+    }
+  });
+});

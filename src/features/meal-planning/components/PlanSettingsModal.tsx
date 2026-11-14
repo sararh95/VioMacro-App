@@ -41,7 +41,11 @@ function PlanSettingsModalContent({ onClose, currentTargets, onSave }: Omit<Plan
     };
 
     const handleSave = () => {
-        onSave(targets);
+        // GA5: the same four numbers the box opened with only close it. Saving them would
+        // turn a saved week into a draft, and a tick on a draft is not sent to the server.
+        const changed = (['calories', 'protein', 'carbs', 'fat'] as const)
+            .some(field => targets[field] !== currentTargets[field]);
+        if (changed) onSave(targets);
         onClose();
     };
 
