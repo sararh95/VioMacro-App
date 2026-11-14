@@ -8877,6 +8877,43 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     await expect(g17Ticked(page, g17NewMeal), 'a tap one second after the window came forward must work').toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('R9 waking the Planner from the menu costs the user neither that key nor that click', async ({ page }) => {
+    await g4Account(page, 390, 'g17-menu');
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const recipes = page.getByRole('link', { name: /Recipes$/ }).first();
+    const pickNextWeek = async () => {
+      await page.goto('/plan');
+      await settlePlanner(page);
+      if (await g17ThisWeek(page).count() === 0) await page.getByRole('button', { name: 'Next week' }).click();
+      await expect(g17ThisWeek(page)).toBeVisible();
+    };
+    let now = Date.now();
+
+    // 5 hours after a pick the first key the user presses wakes the Planner. It is Enter on the Recipes link.
+    await pickNextWeek();
+    now += 5 * g17Hour;
+    await page.clock.setFixedTime(now);
+    await recipes.focus();
+    await page.keyboard.press('Enter');
+    await expect(page, 'the key that wakes the Planner must still open Recipes').toHaveURL(/\/recipes$/);
+
+    // The window was in the background: one click on the Recipes link brings it forward and must open Recipes.
+    await pickNextWeek();
+    now += 5 * g17Hour;
+    await page.clock.setFixedTime(now);
+    const focused = page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await recipes.click();
+    await focused;
+    await expect(page, 'the click that brings the window forward must still open Recipes').toHaveURL(/\/recipes$/);
+
+    // A touch on the menu wakes the Planner too, and is still the user's own.
+    await pickNextWeek();
+    now += 5 * g17Hour;
+    await page.clock.setFixedTime(now);
+    await recipes.tap();
+    await expect(page, 'the tap that wakes the Planner must still open Recipes').toHaveURL(/\/recipes$/);
+  });
+
   test('R9 another week offers a This week button that returns', async ({ page }) => {
     await g4Account(page, 390, 'g17-button');
     await page.goto('/plan');

@@ -52,6 +52,42 @@ Required fields:
 
 ## Open Items
 
+### R9 (audit 2, G17) Planner opens on an old week
+
+- ID: R9 (audit 2, W7 G17)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11)
+- Severity: P2
+- Workflow/page: Meal Planner, week on screen.
+- Expected: The Planner opens on this week. A week the user picked is remembered for a short time only. Any other week offers a way back.
+- Actual: The picked week was kept for the whole life of the browser tab, with no age. A phone tab or laptop window left open showed an old week days later, with no "This week" button.
+- User impact: A meal can be ticked or planned in the wrong week.
+- Evidence: Browser tests fail on the old code: old saved week opens "Week of Jan 6"; an open Planner stays on the old week after hours and after Monday 00:00; 0 "This week" buttons; the tap that wakes a stale Planner ticks a meal. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g17-planner-shows-the-right-week).
+- Suspected area: src/features/meal-planning/MealPlanner.tsx (saved week with no age; week kept in screen state).
+- Cause and fix: The stored record is now the week, the time of last use and whether it was a pick (src/features/meal-planning/lib/planner-week.ts). A pick is kept for 4 hours after the Planner was last used. Being on this week is not a pick, so the Planner follows the calendar. An open Planner checks this when it shows, gets focus, or is touched or typed in, and starts its screen again on this week when needed. The click of the gesture that woke it is dropped inside the Planner. A "This week" button sits under the week box.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: 390 px touch, 768, 1024 and 1440 px; floor 774 plus the new tests.
+- Revisit trigger: PR #11 review. Left open on purpose: the Dashboard, the store's active plan and the top bar still keep last week in a tab left open over Monday (planned with GA4 in G23 and R17 in G25). A page that stays visible with no event re-checks on the first touch. The restart closes a dialog or Guided Cooking that was open on the stale week.
+- Date closed: Pending.
+
+### N1 (audit 2, G17) Day and Month arrows give a week that does not start on Monday
+
+- ID: N1 (audit 2, W7 G17)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#11](https://github.com/sararh95/VioMacro-App/pull/11)
+- Severity: P2
+- Workflow/page: Meal Planner, Day and Month views, Start from Scratch.
+- Expected: The week on screen always starts on a Monday. Start from Scratch shows an empty grid for that week.
+- Actual: A Day view arrow moved 1 day and a Month view arrow moved 1 month. The header showed a Tuesday-to-Monday week. Start from Scratch built the plan from the raw date, stored the draft under a key nothing reads, and showed nothing.
+- User impact: Create New Plan seemed to do nothing until a reload.
+- Evidence: Browser tests fail on the old code with "Week of Nov 10" and "Week of Dec 9" where "Week of Nov 16" is expected. Hand test on the old code: 0 grid slots, draft stored under 2026-11-10, no saved plan. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g17-planner-shows-the-right-week).
+- Suspected area: MealPlanner.tsx handleNavigate; src/features/meal-planning/lib/plan-generator.ts.
+- Cause and fix: Every arrow now moves 7 days from the week start. createEmptyPlan, generateWeekPlan and the AI path start from the week's Monday.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Day and Month view arrow, Start from Scratch, Confirm Plan, database read-back of weekStart, weekEnd and day names.
+- Revisit trigger: PR #11 review. Left as is: a draft stored under a non-Monday key by the old code stays in the browser's storage. It was never shown or saved, and it is not used.
+- Date closed: Pending.
+
 ### B23 (1.0 review) Dark design labels have low contrast
 
 - ID: B23 (1.0 review)

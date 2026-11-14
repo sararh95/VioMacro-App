@@ -85,6 +85,10 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * dropped. A quarter of a second covers that gap, and nobody can see the new
  * week and aim a touch at it that fast.
  *
+ * Only a click that lands inside the Planner is dropped. The menu and the top
+ * bar did not change under the pointer, so a click there is what the user
+ * meant. A key press arms no guard: a key is not aimed at a place on screen.
+ *
  * The guard ends with the gesture, so it cannot cost the user a later click:
  * it ends when its click is dropped, shortly after the pointer lifts with no
  * click (a scroll, a long press), on a new touch, on any key, and at once
@@ -93,7 +97,7 @@ function getPlanMacroTotals(plan: MealPlan | null) {
 const WAKING_POINTER_FOLLOWS_MS = 250;
 const CLICK_FOLLOWS_LIFT_MS = 300;
 
-function dropClickOfWakingGesture(wokenBy: Event) {
+function dropClickOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | null) {
     let pointerIsDown = wokenBy.type === 'pointerdown';
     let timer = 0;
     const end = () => {
@@ -104,7 +108,13 @@ function dropClickOfWakingGesture(wokenBy: Event) {
         document.removeEventListener('pointercancel', onLift, true);
         document.removeEventListener('keydown', end, true);
     };
-    const drop = (event: Event) => { event.preventDefault(); event.stopPropagation(); end(); };
+    const drop = (event: Event) => {
+        if (event.target instanceof Node && planner()?.contains(event.target)) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        end();
+    };
     const onPointerDown = (event: Event) => {
         if (!pointerIsDown && event.timeStamp - wokenBy.timeStamp < WAKING_POINTER_FOLLOWS_MS) {
             pointerIsDown = true;
@@ -142,6 +152,7 @@ function dropClickOfWakingGesture(wokenBy: Event) {
  */
 export default function MealPlanner() {
     const [visit, setVisit] = useState(0);
+    const plannerRef = useRef<HTMLDivElement>(null);
     // Not read: a new value re-renders the header, so "This week" appears when
     // the week changes under a choice that is still fresh.
     const [, setCurrentWeek] = useState(() => getWeekStartKey());
@@ -158,7 +169,7 @@ export default function MealPlanner() {
                 // Stored first, so a second event in the same burst finds this
                 // week already stored and the screen restarts once.
                 window.sessionStorage.setItem(MEAL_PLANNER_VIEW_DATE_KEY, encodePlannerWeekChoice(now, now));
-                dropClickOfWakingGesture(event);
+                if (event.type !== 'keydown') dropClickOfWakingGesture(event, () => plannerRef.current);
                 setVisit(count => count + 1);
             }
             setCurrentWeek(getWeekStartKey(now));
@@ -177,7 +188,8 @@ export default function MealPlanner() {
         };
     }, []);
 
-    return <MealPlannerScreen key={visit} />;
+    // `contents`: the wrapper marks what belongs to the Planner and adds no box of its own.
+    return <div ref={plannerRef} className="contents"><MealPlannerScreen key={visit} /></div>;
 }
 
 function MealPlannerScreen() {
