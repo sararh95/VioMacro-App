@@ -52,6 +52,42 @@ Required fields:
 
 ## Open Items
 
+### Sara-G (audit 2, G20) The grocery list sits between two columns that do nothing
+
+- ID: Sara-G, with D2 on the Grocery page (audit 2, W7 G20)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#14](https://github.com/sararh95/VioMacro-App/pull/14)
+- Severity: P2
+- Workflow/page: Grocery list on a computer (1024 px and wider).
+- Expected: The list uses the width of the page. The page shows only things that work.
+- Actual: A left column ("Meal Plan Source" card, "Status: Local list ready", "Meal Plan Connected") and a right column ("Checkout", "Delivery", "Estimated Total: Unavailable", "Checkout Coming Soon", "Print / PDF Coming Soon", "Store Availability") held half the page. A grocery row was 416 px wide at 1280 px and 672 px at 1536 px. The header had a disabled "Share Coming Soon" button.
+- User impact: Sara reads a narrow list between two blocks that offer nothing she can use.
+- Evidence: New browser tests fail on the old code: the row is 416 px and 672 px wide; the old card shows this week's "Meals Planned" beside another week's list. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g20-grocery-page-layout).
+- Suspected area: src/features/groceries/ShoppingList.tsx (two aside blocks and the Share button, drawn for features that were never built).
+- Cause and fix: Both columns and the Share button are removed. The line under the title now reads "Week of Nov 9 - Fat Loss · 28 meals planned · 2000 kcal / day · View plan". The meal count and the calorie target show only when the list belongs to this week's plan. "View plan" opens the Planner. The header row may wrap, so a button beside the title goes under it when both do not fit.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: The Grocery page at 390, 768, 1280, 1440 and 1536 px; the summary line for this week's list, another week's list and no plan; the link to the Planner.
+- Revisit trigger: PR #14 review. Left as is: other "Coming Soon" controls in the app (G31); the app shell and menu (G21); colours (G33); the page title; a very long item name on a phone. One meal reads "1 meal planned".
+- Date closed: Pending.
+
+### N5 (audit 2, G20, decision D4) Ticked grocery items could not be cleared
+
+- ID: N5 (audit 2, W7 G20; Sara's decision D4 = A)
+- Date opened: 2026-11-13
+- Status: Fix in PR [#14](https://github.com/sararh95/VioMacro-App/pull/14)
+- Severity: P3
+- Workflow/page: Grocery list.
+- Expected: After shopping, the bought items can be removed in one step.
+- Actual: A ticked item stayed until the next "Add to List". A hand-added item had to be deleted one by one. The function that removes ticked items existed and no screen called it.
+- User impact: The list fills up with bought items.
+- Evidence: New browser tests fail on the old code: the page has no "Clear ticked items" button. See the [QA proof](qa/qa-ledger.md#2026-11-14-viomacro-10-g20-grocery-page-layout).
+- Suspected area: src/features/groceries/ShoppingList.tsx (no button), src/app/providers/store.tsx (no action), src/features/groceries/shoppingService.ts clearCheckedItems (never called).
+- Cause and fix: The header shows "Clear ticked items (N)" only while something is ticked. A click asks "Remove the N ticked items from your list?". Cancel does nothing. OK removes every ticked item, hand-added and from a plan, and reads the list again. If it fails, the page says "Could not clear the ticked items. Please try again." and shows the list as the database has it. A second click while it runs starts nothing. No rule, index or saved shape changed.
+- Next action: Coordinator merge gate; exact-head CI.
+- Verification target: Cancel and OK with database read-back; a failed clear; two clicks at once; the button at 390 px (44 px high, inside the page).
+- Revisit trigger: PR #14 review. Left as is: no "Clear list" for everything; no undo; the button is at the top of the list, so on a long list on a phone she scrolls up to reach it; a list above 500 items (the question counts the items shown, the clear removes every ticked item). One item is asked about as "the 1 ticked item".
+- Date closed: Pending.
+
 ### N8 (audit 2, G19) Salt entered with no number never reaches the grocery list
 
 - ID: N8 (audit 2, W7 G19)
