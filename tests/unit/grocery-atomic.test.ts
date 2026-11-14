@@ -598,3 +598,38 @@ test('1.0 G18 GA6: the same amount added up in another order keeps its tick', as
     await h.generate(week(0.2, 0.1, 0.3, 0.0001));
     assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.isChecked]), [['Rice', false]]);
 });
+
+// 1.0 G19 (audit 2: N8, N6).
+const g19Week = (...recipeIds: (string | undefined)[]) => ({ id: 'week-new', days: [
+    { meals: recipeIds.slice(0, 2).map(recipeId => ({ recipeId })) }, { meals: recipeIds.slice(2).map(recipeId => ({ recipeId })) },
+] }) as never;
+
+test('1.0 G19 N8: salt and pepper saved by the recipe form with no number reach the list', async () => {
+    const h = await harness({});
+    // The shape RecipeForm saves: a row starts as { item, quantity: '', unit: '', amount: '' } and the unit comes from its list.
+    h.state.recipes = [recipe([
+        { item: 'Rice', quantity: '3', unit: 'Cup', amount: '' },
+        { item: 'Salt', quantity: '', unit: 'to taste', amount: '' },
+        { item: 'Pepper', quantity: '', unit: 'Pinch', amount: '' },
+        { item: 'Flour', quantity: '', unit: 'Cup', amount: '' },
+    ])];
+    const result = await h.generate(g19Week('recipe', 'recipe'));
+    assert.deepEqual(g18Generated(h).map(([, value]) => [value.name, value.quantity, value.unit, value.source]),
+        [['Rice', 1.5, 'cups', 'generated'], ['Salt', 1, 'to taste', 'generated'], ['Pepper', 1, 'pinch', 'generated']]);
+    // Flour has no number and a measuring unit: still skipped, once for each of the two meals.
+    assert.equal(result.success, true); assert.equal(result.count, 3); assert.equal(result.skippedCount, 2);
+});
+
+test('1.0 G19 N6: meals whose recipe was deleted are counted, also when nothing can be added', async () => {
+    const h = await harness({ old: item('Rice', { mealPlanId: 'week-new' }), manual: item('Manual', { source: 'manual' }) });
+    // 'recipe' exists. 'gone' and 'gone-too' were deleted. One meal never had a recipe.
+    assert.deepEqual(await h.generate(g19Week('recipe', 'gone', 'gone', undefined, 'gone-too')),
+        { success: true, count: 1, skippedCount: 0, missingRecipeMeals: 3 });
+    assert.deepEqual(await h.generate(g19Week('gone', 'recipe')), { success: true, count: 1, skippedCount: 0, missingRecipeMeals: 1 });
+
+    const before = h.snapshot(); const commits = h.state.commits.length;
+    assert.deepEqual(await h.generate(g19Week('gone', 'gone', undefined)),
+        { success: false, count: 0, skippedCount: 0, message: 'No addable ingredients found. Your shopping list has not changed.', missingRecipeMeals: 2 });
+    assert.deepEqual(h.snapshot(), before);
+    assert.equal(h.state.commits.length, commits);
+});
