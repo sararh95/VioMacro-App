@@ -4820,7 +4820,7 @@ test.describe('G5 mocked plan recipe identity', () => {
       await setDoc(doc(client.db, 'users', uid, 'groceryItems', 'g5-checked-rice'), {
         name: 'G5 Rice', quantity: 9, unit: 'cup', aisle: 'Pantry', source: 'generated', isChecked: true,
       });
-      await page.addInitScript(() => window.sessionStorage.setItem('viomacro:meal-planner:viewDate', JSON.stringify({ week: '2030-01-07', at: Date.now() })));
+      await page.addInitScript(() => window.sessionStorage.setItem('viomacro:meal-planner:viewDate', JSON.stringify({ week: '2030-01-07', at: Date.now(), pick: true })));
       let reject = false;
       let calls = 0;
       await enableMockAi(page);
@@ -8711,13 +8711,15 @@ test.describe('1.0 G17 Planner shows the right week', () => {
 
   test('R9 a Planner left open keeps a picked week while it is used and returns to this week after 4 hours away', async ({ page }) => {
     await g4Account(page, 390, 'g17-live');
-    await page.goto('/plan');
-    await settlePlanner(page);
     const thisWeek = await g17Week(page);
     const nextWeek = await g17Week(page, 1);
+    // Tuesday 09:00 of this week, on whatever day the test runs: the 19.5 hours below stay inside one week.
+    const start = thisWeek.startsAt + 33 * g17Hour;
+    await page.clock.setFixedTime(start);
+    await page.goto('/plan');
+    await settlePlanner(page);
     await page.getByRole('button', { name: 'Next week' }).click();
     await expect(g17Header(page)).toHaveText(nextWeek.label);
-    const start = Date.now();
 
     // Each visit is 3 hours after the one before. The week stays only if every
     // visit, of every kind, counted as use and renewed the 4 hours.
@@ -8764,6 +8766,22 @@ test.describe('1.0 G17 Planner shows the right week', () => {
       await g17ComeBack(page, nextWeek.startsAt + hours * g17Hour, how);
       await expect(g17Header(page), `R9 5 hours after a pick, ${how}: back to the current week`).toHaveText(nextWeek.label);
     }
+  });
+
+  test('R9 a picked next week becomes this week on Monday and the This week button goes', async ({ page }) => {
+    await g4Account(page, 390, 'g17-becomes-this-week');
+    const nextWeek = await g17Week(page, 1);
+    // Sunday 23:00: the user picks next week and keeps working past midnight.
+    await page.clock.setFixedTime(nextWeek.startsAt - g17Hour);
+    await page.goto('/plan');
+    await settlePlanner(page);
+    await page.getByRole('button', { name: 'Next week' }).click();
+    await expect(g17Header(page)).toHaveText(nextWeek.label);
+    await expect(g17ThisWeek(page)).toHaveCount(1);
+
+    await g17ComeBack(page, nextWeek.startsAt + 0.5 * g17Hour, 'shown');
+    await expect(g17Header(page), 'the picked week stays on screen').toHaveText(nextWeek.label);
+    await expect(g17ThisWeek(page), 'R9 the week on screen is now this week, so the This week button must go').toHaveCount(0);
   });
 
   const g17OldMeal = 'G17 Old Week Dinner';
@@ -8838,11 +8856,20 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     // Monday 01:00: the window was in the background. The click that brings it
     // forward gives it focus first, and the pointer arrives just after.
     await page.clock.setFixedTime(nextWeek.startsAt + g17Hour);
+    await page.evaluate(() => {
+      const order: [string, number][] = [];
+      (window as unknown as { g17Order: [string, number][] }).g17Order = order;
+      window.addEventListener('focus', event => { if (event.target === window) order.push(['focus', event.timeStamp]); }, true);
+      document.addEventListener('pointerdown', event => order.push(['pointerdown', event.timeStamp]), true);
+    });
     // Sent back to back, with no wait for the first to answer, as one physical click does.
     const focused = page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
     await page.touchscreen.tap(point.x, point.y);
     await focused;
     await page.waitForTimeout(1000);
+    const order = await page.evaluate(() => (window as unknown as { g17Order: [string, number][] }).g17Order);
+    expect(order.map(([name]) => name), 'the page got the focus first and the pointer after it').toEqual(['focus', 'pointerdown']);
+    expect(order[1][1] - order[0][1], 'the pointer came within the quarter second of one gesture').toBeLessThan(250);
     await expect(g17Header(page), 'R9 the focus must bring the Planner to the new week').toHaveText(nextWeek.label);
     await expect(g17Ticked(page, g17NewMeal), 'R9 the click that brought the window forward must not tick a meal in the new week').toHaveCount(0);
     await expect(g17Tick(page, g17NewMeal)).toBeVisible();
@@ -8885,11 +8912,14 @@ test.describe('1.0 G17 Planner shows the right week', () => {
     const recipes = page.getByRole('link', { name: /Recipes$/ }).first();
     const pickNextWeek = async () => {
       await page.goto('/plan');
-      await settlePlanner(page);
-      if (await g17ThisWeek(page).count() === 0) await page.getByRole('button', { name: 'Next week' }).click();
+      await expect(page.getByRole('heading', { name: 'G17 Menu Dinner', exact: true })).toBeVisible();
+      await expect(g17ThisWeek(page), 'the Planner opens on this week').toHaveCount(0);
+      await page.getByRole('button', { name: 'Next week' }).click();
       await expect(g17ThisWeek(page)).toBeVisible();
     };
-    let now = Date.now();
+    // Tuesday 09:00 of this week, on whatever day the test runs: the 15 hours below stay inside the week with the saved plan.
+    let now = (await g17Week(page)).startsAt + 33 * g17Hour;
+    await page.clock.setFixedTime(now);
 
     // 5 hours after a pick the first key the user presses wakes the Planner. It is Enter on the Recipes link.
     await pickNextWeek();

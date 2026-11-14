@@ -90,22 +90,16 @@ function getPlanMacroTotals(plan: MealPlan | null) {
  * what the user meant.
  *
  * The guard ends with the gesture, so it cannot cost the user a later click:
- * it ends when its click is dropped, shortly after the pointer lifts with no
- * click (a scroll, a long press), on a new touch, on any key, and at once
- * when the Planner woke without a pointer and none follows.
+ * it ends at the first click, on the next touch that is not the waking one,
+ * and on any key.
  */
 const WAKING_POINTER_FOLLOWS_MS = 250;
-const CLICK_FOLLOWS_LIFT_MS = 300;
 
 function dropClickOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | null) {
     let pointerIsDown = wokenBy.type === 'pointerdown';
-    let timer = 0;
     const end = () => {
-        window.clearTimeout(timer);
         document.removeEventListener('click', drop, true);
         document.removeEventListener('pointerdown', onPointerDown, true);
-        document.removeEventListener('pointerup', onLift, true);
-        document.removeEventListener('pointercancel', onLift, true);
         document.removeEventListener('keydown', end, true);
     };
     const drop = (event: Event) => {
@@ -116,23 +110,12 @@ function dropClickOfWakingGesture(wokenBy: Event, planner: () => HTMLElement | n
         end();
     };
     const onPointerDown = (event: Event) => {
-        if (!pointerIsDown && event.timeStamp - wokenBy.timeStamp < WAKING_POINTER_FOLLOWS_MS) {
-            pointerIsDown = true;
-            window.clearTimeout(timer);
-        } else {
-            end();
-        }
-    };
-    const onLift = () => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(end, CLICK_FOLLOWS_LIFT_MS);
+        if (!pointerIsDown && event.timeStamp - wokenBy.timeStamp < WAKING_POINTER_FOLLOWS_MS) pointerIsDown = true;
+        else end();
     };
     document.addEventListener('click', drop, true);
     document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('pointerup', onLift, true);
-    document.addEventListener('pointercancel', onLift, true);
     document.addEventListener('keydown', end, true);
-    if (!pointerIsDown) timer = window.setTimeout(end, WAKING_POINTER_FOLLOWS_MS);
 }
 
 /**
