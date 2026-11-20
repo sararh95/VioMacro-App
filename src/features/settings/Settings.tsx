@@ -6,6 +6,7 @@ import { type UserSettings } from '../../services/userService';
 import { formatRatePerWeek, fromKg, toKg, weightSuffix, type MeasurementUnit } from '../../shared/units';
 import { AVATAR_CHOICES, avatarGradientByName, initialsFrom } from '../../shared/visuals';
 import { trackSave } from '../../shared/pending-saves';
+import { readMacroSettings } from '../../shared/macro-settings';
 
 const settingsTabs = [
     { id: 'profile', label: 'Profile' },
@@ -71,9 +72,8 @@ export default function Settings() {
         goalWeight: settings?.goalWeight,
         rateOfChange: settings?.rateOfChange,
         dailyCalorieTarget: settings?.dailyCalorieTarget,
-        macroSplit: settings?.macroSplit || { protein: 30, carbs: 35, fat: 35 },
+        ...readMacroSettings(settings),
         macroMode: settings?.macroMode || 'percentage',
-        macroTargets: settings?.macroTargets,
         dietaryTags: settings?.dietaryTags || [],
         allergies: settings?.allergies || [],
         // AUD-106: the draft must carry the unit, or every label reads as metric.

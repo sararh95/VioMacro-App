@@ -10734,3 +10734,128 @@ test.describe('1.0 G22a Planner saves what you see', () => {
     }
   });
 });
+
+test.describe('1.0 G34 Old macro settings show real numbers', () => {
+  const defaultSplit = { protein: 30, carbs: 35, fat: 35 };
+
+  async function signInWithSettings(page: Page, settings: Record<string, unknown>, width = 1280) {
+    const client = createFirebaseClient('g34-macro-settings');
+    const email = `qa-g34-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+    const { user } = await createUserWithEmailAndPassword(client.auth, email, TEST_PASSWORD);
+    const userRef = doc(client.db, 'users', user.uid);
+    const stored = {
+      onboardingCompleted: true,
+      macroMode: 'percentage',
+      dailyCalorieTarget: 2000,
+      measurementUnit: 'imperial',
+      phase: 'muscle-gain',
+      phaseStartDate: '2026-01-22T06:18:13.139Z',
+      bottleSize: 750,
+      dietaryTags: ['gluten-free'],
+      allergies: ['peanuts'],
+      ...settings,
+    };
+    await setDoc(userRef, { email, createdAt: Timestamp.now(), settings: stored });
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/auth');
+    await page.getByPlaceholder('name@example.com').fill(email);
+    await page.locator('input[type="password"]').fill(TEST_PASSWORD);
+    await page.getByRole('button', { name: /^Log In$/ }).last().click();
+    await expect(page).toHaveURL('http://127.0.0.1:5173/');
+
+    async function readSavedSettings() {
+      const { getDocFromServer } = await import('firebase/firestore');
+      return (await getDocFromServer(userRef)).data()?.settings;
+    }
+
+    return { stored, readSavedSettings };
+  }
+
+  function dashboardTarget(page: Page, label: string) {
+    return page.getByText(label, { exact: true }).locator('xpath=../following-sibling::div[1]/span[1]');
+  }
+
+  test('D1 Dashboard shows default targets for a partial percentage split on mobile', async ({ page }) => {
+    await signInWithSettings(page, { macroSplit: { protein: 0 }, dailyCalorieTarget: 1800 }, 390);
+    await expect(dashboardTarget(page, 'Daily Calories')).toHaveText('1800');
+    expect(await dashboardTarget(page, 'Carbs').innerText(), 'D1 Dashboard Carbs target').toBe('158');
+    await expect(dashboardTarget(page, 'Protein')).toHaveText('135');
+    await expect(dashboardTarget(page, 'Fat')).toHaveText('70');
+    await expect(page.locator('main')).not.toContainText('NaN');
+  });
+
+  test('D2 Dashboard shows default targets when the percentage split is absent', async ({ page }) => {
+    await signInWithSettings(page, {});
+    await expect(dashboardTarget(page, 'Daily Calories')).toHaveText('2000');
+    expect(await dashboardTarget(page, 'Protein').innerText(), 'D2 Dashboard Protein target').toBe('150');
+    await expect(dashboardTarget(page, 'Carbs')).toHaveText('175');
+    await expect(dashboardTarget(page, 'Fat')).toHaveText('78');
+  });
+
+  test('D3 Dashboard opens with a partial gram map and shows zeros for missing targets', async ({ page }) => {
+    await signInWithSettings(page, { macroMode: 'grams', macroTargets: { protein: 160 }, macroSplit: defaultSplit });
+    const errorHeading = page.getByRole('heading', { name: "We couldn't open this page.", exact: true });
+    await expect(dashboardTarget(page, 'Daily Calories').or(errorHeading)).toBeVisible();
+    expect(await errorHeading.count(), 'D3 Dashboard error heading count').toBe(0);
+    await expect(dashboardTarget(page, 'Protein')).toHaveText('160');
+    await expect(dashboardTarget(page, 'Carbs')).toHaveText('0');
+    await expect(dashboardTarget(page, 'Fat')).toHaveText('0');
+  });
+
+  test('S1 Settings shows the full default percentage split on mobile', async ({ page }) => {
+    await signInWithSettings(page, { macroSplit: { protein: 0 } }, 390);
+    await page.goto('/settings');
+    const totalSplit = page.getByText(/^Total Split:/);
+    expect(await totalSplit.innerText(), 'S1 Settings total split').toBe('Total Split: 100%');
+    for (const [macro, value] of [['Protein', '30'], ['Carbs', '35'], ['Fat', '35']]) {
+      const slider = page.getByRole('slider', { name: `${macro} percentage` });
+      await expect(slider).toHaveValue(value);
+      await expect(slider.locator('..').getByText(`${value}%`, { exact: true })).toBeVisible();
+    }
+  });
+
+  test('S2 Settings saves a full default split with an unrelated change', async ({ page }) => {
+    const { stored, readSavedSettings } = await signInWithSettings(page, { macroSplit: { protein: 0 } });
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Dairy Free' }).click();
+    await page.getByRole('button', { name: 'Confirm Targets' }).click();
+    const dietaryTags = ['gluten-free', 'dairy-free'];
+    await expect.poll(async () => (await readSavedSettings())?.dietaryTags).toEqual(dietaryTags);
+
+    const saved = await readSavedSettings();
+    expect(saved?.macroSplit, 'S2 saved percentage split').toEqual(defaultSplit);
+    expect(saved).not.toHaveProperty('macroTargets');
+    const { updatedAt, ...savedFields } = saved;
+    expect(updatedAt).toBeInstanceOf(Timestamp);
+    expect(savedFields).toEqual({ ...stored, dietaryTags, macroSplit: defaultSplit });
+  });
+
+  test('S3 Settings edits and saves gram targets from a partial saved map', async ({ page }) => {
+    const { readSavedSettings } = await signInWithSettings(page, {
+      macroSplit: defaultSplit,
+      macroTargets: { protein: 160 },
+    });
+    await page.goto('/settings');
+    await page.getByRole('button', { name: 'Exact Grams' }).click();
+    const carbs = page.getByLabel('Carbs target grams');
+    await expect(page.getByLabel('Protein target grams')).toHaveValue('160');
+    await expect(carbs).toHaveValue('0');
+    await expect(page.getByLabel('Fat target grams')).toHaveValue('0');
+    await carbs.fill('200');
+    expect(await page.getByLabel('Daily Calorie Target').inputValue(), 'S3 Settings calorie target').toBe('1440');
+
+    const dialogs: string[] = [];
+    page.on('dialog', async dialog => {
+      dialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+    await page.getByRole('button', { name: 'Confirm Targets' }).click();
+    await expect.poll(async () => (await readSavedSettings())?.macroMode).toBe('grams');
+    const saved = await readSavedSettings();
+    expect(saved?.macroTargets).toEqual({ protein: 160, carbs: 200, fat: 0 });
+    expect(saved?.dailyCalorieTarget).toBe(1440);
+    await expect(page.getByRole('button', { name: 'Discard' })).toBeHidden();
+    await expect(page.getByText(/We couldn't save your settings/)).toBeHidden();
+    expect(dialogs).toEqual([]);
+  });
+});

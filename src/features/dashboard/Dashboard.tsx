@@ -11,6 +11,7 @@ import CheckInModal from './components/CheckInModal';
 import OnboardingWizard from '../auth/OnboardingWizard';
 import WeightHistoryWidget from './components/WeightHistoryWidget';
 import { tryParseLocalDateKey, toLocalDateKey } from '../../shared/date-utils';
+import { readMacroSettings } from '../../shared/macro-settings';
 import { mergeDailyLog } from '../progress/lib/daily-logs';
 import { createOptimisticSaves, trackSave } from '../../shared/pending-saves';
 import { weightSuffix } from '../../shared/units';
@@ -126,16 +127,11 @@ export default function Dashboard() {
     if (todayStats?.targets) return todayStats.targets;
 
     const calories = userSettings?.dailyCalorieTarget || 0;
-    if (userSettings?.macroMode === 'grams' && userSettings.macroTargets) {
-      return {
-        calories,
-        protein: userSettings.macroTargets.protein,
-        carbs: userSettings.macroTargets.carbs,
-        fat: userSettings.macroTargets.fat,
-      };
+    const { macroSplit: split, macroTargets } = readMacroSettings(userSettings);
+    if (userSettings?.macroMode === 'grams' && macroTargets) {
+      return { calories, ...macroTargets };
     }
 
-    const split = userSettings?.macroSplit || { protein: 0, carbs: 0, fat: 0 };
     return {
       calories,
       protein: calories ? Math.round((calories * split.protein) / 100 / 4) : 0,

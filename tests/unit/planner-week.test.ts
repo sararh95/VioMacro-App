@@ -313,3 +313,32 @@ test('N1: a generated plan starts on its week\'s Monday whatever day it is given
         assert.deepEqual(plan.days.map(day => day.dayName), DAY_NAMES, given.toDateString());
     }
 });
+
+const legacyMacroSettingsCases = [
+    {
+        name: 'P1 Planner fills missing gram targets with zeros',
+        settings: { macroMode: 'grams', macroTargets: { protein: 160 }, dailyCalorieTarget: 2000 },
+        expected: { calories: 2000, protein: 160, carbs: 0, fat: 0 },
+    },
+    {
+        name: 'P2 Planner uses the full default split for partial percentages',
+        settings: { macroMode: 'percentage', macroSplit: { protein: 40 }, dailyCalorieTarget: 2000 },
+        expected: { calories: 2000, protein: 150, carbs: 175, fat: 78 },
+    },
+    {
+        name: 'P3 Planner keeps zero from a complete percentage split',
+        settings: { macroMode: 'percentage', macroSplit: { protein: 0, carbs: 50, fat: 50 }, dailyCalorieTarget: 2000 },
+        expected: { calories: 2000, protein: 0, carbs: 250, fat: 111 },
+    },
+] as const;
+
+for (const { name, settings, expected } of legacyMacroSettingsCases) {
+    test(`G34 ${name}`, () => {
+        const stored = settings as NonNullable<Parameters<typeof createEmptyPlan>[1]>;
+        const given = new Date(2026, 10, 16);
+        assert.deepEqual({
+            empty: createEmptyPlan(given, stored).dailyTargets,
+            generated: generateWeekPlan([], stored, given).dailyTargets,
+        }, { empty: expected, generated: expected });
+    });
+}
