@@ -2,6 +2,21 @@ import type { Recipe } from '../../recipes/recipeService';
 import type { UserSettings } from '../../../services/userService';
 import type { MealPlan, MealPlanDay, MealPlanMeal } from '../planService';
 import { addDays, getStartOfWeek, toLocalDateKey } from '../../../shared/date-utils.ts';
+import { readMacroSettings } from '../../../shared/macro-settings.ts';
+
+function getPlanTargets(settings: UserSettings | null, calories: number) {
+    const { macroSplit, macroTargets } = readMacroSettings(settings);
+    if (settings?.macroMode === 'grams' && macroTargets) {
+        return { calories, ...macroTargets };
+    }
+
+    return {
+        calories,
+        protein: Math.round((calories * macroSplit.protein) / 100 / 4),
+        carbs: Math.round((calories * macroSplit.carbs) / 100 / 4),
+        fat: Math.round((calories * macroSplit.fat) / 100 / 9),
+    };
+}
 
 /**
  * Generates a full week of meals based on user settings and available recipes.
@@ -19,18 +34,6 @@ export function generateWeekPlan(
 
     // 1. Defaults if settings are missing
     const dailyTarget = settings?.dailyCalorieTarget || 2000;
-
-    let proteinTarget, carbsTarget, fatTarget;
-
-    if (settings?.macroMode === 'grams' && settings.macroTargets) {
-        proteinTarget = settings.macroTargets.protein;
-        carbsTarget = settings.macroTargets.carbs;
-        fatTarget = settings.macroTargets.fat;
-    } else {
-        proteinTarget = Math.round((dailyTarget * (settings?.macroSplit?.protein || 30)) / 100 / 4);
-        carbsTarget = Math.round((dailyTarget * (settings?.macroSplit?.carbs || 35)) / 100 / 4);
-        fatTarget = Math.round((dailyTarget * (settings?.macroSplit?.fat || 35)) / 100 / 9);
-    }
 
     // 2. Filter recipes by type
     let breakfastRecipes = recipes.filter(r => r.mealType === 'breakfast');
@@ -129,12 +132,7 @@ export function generateWeekPlan(
         goal: settings?.goalWeight && settings.currentWeight
             ? (settings.goalWeight < settings.currentWeight ? 'Fat Loss' : 'Muscle Gain')
             : 'Maintenance',
-        dailyTargets: {
-            calories: dailyTarget,
-            protein: proteinTarget,
-            carbs: carbsTarget,
-            fat: fatTarget
-        },
+        dailyTargets: getPlanTargets(settings, dailyTarget),
         days: days,
         isAiGenerated: true
     };
@@ -150,18 +148,6 @@ export function createEmptyPlan(
     // N1: a plan always starts on its week's Monday, whatever date is passed in.
     const monday = getStartOfWeek(startDate);
     const dailyTarget = settings?.dailyCalorieTarget || 2000;
-
-    let proteinTarget, carbsTarget, fatTarget;
-
-    if (settings?.macroMode === 'grams' && settings.macroTargets) {
-        proteinTarget = settings.macroTargets.protein;
-        carbsTarget = settings.macroTargets.carbs;
-        fatTarget = settings.macroTargets.fat;
-    } else {
-        proteinTarget = Math.round((dailyTarget * (settings?.macroSplit?.protein || 30)) / 100 / 4);
-        carbsTarget = Math.round((dailyTarget * (settings?.macroSplit?.carbs || 35)) / 100 / 4);
-        fatTarget = Math.round((dailyTarget * (settings?.macroSplit?.fat || 35)) / 100 / 9);
-    }
 
     const days: MealPlanDay[] = [];
 
@@ -184,12 +170,7 @@ export function createEmptyPlan(
         goal: settings?.goalWeight && settings.currentWeight
             ? (settings.goalWeight < settings.currentWeight ? 'Fat Loss' : 'Muscle Gain')
             : 'Maintenance',
-        dailyTargets: {
-            calories: dailyTarget,
-            protein: proteinTarget,
-            carbs: carbsTarget,
-            fat: fatTarget
-        },
+        dailyTargets: getPlanTargets(settings, dailyTarget),
         days: days,
         isAiGenerated: false
     };
