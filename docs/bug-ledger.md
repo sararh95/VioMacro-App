@@ -52,6 +52,24 @@ Required fields:
 
 ## Open Items
 
+### W7-NEW-NAN (1.0 G34) Legacy macro settings show invalid targets
+
+- ID: W7-NEW-NAN (cause W7-NEW-NAN-CAUSE)
+- Date opened: 2026-11-14
+- Status: Fix in PR [#18](https://github.com/sararh95/VioMacro-App/pull/18)
+- Severity: P1
+- Workflow/page: Dashboard targets, Settings Nutrition Goals, and new Planner drafts.
+- Expected: A missing or incomplete percentage split uses 30/35/35. A complete split keeps its saved values, including zero. A present gram map keeps finite values and fills invalid or missing parts with zero.
+- Actual: Dashboard showed NaN or incorrect zeros and could open the error page. Settings could preserve a partial split or compute an invalid calorie target. Planner could generate inconsistent or incomplete draft targets.
+- User impact: Old profiles can lose access to Dashboard or get unusable nutrition targets and drafts.
+- Evidence: Nine regression tests reproduce the failures on BASE `475fcd4` and after restoring their respective readers. [QA proof](qa/qa-ledger.md#2026-11-20-viomacro-10-g34-old-macro-settings-show-real-numbers)
+- Suspected area: Dashboard, Settings draft initialization, and plan-generator read saved macro maps independently.
+- Cause and fix: Read the saved maps through one shared normalizer before display, editing or calculation. An absent gram map remains unset.
+- Next action: Coordinator review and merge gate.
+- Verification target: Six browser cases for display and persistence, three planner cases for both generators, and unit cases for the shared reader.
+- Revisit trigger: A legacy profile still produces invalid targets or a complete split loses a zero.
+- Date closed: Pending.
+
 ### GA5 (audit 2, G22a) "Save Targets" with nothing changed turns the week into a draft
 
 - ID: GA5 (audit 2, W7 G22a)
